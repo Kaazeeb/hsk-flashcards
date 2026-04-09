@@ -827,6 +827,17 @@ function isEditableField(target) {
   return target.isContentEditable || tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT";
 }
 
+function shouldAutoFocusPinyinInput() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
+  return !window.matchMedia("(max-width: 760px)").matches;
+}
+
+function getPinyinInputPlaceholder() {
+  return shouldAutoFocusPinyinInput()
+    ? "ni3hao3 · use v for ü · use 5 for neutral"
+    : "ni3hao3 · v=ü · 5=neutral";
+}
+
 function handlePinyinKeyboard(event) {
   if (!isPinyinQuizActive()) return;
   if (!getCurrentCard()) return;
@@ -1041,7 +1052,7 @@ function renderPinyinQuiz(card, queueIndex, total) {
 
   const input = document.createElement("input");
   input.type = "text";
-  input.placeholder = "ni3hao3 · use v for ü · use 5 for neutral";
+  input.placeholder = getPinyinInputPlaceholder();
   input.value = state.round.answerText;
   input.autocomplete = "off";
   input.spellcheck = false;
@@ -1055,8 +1066,14 @@ function renderPinyinQuiz(card, queueIndex, total) {
   form.append(input, submitBtn);
   elements.answerArea.appendChild(form);
 
-  if (!state.round.answered) {
-    setTimeout(() => input.focus(), 0);
+  if (!state.round.answered && shouldAutoFocusPinyinInput()) {
+    setTimeout(() => {
+      try {
+        input.focus({ preventScroll: true });
+      } catch (error) {
+        input.focus();
+      }
+    }, 0);
   }
 
   elements.controls.innerHTML = "";

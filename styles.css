@@ -452,7 +452,14 @@ button:disabled {
 
 .answer-form input {
   flex: 1 1 260px;
+  min-width: 0;
+  padding: 10px 12px;
   background: #ffffff;
+}
+
+.answer-form button {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .controls {
@@ -525,11 +532,22 @@ button:disabled {
   }
 
   .answer-form {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
   }
 
-  .answer-form input,
-  .answer-form button,
+  .answer-form input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .answer-form button {
+    width: auto;
+    min-width: 84px;
+  }
+
   .controls button {
     width: 100%;
   }
