@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HSK Flashcards</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <h1>HSK Flashcards</h1>
+      <p>Local-only flashcards for hanzi, pinyin and English translation.</p>
+    </header>
+
+    <section class="panel import-panel">
+      <div class="panel-header">
+        <h2>Vocabulary</h2>
+        <span class="badge">built in · saved locally</span>
+      </div>
+
+      <label for="vocabInput" class="label">Optional: paste a different vocabulary CSV</label>
+      <textarea
+        id="vocabInput"
+        placeholder="Built-in HSK 1 is already included.
+You only need this box if you want to import a different CSV.
+
+Accepted formats:
+hanzi,pinyin,translation
+你好,nǐ hǎo,hello
+谢谢,xièxie,thank you"
+      ></textarea>
+
+      <div class="button-row">
+        <button id="saveVocabBtn">Import pasted vocabulary</button>
+        <button id="loadPlaceholderBtn" class="secondary">Restore built-in HSK 1</button>
+        <button id="resetProgressBtn" class="secondary">Reset progress</button>
+      </div>
+
+      <p id="statusText" class="status muted">Built-in HSK 1 loads automatically on first open.</p>
+    </section>
+
+    <section class="panel mode-panel">
+      <div class="panel-header">
+        <h2>Modes</h2>
+      </div>
+
+      <div class="mode-switch">
+        <button class="mode-btn active" data-mode="learn">1. Learn</button>
+        <button class="mode-btn" data-mode="practice">2. Practice</button>
+        <button class="mode-btn" data-mode="test">3. Test</button>
+      </div>
+
+      <div id="quizTypeWrap" class="quiz-type-wrap hidden">
+        <span class="label-inline">Quiz target</span>
+        <div class="quiz-switch">
+          <button class="quiz-type-btn active" data-quiz="translation">Translation · MCQ</button>
+          <button class="quiz-type-btn" data-quiz="pinyin">Pinyin · typed</button>
+        </div>
+      </div>
+
+      <div class="button-row compact-row">
+        <button id="shuffleBtn" class="secondary">Shuffle current mode</button>
+        <button id="resetOrderBtn" class="ghost">Original order</button>
+      </div>
+
+      <p id="orderStatus" class="status muted">Sequential order.</p>
+    </section>
+
+    <section class="panel report-panel">
+      <div class="panel-header">
+        <h2>Progress</h2>
+      </div>
+
+      <div class="stats-grid stats-grid-6">
+        <article class="stat-card">
+          <span class="stat-label">Total cards</span>
+          <strong id="statTotal">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Learn seen</span>
+          <strong id="statSeen">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Practice · translation</span>
+          <strong id="statPracticeTranslation">0%</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Practice · pinyin</span>
+          <strong id="statPracticePinyin">0%</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Test · translation</span>
+          <strong id="statTestTranslation">0%</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Test · pinyin</span>
+          <strong id="statTestPinyin">0%</strong>
+        </article>
+      </div>
+
+      <div class="bar-group">
+        <div class="bar-row">
+          <span>Learn</span>
+          <span id="barLearnLabel">0 / 0</span>
+        </div>
+        <div class="bar"><span id="barLearn"></span></div>
+      </div>
+
+      <div class="bar-group">
+        <div class="bar-row">
+          <span>Practice</span>
+          <span id="barPracticeLabel">0 / 0</span>
+        </div>
+        <div class="bar"><span id="barPractice"></span></div>
+      </div>
+
+      <div class="bar-group">
+        <div class="bar-row">
+          <span>Test</span>
+          <span id="barTestLabel">0 / 0</span>
+        </div>
+        <div class="bar"><span id="barTest"></span></div>
+      </div>
+    </section>
+
+    <section class="panel setup-panel">
+      <div class="panel-header">
+        <h2>Card setup</h2>
+        <span id="selectionSummary" class="badge">Learn 0 · Practice 0 · Test 0</span>
+      </div>
+
+      <div class="range-tools">
+        <p class="hint">Use original card indexes. Example: <code>1-20, 28, 30-35</code></p>
+
+        <div class="range-row">
+          <span class="range-label">Learn</span>
+          <input id="rangeLearn" type="text" placeholder="1-20, 28, 30-35" />
+          <div class="range-actions">
+            <button class="secondary" data-range-mode="learn" data-range-action="add">Add range</button>
+            <button class="ghost" data-range-mode="learn" data-range-action="remove">Remove range</button>
+            <button class="ghost" data-range-mode="learn" data-range-action="all">All</button>
+            <button class="ghost" data-range-mode="learn" data-range-action="none">None</button>
+          </div>
+        </div>
+
+        <div class="range-row">
+          <span class="range-label">Practice</span>
+          <input id="rangePractice" type="text" placeholder="1-20, 28, 30-35" />
+          <div class="range-actions">
+            <button class="secondary" data-range-mode="practice" data-range-action="add">Add range</button>
+            <button class="ghost" data-range-mode="practice" data-range-action="remove">Remove range</button>
+            <button class="ghost" data-range-mode="practice" data-range-action="all">All</button>
+            <button class="ghost" data-range-mode="practice" data-range-action="none">None</button>
+          </div>
+        </div>
+
+        <div class="range-row">
+          <span class="range-label">Test</span>
+          <input id="rangeTest" type="text" placeholder="1-20, 28, 30-35" />
+          <div class="range-actions">
+            <button class="secondary" data-range-mode="test" data-range-action="add">Add range</button>
+            <button class="ghost" data-range-mode="test" data-range-action="remove">Remove range</button>
+            <button class="ghost" data-range-mode="test" data-range-action="all">All</button>
+            <button class="ghost" data-range-mode="test" data-range-action="none">None</button>
+          </div>
+        </div>
+      </div>
+
+      <label for="filterInput" class="label">Filter cards</label>
+      <input id="filterInput" type="text" placeholder="Filter by index, hanzi, pinyin or translation" />
+
+      <div id="manageList" class="manage-list"></div>
+    </section>
+
+    <section class="panel card-panel">
+      <div class="card-top">
+        <div class="top-badges">
+          <span id="modeLabel" class="badge">Learn</span>
+          <span id="quizLabel" class="badge subtle">Study card</span>
+        </div>
+        <span id="positionLabel" class="muted">0 / 0</span>
+      </div>
+
+      <article class="card" id="flashcard">
+        <div id="cardPrompt" class="prompt">Waiting for vocabulary</div>
+        <div id="cardHanzi" class="hanzi">—</div>
+        <div id="cardPinyin" class="pinyin muted">Paste your list above and save it.</div>
+        <div id="cardTranslation" class="translation"></div>
+        <div id="resultText" class="result"></div>
+        <div id="answerArea" class="answer-area"></div>
+      </article>
+
+      <div id="controls" class="controls"></div>
+    </section>
+  </main>
+
+  <script src="hsk1-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
