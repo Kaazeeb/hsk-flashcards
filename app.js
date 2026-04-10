@@ -87,10 +87,11 @@ const elements = {
   controls: document.getElementById("controls"),
   statTotal: document.getElementById("statTotal"),
   statSeen: document.getElementById("statSeen"),
-  statPracticeTranslation: document.getElementById("statPracticeTranslation"),
-  statPracticePinyin: document.getElementById("statPracticePinyin"),
-  statTestTranslation: document.getElementById("statTestTranslation"),
-  statTestPinyin: document.getElementById("statTestPinyin"),
+  statPracticeTranslationShown: document.getElementById("statPracticeTranslationShown"),
+  statPracticeTranslationCW: document.getElementById("statPracticeTranslationCW"),
+  statPracticePinyinShown: document.getElementById("statPracticePinyinShown"),
+  statPracticePinyinCW: document.getElementById("statPracticePinyinCW"),
+  cardStats: document.getElementById("cardStats"),
   barLearn: document.getElementById("barLearn"),
   barPractice: document.getElementById("barPractice"),
   barTest: document.getElementById("barTest"),
@@ -107,7 +108,8 @@ function createEmptyRound() {
     selectedCorrect: false,
     answerText: "",
     resultText: "",
-    resultClass: ""
+    resultClass: "",
+    appearanceKey: ""
   };
 }
 
@@ -183,9 +185,23 @@ function normalizeScoreBucket(bucket) {
 
   Object.entries(bucket).forEach(([id, entry]) => {
     if (!entry || typeof entry !== "object") return;
+
+    const correct = Number(entry.correct) || 0;
+    const wrong = Number(entry.wrong) || 0;
+    let shown = Number(entry.shown);
+
+    if (!Number.isFinite(shown)) {
+      shown = correct + wrong;
+    }
+
+    if (shown < correct + wrong) {
+      shown = correct + wrong;
+    }
+
     output[id] = {
-      correct: Number(entry.correct) || 0,
-      wrong: Number(entry.wrong) || 0
+      shown,
+      correct,
+      wrong
     };
   });
 
@@ -510,6 +526,7 @@ function getSeenCount() {
 function getModeTotals(mode, quizType) {
   const activeIds = new Set(getModeIds(mode));
   const bucket = state.progress[mode]?.[quizType] || {};
+  let shown = 0;
   let correct = 0;
   let wrong = 0;
   let touched = 0;
@@ -517,11 +534,12 @@ function getModeTotals(mode, quizType) {
   Object.entries(bucket).forEach(([id, entry]) => {
     if (!activeIds.has(id)) return;
     touched += 1;
+    shown += entry.shown || 0;
     correct += entry.correct || 0;
     wrong += entry.wrong || 0;
   });
 
-  return { correct, wrong, touched, answered: correct + wrong };
+  return { shown, correct, wrong, touched, answered: correct + wrong };
 }
 
 function getModeTouchedAcrossTypes(mode) {
@@ -532,6 +550,29 @@ function getModeTouchedAcrossTypes(mode) {
   const pinyinIds = Object.keys(state.progress[mode]?.pinyin || {});
   const union = new Set([...translationIds, ...pinyinIds].filter((id) => activeIds.has(id)));
   return union.size;
+}
+
+function getPracticeCardStats(card) {
+  if (!card) {
+    return {
+      translation: { shown: 0, correct: 0, wrong: 0 },
+      pinyin: { shown: 0, correct: 0, wrong: 0 }
+    };
+  }
+
+  const id = cardId(card);
+  return {
+    translation: state.progress.practice?.translation?.[id] || { shown: 0, correct: 0, wrong: 0 },
+    pinyin: state.progress.practice?.pinyin?.[id] || { shown: 0, correct: 0, wrong: 0 }
+  };
+}
+
+function getPracticeCardSummaryText(card) {
+  const stats = getPracticeCardStats(card);
+  return {
+    translation: `T: ${stats.translation.shown} seen · ${stats.translation.correct}✓ · ${stats.translation.wrong}✗`,
+    pinyin: `P: ${stats.pinyin.shown} seen · ${stats.pinyin.correct}✓ · ${stats.pinyin.wrong}✗`
+  };
 }
 
 function percentage(part, total) {
@@ -552,15 +593,13 @@ function renderStats() {
   const seen = getSeenCount();
   const practiceTranslationTotals = getModeTotals("practice", "translation");
   const practicePinyinTotals = getModeTotals("practice", "pinyin");
-  const testTranslationTotals = getModeTotals("test", "translation");
-  const testPinyinTotals = getModeTotals("test", "pinyin");
 
   elements.statTotal.textContent = String(total);
   elements.statSeen.textContent = String(seen);
-  elements.statPracticeTranslation.textContent = `${percentage(practiceTranslationTotals.correct, practiceTranslationTotals.answered)}%`;
-  elements.statPracticePinyin.textContent = `${percentage(practicePinyinTotals.correct, practicePinyinTotals.answered)}%`;
-  elements.statTestTranslation.textContent = `${percentage(testTranslationTotals.correct, testTranslationTotals.answered)}%`;
-  elements.statTestPinyin.textContent = `${percentage(testPinyinTotals.correct, testPinyinTotals.answered)}%`;
+  elements.statPracticeTranslationShown.textContent = String(practiceTranslationTotals.shown);
+  elements.statPracticeTranslationCW.textContent = `${practiceTranslationTotals.correct} / ${practiceTranslationTotals.wrong}`;
+  elements.statPracticePinyinShown.textContent = String(practicePinyinTotals.shown);
+  elements.statPracticePinyinCW.textContent = `${practicePinyinTotals.correct} / ${practicePinyinTotals.wrong}`;
 
   setBar(elements.barLearn, elements.barLearnLabel, seen, learnTotal);
   setBar(elements.barPractice, elements.barPracticeLabel, getModeTouchedAcrossTypes("practice"), practiceTotal);
@@ -626,10 +665,58 @@ function recordQuizResult(mode, quizType, result) {
   const bucket = state.progress[mode]?.[quizType];
   if (!bucket) return;
 
-  const entry = bucket[id] || { correct: 0, wrong: 0 };
+  const entry = bucket[id] || { shown: 0, correct: 0, wrong: 0 };
   entry[result] += 1;
+  if ((entry.shown || 0) < entry.correct + entry.wrong) {
+    entry.shown = entry.correct + entry.wrong;
+  }
   bucket[id] = entry;
   saveProgress();
+}
+
+function recordCardAppearance(mode, quizType, card) {
+  if (!card) return;
+
+  const bucket = state.progress[mode]?.[quizType];
+  if (!bucket) return;
+
+  const id = cardId(card);
+  const entry = bucket[id] || { shown: 0, correct: 0, wrong: 0 };
+  entry.shown = (entry.shown || 0) + 1;
+  bucket[id] = entry;
+  saveProgress();
+}
+
+function ensurePracticeAppearance(card) {
+  if (state.mode !== "practice") return false;
+  if (!card) return false;
+
+  const quizType = getQuizType();
+  const appearanceKey = `${state.mode}:${quizType}:${cardId(card)}`;
+  if (state.round.appearanceKey === appearanceKey) return false;
+
+  state.round.appearanceKey = appearanceKey;
+  recordCardAppearance("practice", quizType, card);
+  return true;
+}
+
+function renderCurrentCardStats(card) {
+  if (!elements.cardStats) return;
+  elements.cardStats.innerHTML = "";
+
+  if (!card) return;
+
+  const stats = getPracticeCardStats(card);
+  const hasAnyPractice = stats.translation.shown > 0 || stats.pinyin.shown > 0;
+  if (state.mode !== "practice" && !hasAnyPractice) return;
+
+  const summary = getPracticeCardSummaryText(card);
+  [summary.translation, summary.pinyin].forEach((text) => {
+    const chip = document.createElement("span");
+    chip.className = "badge subtle";
+    chip.textContent = `Practice · ${text}`;
+    elements.cardStats.appendChild(chip);
+  });
 }
 
 function shuffle(items) {
@@ -891,6 +978,7 @@ function clearCard(message = "Waiting for vocabulary", detail = "Built-in HSK 1 
   elements.resultText.textContent = "";
   elements.resultText.className = "result";
   elements.answerArea.innerHTML = "";
+  if (elements.cardStats) elements.cardStats.innerHTML = "";
   elements.controls.innerHTML = "";
   elements.positionLabel.textContent = "0 / 0";
 }
@@ -920,6 +1008,7 @@ function renderLearn(card, queueIndex, total) {
   elements.answerArea.innerHTML = "";
   updateResult();
   setPositionLabel(card, queueIndex, total);
+  renderCurrentCardStats(card);
 
   markSeen(card);
 
@@ -955,6 +1044,12 @@ function renderTranslationQuiz(card, queueIndex, total) {
   elements.cardPinyin.textContent = state.round.answered ? card.pinyin : "";
   elements.cardTranslation.textContent = state.round.answered ? card.translation : "";
   setPositionLabel(card, queueIndex, total);
+  const appearanceRecorded = ensurePracticeAppearance(card);
+  if (appearanceRecorded) {
+    renderStats();
+    renderManageList();
+  }
+  renderCurrentCardStats(card);
 
   if (!state.round.options.length) {
     state.round.options = buildTranslationOptions(state.mode);
@@ -1036,6 +1131,12 @@ function renderPinyinQuiz(card, queueIndex, total) {
   elements.cardPinyin.textContent = state.round.answered ? reviewText : "";
   elements.cardTranslation.textContent = state.round.answered ? card.translation : "";
   setPositionLabel(card, queueIndex, total);
+  const appearanceRecorded = ensurePracticeAppearance(card);
+  if (appearanceRecorded) {
+    renderStats();
+    renderManageList();
+  }
+  renderCurrentCardStats(card);
 
   updateResult(
     state.round.answered
@@ -1263,7 +1364,23 @@ function renderManageList() {
     const detail = document.createElement("span");
     detail.textContent = `${card.pinyin} · ${card.translation}`;
 
+    const stats = getPracticeCardStats(card);
     word.append(title, detail);
+
+    if (stats.translation.shown > 0 || stats.pinyin.shown > 0) {
+      const cardStats = document.createElement("div");
+      cardStats.className = "manage-stats";
+      const summary = getPracticeCardSummaryText(card);
+
+      const translationStat = document.createElement("span");
+      translationStat.textContent = summary.translation;
+
+      const pinyinStat = document.createElement("span");
+      pinyinStat.textContent = summary.pinyin;
+
+      cardStats.append(translationStat, pinyinStat);
+      word.appendChild(cardStats);
+    }
 
     const flags = document.createElement("div");
     flags.className = "manage-flags";
