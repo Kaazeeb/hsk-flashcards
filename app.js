@@ -61,6 +61,9 @@ const elements = {
   saveVocabBtn: document.getElementById("saveVocabBtn"),
   loadPlaceholderBtn: document.getElementById("loadPlaceholderBtn"),
   resetProgressBtn: document.getElementById("resetProgressBtn"),
+  exportProgressBtn: document.getElementById("exportProgressBtn"),
+  importProgressBtn: document.getElementById("importProgressBtn"),
+  importProgressInput: document.getElementById("importProgressInput"),
   shuffleBtn: document.getElementById("shuffleBtn"),
   resetOrderBtn: document.getElementById("resetOrderBtn"),
   filterInput: document.getElementById("filterInput"),
@@ -103,6 +106,8 @@ const elements = {
 function createEmptyRound() {
   return {
     answered: false,
+    pendingWrong: false,
+    pendingCheck: null,
     options: [],
     selectedLabel: "",
     selectedCorrect: false,
@@ -306,6 +311,64 @@ function saveProgress() {
   clampIndexes();
   localStorage.setItem(STORAGE_KEYS.progress, JSON.stringify(state.progress));
   localStorage.setItem(STORAGE_KEYS.mode, state.mode);
+}
+
+function buildProgressExportPayload() {
+  return {
+    app: "hsk_flashcards",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    progress: state.progress
+  };
+}
+
+function triggerTextDownload(filename, text, mimeType = "application/json") {
+  const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function handleExportProgress() {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const json = JSON.stringify(buildProgressExportPayload(), null, 2);
+  triggerTextDownload(`hsk-flashcards-progress-${stamp}.json`, json);
+  elements.statusText.textContent = "Progress exported as JSON.";
+}
+
+function handleImportProgressClick() {
+  if (!elements.importProgressInput) return;
+  elements.importProgressInput.value = "";
+  elements.importProgressInput.click();
+}
+
+function handleImportProgressFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result || ""));
+      const importedProgress = normalizeProgress(parsed && typeof parsed === "object" && parsed.progress ? parsed.progress : parsed);
+      state.progress = importedProgress;
+      resetRoundState();
+      saveProgress();
+      elements.statusText.textContent = `Progress imported from ${file.name}.`;
+      render();
+    } catch (error) {
+      elements.statusText.textContent = "Could not import progress JSON.";
+    }
+  };
+  reader.onerror = () => {
+    elements.statusText.textContent = "Could not read the selected JSON file.";
+  };
+  reader.readAsText(file);
 }
 
 function saveVocabulary(cards) {
@@ -815,12 +878,13 @@ function segmentPinyinLetters(letters) {
   return null;
 }
 
-function canonicalizeAnnotatedPinyin(annotated, { tonesRequired = false } = {}) {
-  const letters = String(annotated || "").replace(/[1-5]/g, "");
-  if (!letters) return "";
+function parseAnnotatedPinyinParts(annotated, { tonesRequired = false } = {}) {
+  const text = String(annotated || "");
+  const letters = text.replace(/[1-5]/g, "");
+  if (!letters) return [];
 
   const syllables = segmentPinyinLetters(letters);
-  if (!syllables || !syllables.length) return "";
+  if (!syllables || !syllables.length) return null;
 
   const output = [];
   let cursor = 0;
@@ -829,8 +893,8 @@ function canonicalizeAnnotatedPinyin(annotated, { tonesRequired = false } = {}) 
     let lettersSeen = "";
     const toneDigits = [];
 
-    while (cursor < annotated.length && lettersSeen.length < syllable.length) {
-      const char = annotated[cursor];
+    while (cursor < text.length && lettersSeen.length < syllable.length) {
+      const char = text[cursor];
 
       if (/[1-5]/.test(char)) {
         toneDigits.push(char);
@@ -847,28 +911,55 @@ function canonicalizeAnnotatedPinyin(annotated, { tonesRequired = false } = {}) 
       cursor += 1;
     }
 
-    while (cursor < annotated.length && /[1-5]/.test(annotated[cursor])) {
-      toneDigits.push(annotated[cursor]);
+    while (cursor < text.length && /[1-5]/.test(text[cursor])) {
+      toneDigits.push(text[cursor]);
       cursor += 1;
     }
 
-    if (lettersSeen !== syllable) return "";
+    if (lettersSeen !== syllable) return null;
 
-    let tone = toneDigits.length ? toneDigits[toneDigits.length - 1] : "";
+    const explicitTone = toneDigits.length > 0;
+    let tone = explicitTone ? toneDigits[toneDigits.length - 1] : "";
+
     if (!tone) {
-      if (tonesRequired) return "";
+      if (tonesRequired) return null;
       tone = "5";
     }
 
-    output.push(`${syllable}${tone}`);
+    output.push({
+      syllable,
+      tone,
+      explicitTone,
+      canonical: `${syllable}${tone}`
+    });
   }
 
-  while (cursor < annotated.length && /[1-5]/.test(annotated[cursor])) {
+  while (cursor < text.length && /[1-5]/.test(text[cursor])) {
     cursor += 1;
   }
 
-  if (cursor !== annotated.length) return "";
-  return output.join("");
+  if (cursor !== text.length) return null;
+  return output;
+}
+
+function canonicalizeAnnotatedPinyin(annotated, options = {}) {
+  const parts = parseAnnotatedPinyinParts(annotated, options);
+  if (!parts || !parts.length) return "";
+  return parts.map((part) => part.canonical).join("");
+}
+
+function parseCanonicalPinyin(canonical) {
+  const text = String(canonical || "");
+  if (!text) return [];
+
+  const parts = text.match(/[a-z]+[1-5]/g);
+  if (!parts || parts.join("") !== text) return null;
+
+  return parts.map((part) => ({
+    syllable: part.slice(0, -1),
+    tone: part.slice(-1),
+    canonical: part
+  }));
 }
 
 function canonicalizePinyinValue(value, options = {}) {
@@ -889,18 +980,53 @@ function getPinyinDisplay(answer) {
 
 function normalizeUserPinyinInput(value) {
   const raw = String(value || "").trim().toLowerCase();
-  if (!/[0-5]/.test(raw)) return "";
-  return canonicalizePinyinValue(raw, { tonesRequired: true });
+  if (!raw) {
+    return { raw: "", annotated: "", parts: null, canonical: "" };
+  }
+
+  const annotated = toAnnotatedPinyin(raw);
+  const parts = parseAnnotatedPinyinParts(annotated, { tonesRequired: false });
+
+  return {
+    raw,
+    annotated,
+    parts,
+    canonical: parts ? parts.map((part) => part.canonical).join("") : ""
+  };
+}
+
+function allowsOnlyNeutralToneOmission(guessParts, acceptedPartsList) {
+  if (!Array.isArray(guessParts) || !guessParts.length) return false;
+
+  return acceptedPartsList.some((acceptedParts) => {
+    if (!Array.isArray(acceptedParts) || acceptedParts.length !== guessParts.length) return false;
+
+    for (let index = 0; index < guessParts.length; index += 1) {
+      const guessPart = guessParts[index];
+      const acceptedPart = acceptedParts[index];
+
+      if (guessPart.syllable !== acceptedPart.syllable) return false;
+      if (!guessPart.explicitTone && acceptedPart.tone !== "5") return false;
+    }
+
+    return true;
+  });
 }
 
 function checkPinyinAnswer(input, answer) {
   const guess = normalizeUserPinyinInput(input);
   const accepted = getPinyinVariants(answer);
+  const acceptedParts = accepted
+    .map((variant) => parseCanonicalPinyin(variant))
+    .filter((parts) => Array.isArray(parts) && parts.length);
+
+  const formatValid = allowsOnlyNeutralToneOmission(guess.parts, acceptedParts);
+
   return {
-    guess,
+    guess: guess.canonical,
     accepted,
-    formatValid: !!guess,
-    correct: !!guess && accepted.includes(guess)
+    formatValid,
+    correct: formatValid && accepted.includes(guess.canonical)
   };
 }
 
@@ -921,8 +1047,8 @@ function shouldAutoFocusPinyinInput() {
 
 function getPinyinInputPlaceholder() {
   return shouldAutoFocusPinyinInput()
-    ? "ni3hao3 · use v for ü · use 5 for neutral"
-    : "ni3hao3 · v=ü · 5=neutral";
+    ? "ni3hao3 · use v for ü · neutral 5 optional"
+    : "ni3hao3 · v=ü · neutral 5 optional";
 }
 
 function handlePinyinKeyboard(event) {
@@ -934,6 +1060,12 @@ function handlePinyinKeyboard(event) {
   if (isEditableField(target) && !answerForm) return;
 
   if (event.key === "Enter") {
+    if (state.round.pendingWrong) {
+      event.preventDefault();
+      acceptPendingPinyinWrongAndNext();
+      return;
+    }
+
     if (!state.round.answered) return;
     event.preventDefault();
     nextCard();
@@ -941,6 +1073,12 @@ function handlePinyinKeyboard(event) {
   }
 
   if (event.key !== "ArrowRight") return;
+
+  if (state.round.pendingWrong) {
+    event.preventDefault();
+    acceptPendingPinyinWrongAndNext();
+    return;
+  }
 
   if (state.round.answered) {
     event.preventDefault();
@@ -1082,9 +1220,26 @@ function renderTranslationQuiz(card, queueIndex, total) {
   elements.controls.append(prevBtn, nextBtn);
 }
 
+function retryPinyinWithoutPenalty() {
+  if (!state.round.pendingWrong) return;
+
+  state.round.pendingWrong = false;
+  state.round.pendingCheck = null;
+  state.round.resultText = "";
+  state.round.resultClass = "";
+  render();
+}
+
+function acceptPendingPinyinWrongAndNext() {
+  if (!state.round.pendingWrong) return;
+
+  recordQuizResult("practice", "pinyin", "wrong");
+  nextCard();
+}
+
 function submitPinyinAnswer(event) {
   event.preventDefault();
-  if (state.round.answered) return;
+  if (state.round.answered || state.round.pendingWrong) return;
 
   const card = getCurrentCard();
   if (!card) return;
@@ -1098,11 +1253,23 @@ function submitPinyinAnswer(event) {
   const check = checkPinyinAnswer(answerText, card.pinyin);
 
   state.round.answerText = answerText;
-  state.round.answered = true;
   state.round.selectedCorrect = check.correct;
+  state.round.pendingCheck = check;
+
+  if (state.mode === "practice" && !check.correct) {
+    state.round.pendingWrong = true;
+    state.round.resultText = check.formatValid
+      ? "Not counted yet. Retry without penalty if this was a typo, or press Enter to count it wrong and move on."
+      : "Not counted yet. Missing tone numbers are only allowed on neutral-tone syllables. Retry without penalty, or press Enter to count it wrong and move on.";
+    state.round.resultClass = "bad";
+    render();
+    return;
+  }
+
+  state.round.answered = true;
 
   if (!check.formatValid) {
-    state.round.resultText = `Use tone numbers for every syllable. Example: ni3hao3, lv4, xie4xie5. Correct pinyin: ${reviewAnswer}${reviewSuffix}`;
+    state.round.resultText = `Use tone numbers for non-neutral syllables. Neutral 5 is optional. Example: ni3hao3, lv4, xie4xie. Correct pinyin: ${reviewAnswer}${reviewSuffix}`;
     state.round.resultClass = "bad";
   } else {
     state.round.resultText = check.correct
@@ -1139,10 +1306,12 @@ function renderPinyinQuiz(card, queueIndex, total) {
   renderCurrentCardStats(card);
 
   updateResult(
-    state.round.answered
+    state.round.pendingWrong
       ? state.round.resultText
-      : "Use tone numbers. Example: ni3hao3, lv4, xie4xie5. Use v for ü and 5 for neutral tone.",
-    state.round.answered ? state.round.resultClass : ""
+      : state.round.answered
+        ? state.round.resultText
+        : "Use tone numbers. Example: ni3hao3, lv4, xie4xie. Use v for ü. Neutral 5 is optional.",
+    state.round.pendingWrong || state.round.answered ? state.round.resultClass : ""
   );
 
   elements.answerArea.innerHTML = "";
@@ -1157,17 +1326,28 @@ function renderPinyinQuiz(card, queueIndex, total) {
   input.value = state.round.answerText;
   input.autocomplete = "off";
   input.spellcheck = false;
-  input.disabled = state.round.answered;
+  input.disabled = state.round.answered || state.round.pendingWrong;
 
-
-  const submitBtn = createButton(state.round.answered ? "Checked" : "Submit", () => {}, state.round.answered ? "secondary" : "");
+  const submitBtn = createButton(
+    state.round.pendingWrong ? "Pending" : state.round.answered ? "Checked" : "Submit",
+    () => {},
+    state.round.answered || state.round.pendingWrong ? "secondary" : ""
+  );
   submitBtn.type = "submit";
-  submitBtn.disabled = state.round.answered;
+  submitBtn.disabled = state.round.answered || state.round.pendingWrong;
 
   form.append(input, submitBtn);
   elements.answerArea.appendChild(form);
 
-  if (!state.round.answered && shouldAutoFocusPinyinInput()) {
+  if (state.round.pendingWrong) {
+    const pendingRow = document.createElement("div");
+    pendingRow.className = "answer-pending-row";
+    const retryBtn = createButton("Retry without error", retryPinyinWithoutPenalty, "secondary");
+    pendingRow.appendChild(retryBtn);
+    elements.answerArea.appendChild(pendingRow);
+  }
+
+  if (!state.round.answered && !state.round.pendingWrong && shouldAutoFocusPinyinInput()) {
     setTimeout(() => {
       try {
         input.focus({ preventScroll: true });
@@ -1179,8 +1359,15 @@ function renderPinyinQuiz(card, queueIndex, total) {
 
   elements.controls.innerHTML = "";
   const prevBtn = createButton("Previous", prevCard, "secondary");
-  const skipLabel = state.round.answered ? "Next" : "Skip";
-  const nextBtn = createButton(skipLabel, nextCard, state.round.answered ? "" : "secondary");
+  let nextBtn;
+
+  if (state.round.pendingWrong) {
+    nextBtn = createButton("Count wrong & next", acceptPendingPinyinWrongAndNext);
+  } else {
+    const skipLabel = state.round.answered ? "Next" : "Skip";
+    nextBtn = createButton(skipLabel, nextCard, state.round.answered ? "" : "secondary");
+  }
+
   elements.controls.append(prevBtn, nextBtn);
 }
 
@@ -1546,6 +1733,9 @@ function bindEvents() {
   elements.loadPlaceholderBtn.addEventListener("click", restoreBuiltInVocabulary);
 
   elements.resetProgressBtn.addEventListener("click", handleResetProgress);
+  elements.exportProgressBtn.addEventListener("click", handleExportProgress);
+  elements.importProgressBtn.addEventListener("click", handleImportProgressClick);
+  elements.importProgressInput.addEventListener("change", handleImportProgressFile);
   elements.shuffleBtn.addEventListener("click", shuffleCurrentMode);
   elements.resetOrderBtn.addEventListener("click", resetCurrentModeOrder);
 

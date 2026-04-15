@@ -585,3 +585,31 @@ button:disabled {
     gap: 6px 10px;
   }
 }
+
+
+.report-actions {
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+.answer-pending-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.answer-pending-row .pending-note {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  .report-actions button {
+    width: 100%;
+  }
+
+  .answer-pending-row button {
+    width: 100%;
+  }
+}
