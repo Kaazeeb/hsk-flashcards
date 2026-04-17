@@ -7,7 +7,9 @@ const STORAGE_KEYS = {
 const BUILTIN_CARDS = Array.isArray(window.HSK1_BUILTIN_CARDS) ? window.HSK1_BUILTIN_CARDS : [];
 
 const MODES = ["learn", "practice", "test"];
-const QUIZ_TYPES = ["translation", "pinyin"];
+const PRACTICE_QUIZ_TYPES = ["translation", "pinyin", "smart"];
+const TEST_QUIZ_TYPES = ["translation", "pinyin"];
+const QUIZ_TYPES = [...new Set([...PRACTICE_QUIZ_TYPES, ...TEST_QUIZ_TYPES])];
 
 const PINYIN_SYLLABLES = [
   "a", "ai", "an", "ang", "ao",
@@ -94,6 +96,8 @@ const elements = {
   statPracticeTranslationCW: document.getElementById("statPracticeTranslationCW"),
   statPracticePinyinShown: document.getElementById("statPracticePinyinShown"),
   statPracticePinyinCW: document.getElementById("statPracticePinyinCW"),
+  statPracticeSmartShown: document.getElementById("statPracticeSmartShown"),
+  statPracticeSmartCW: document.getElementById("statPracticeSmartCW"),
   cardStats: document.getElementById("cardStats"),
   barLearn: document.getElementById("barLearn"),
   barPractice: document.getElementById("barPractice"),
@@ -114,7 +118,15 @@ function createEmptyRound() {
     answerText: "",
     resultText: "",
     resultClass: "",
-    appearanceKey: ""
+    appearanceKey: "",
+    appearanceMode: "",
+    appearanceQuizType: "",
+    appearanceCardId: "",
+    appearanceCounted: false,
+    smartCardId: "",
+    smartStage: "pinyin",
+    smartPinyinCorrect: null,
+    smartTranslationCorrect: null
   };
 }
 
@@ -123,7 +135,10 @@ function createEmptyProgress() {
     seen: {},
     practice: {
       translation: {},
-      pinyin: {}
+      pinyin: {},
+      smart: {},
+      smartStep: 0,
+      smartLastId: ""
     },
     test: {
       translation: {},
@@ -191,17 +206,15 @@ function normalizeScoreBucket(bucket) {
   Object.entries(bucket).forEach(([id, entry]) => {
     if (!entry || typeof entry !== "object") return;
 
-    const correct = Number(entry.correct) || 0;
-    const wrong = Number(entry.wrong) || 0;
+    const correct = Math.max(0, Number(entry.correct) || 0);
+    const wrong = Math.max(0, Number(entry.wrong) || 0);
     let shown = Number(entry.shown);
 
     if (!Number.isFinite(shown)) {
       shown = correct + wrong;
     }
 
-    if (shown < correct + wrong) {
-      shown = correct + wrong;
-    }
+    shown = Math.max(0, Math.floor(shown));
 
     output[id] = {
       shown,
@@ -213,7 +226,66 @@ function normalizeScoreBucket(bucket) {
   return output;
 }
 
-function normalizeModeProgress(bucket) {
+function normalizeSmartBucket(bucket) {
+  const output = {};
+  if (!bucket || typeof bucket !== "object") return output;
+
+  Object.entries(bucket).forEach(([id, entry]) => {
+    if (!entry || typeof entry !== "object") return;
+
+    const correct = Math.max(0, Number(entry.correct) || 0);
+    const wrong = Math.max(0, Number(entry.wrong) || 0);
+    let shown = Number(entry.shown);
+
+    if (!Number.isFinite(shown)) {
+      shown = correct + wrong;
+    }
+
+    output[id] = {
+      shown: Math.max(0, Math.floor(shown)),
+      correct,
+      wrong,
+      repetitions: Math.max(0, Math.floor(Number(entry.repetitions) || 0)),
+      interval: Math.max(0, Math.floor(Number(entry.interval) || 0)),
+      ef: Math.max(1.3, Number(entry.ef) || 2.5),
+      dueStep: Math.max(0, Math.floor(Number(entry.dueStep) || 0))
+    };
+  });
+
+  return output;
+}
+
+function normalizePracticeProgress(bucket) {
+  if (!bucket || typeof bucket !== "object") {
+    return {
+      translation: {},
+      pinyin: {},
+      smart: {},
+      smartStep: 0,
+      smartLastId: ""
+    };
+  }
+
+  if (bucket.translation || bucket.pinyin || bucket.smart || Number.isFinite(bucket.smartStep) || typeof bucket.smartLastId === "string") {
+    return {
+      translation: normalizeScoreBucket(bucket.translation),
+      pinyin: normalizeScoreBucket(bucket.pinyin),
+      smart: normalizeSmartBucket(bucket.smart),
+      smartStep: Math.max(0, Math.floor(Number(bucket.smartStep) || 0)),
+      smartLastId: String(bucket.smartLastId || "")
+    };
+  }
+
+  return {
+    translation: normalizeScoreBucket(bucket),
+    pinyin: {},
+    smart: {},
+    smartStep: 0,
+    smartLastId: ""
+  };
+}
+
+function normalizeTestProgress(bucket) {
   if (!bucket || typeof bucket !== "object") {
     return { translation: {}, pinyin: {} };
   }
@@ -237,8 +309,8 @@ function normalizeProgress(progress) {
 
   return {
     seen: progress.seen && typeof progress.seen === "object" ? progress.seen : base.seen,
-    practice: normalizeModeProgress(progress.practice),
-    test: normalizeModeProgress(progress.test),
+    practice: normalizePracticeProgress(progress.practice),
+    test: normalizeTestProgress(progress.test),
     index: {
       learn: Number.isInteger(progress.index?.learn) ? progress.index.learn : 0,
       practice: Number.isInteger(progress.index?.practice) ? progress.index.practice : 0,
@@ -255,8 +327,8 @@ function normalizeProgress(progress) {
       test: progress.orderType?.test === "shuffled" ? "shuffled" : "default"
     },
     quizType: {
-      practice: QUIZ_TYPES.includes(progress.quizType?.practice) ? progress.quizType.practice : "translation",
-      test: QUIZ_TYPES.includes(progress.quizType?.test) ? progress.quizType.test : "translation"
+      practice: PRACTICE_QUIZ_TYPES.includes(progress.quizType?.practice) ? progress.quizType.practice : "translation",
+      test: TEST_QUIZ_TYPES.includes(progress.quizType?.test) ? progress.quizType.test : "translation"
     }
   };
 }
@@ -316,7 +388,7 @@ function saveProgress() {
 function buildProgressExportPayload() {
   return {
     app: "hsk_flashcards",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     progress: state.progress
   };
@@ -522,9 +594,24 @@ function cardId(card) {
   return card.id;
 }
 
+function getCardById(id) {
+  return state.vocab.find((card) => cardId(card) === id) || null;
+}
+
+function getAllowedQuizTypes(mode = state.mode) {
+  if (mode === "practice") return PRACTICE_QUIZ_TYPES;
+  if (mode === "test") return TEST_QUIZ_TYPES;
+  return [];
+}
+
 function getQuizType(mode = state.mode) {
   if (mode === "learn") return null;
-  return state.progress.quizType[mode] || "translation";
+  const current = state.progress.quizType[mode] || "translation";
+  return getAllowedQuizTypes(mode).includes(current) ? current : "translation";
+}
+
+function isSmartPracticeActive(mode = state.mode, quizType = getQuizType(mode)) {
+  return mode === "practice" && quizType === "smart";
 }
 
 function getModeCards(mode = state.mode) {
@@ -574,7 +661,56 @@ function clampIndexes() {
   });
 }
 
+function createSmartEntry() {
+  return {
+    shown: 0,
+    correct: 0,
+    wrong: 0,
+    repetitions: 0,
+    interval: 0,
+    ef: 2.5,
+    dueStep: 0
+  };
+}
+
+function getSmartEntry(cardOrId) {
+  const id = typeof cardOrId === "string" ? cardOrId : cardId(cardOrId);
+  const stored = state.progress.practice?.smart?.[id];
+  if (!stored || typeof stored !== "object") {
+    return createSmartEntry();
+  }
+
+  return {
+    shown: Math.max(0, Number(stored.shown) || 0),
+    correct: Math.max(0, Number(stored.correct) || 0),
+    wrong: Math.max(0, Number(stored.wrong) || 0),
+    repetitions: Math.max(0, Math.floor(Number(stored.repetitions) || 0)),
+    interval: Math.max(0, Math.floor(Number(stored.interval) || 0)),
+    ef: Math.max(1.3, Number(stored.ef) || 2.5),
+    dueStep: Math.max(0, Math.floor(Number(stored.dueStep) || 0))
+  };
+}
+
+function getSmartCurrentCard() {
+  if (!isSmartPracticeActive()) return null;
+
+  const activeIds = new Set(getModeIds("practice"));
+  if (state.round.smartCardId && activeIds.has(state.round.smartCardId)) {
+    return getCardById(state.round.smartCardId);
+  }
+
+  const picked = pickNextSmartCard();
+  if (!picked) return null;
+
+  state.round.smartCardId = cardId(picked);
+  return picked;
+}
+
 function getCurrentCard() {
+  if (isSmartPracticeActive()) {
+    return getSmartCurrentCard();
+  }
+
   const cards = getOrderedCards();
   if (!cards.length) return null;
   clampIndexes();
@@ -611,7 +747,8 @@ function getModeTouchedAcrossTypes(mode) {
   const activeIds = new Set(getModeIds(mode));
   const translationIds = Object.keys(state.progress[mode]?.translation || {});
   const pinyinIds = Object.keys(state.progress[mode]?.pinyin || {});
-  const union = new Set([...translationIds, ...pinyinIds].filter((id) => activeIds.has(id)));
+  const smartIds = mode === "practice" ? Object.keys(state.progress.practice?.smart || {}) : [];
+  const union = new Set([...translationIds, ...pinyinIds, ...smartIds].filter((id) => activeIds.has(id)));
   return union.size;
 }
 
@@ -619,14 +756,16 @@ function getPracticeCardStats(card) {
   if (!card) {
     return {
       translation: { shown: 0, correct: 0, wrong: 0 },
-      pinyin: { shown: 0, correct: 0, wrong: 0 }
+      pinyin: { shown: 0, correct: 0, wrong: 0 },
+      smart: { shown: 0, correct: 0, wrong: 0, repetitions: 0, interval: 0, ef: 2.5, dueStep: 0 }
     };
   }
 
   const id = cardId(card);
   return {
     translation: state.progress.practice?.translation?.[id] || { shown: 0, correct: 0, wrong: 0 },
-    pinyin: state.progress.practice?.pinyin?.[id] || { shown: 0, correct: 0, wrong: 0 }
+    pinyin: state.progress.practice?.pinyin?.[id] || { shown: 0, correct: 0, wrong: 0 },
+    smart: getSmartEntry(id)
   };
 }
 
@@ -634,7 +773,8 @@ function getPracticeCardSummaryText(card) {
   const stats = getPracticeCardStats(card);
   return {
     translation: `T: ${stats.translation.shown} seen · ${stats.translation.correct}✓ · ${stats.translation.wrong}✗`,
-    pinyin: `P: ${stats.pinyin.shown} seen · ${stats.pinyin.correct}✓ · ${stats.pinyin.wrong}✗`
+    pinyin: `P: ${stats.pinyin.shown} seen · ${stats.pinyin.correct}✓ · ${stats.pinyin.wrong}✗`,
+    smart: `S: ${stats.smart.shown} seen · ${stats.smart.correct}✓ · ${stats.smart.wrong}✗`
   };
 }
 
@@ -656,6 +796,7 @@ function renderStats() {
   const seen = getSeenCount();
   const practiceTranslationTotals = getModeTotals("practice", "translation");
   const practicePinyinTotals = getModeTotals("practice", "pinyin");
+  const practiceSmartTotals = getModeTotals("practice", "smart");
 
   elements.statTotal.textContent = String(total);
   elements.statSeen.textContent = String(seen);
@@ -663,6 +804,8 @@ function renderStats() {
   elements.statPracticeTranslationCW.textContent = `${practiceTranslationTotals.correct} / ${practiceTranslationTotals.wrong}`;
   elements.statPracticePinyinShown.textContent = String(practicePinyinTotals.shown);
   elements.statPracticePinyinCW.textContent = `${practicePinyinTotals.correct} / ${practicePinyinTotals.wrong}`;
+  if (elements.statPracticeSmartShown) elements.statPracticeSmartShown.textContent = String(practiceSmartTotals.shown);
+  if (elements.statPracticeSmartCW) elements.statPracticeSmartCW.textContent = `${practiceSmartTotals.correct} / ${practiceSmartTotals.wrong}`;
 
   setBar(elements.barLearn, elements.barLearnLabel, seen, learnTotal);
   setBar(elements.barPractice, elements.barPracticeLabel, getModeTouchedAcrossTypes("practice"), practiceTotal);
@@ -685,39 +828,43 @@ function updateModeButtons() {
 
   elements.quizTypeWrap.classList.remove("hidden");
   const quizType = getQuizType();
-  elements.quizLabel.textContent = quizType === "translation" ? "Translation · MCQ" : "Pinyin · typed";
 
   elements.quizTypeButtons.forEach((button) => {
+    const isAllowed = getAllowedQuizTypes(state.mode).includes(button.dataset.quiz);
+    button.classList.toggle("hidden", !isAllowed);
     button.classList.toggle("active", button.dataset.quiz === quizType);
   });
+
+  if (quizType === "translation") {
+    elements.quizLabel.textContent = "Translation · MCQ";
+  } else if (quizType === "pinyin") {
+    elements.quizLabel.textContent = "Pinyin · typed";
+  } else {
+    elements.quizLabel.textContent = "Smart practice · pinyin + translation";
+  }
 }
 
 function resetRoundState() {
   state.round = createEmptyRound();
 }
 
-function nextCard() {
-  const total = getOrderedIds().length;
-  if (!total) return;
-  state.progress.index[state.mode] = state.progress.index[state.mode] >= total - 1 ? 0 : state.progress.index[state.mode] + 1;
-  resetRoundState();
-  saveProgress();
-  render();
-}
-
-function prevCard() {
-  const total = getOrderedIds().length;
-  if (!total) return;
-  state.progress.index[state.mode] = state.progress.index[state.mode] <= 0 ? total - 1 : state.progress.index[state.mode] - 1;
-  resetRoundState();
-  saveProgress();
-  render();
-}
-
-function markSeen(card) {
+function prepareRoundAppearance(mode, quizType, card) {
   if (!card) return;
-  state.progress.seen[cardId(card)] = true;
-  saveProgress();
+
+  const id = cardId(card);
+  const key = `${mode}:${quizType || "study"}:${id}`;
+  if (state.round.appearanceKey === key) return;
+
+  state.round.appearanceKey = key;
+  state.round.appearanceMode = mode;
+  state.round.appearanceQuizType = quizType || "";
+  state.round.appearanceCardId = id;
+  state.round.appearanceCounted = false;
+}
+
+function markSeenById(id) {
+  if (!id) return;
+  state.progress.seen[id] = true;
 }
 
 function recordQuizResult(mode, quizType, result) {
@@ -730,37 +877,170 @@ function recordQuizResult(mode, quizType, result) {
 
   const entry = bucket[id] || { shown: 0, correct: 0, wrong: 0 };
   entry[result] += 1;
-  if ((entry.shown || 0) < entry.correct + entry.wrong) {
-    entry.shown = entry.correct + entry.wrong;
-  }
   bucket[id] = entry;
   saveProgress();
 }
 
-function recordCardAppearance(mode, quizType, card) {
-  if (!card) return;
+function recordCardAppearanceById(mode, quizType, id) {
+  if (!id) return false;
+
+  if (mode === "learn") {
+    markSeenById(id);
+    return true;
+  }
 
   const bucket = state.progress[mode]?.[quizType];
-  if (!bucket) return;
+  if (!bucket) return false;
 
-  const id = cardId(card);
   const entry = bucket[id] || { shown: 0, correct: 0, wrong: 0 };
   entry.shown = (entry.shown || 0) + 1;
   bucket[id] = entry;
+  return true;
+}
+
+function finalizeRoundAppearance({ save = false } = {}) {
+  if (!state.round.appearanceKey || state.round.appearanceCounted) return false;
+
+  const changed = recordCardAppearanceById(
+    state.round.appearanceMode,
+    state.round.appearanceQuizType,
+    state.round.appearanceCardId
+  );
+
+  if (!changed) return false;
+
+  state.round.appearanceCounted = true;
+  if (save) saveProgress();
+  return true;
+}
+
+function moveInOrderedMode(step, { countAppearance = true } = {}) {
+  const total = getOrderedIds().length;
+  if (!total) return;
+  if (countAppearance) finalizeRoundAppearance();
+
+  const current = state.progress.index[state.mode] || 0;
+  const next = step > 0
+    ? (current >= total - 1 ? 0 : current + 1)
+    : (current <= 0 ? total - 1 : current - 1);
+
+  state.progress.index[state.mode] = next;
+  resetRoundState();
+  saveProgress();
+  render();
+}
+
+function nextCard(options = {}) {
+  if (isSmartPracticeActive()) {
+    return nextSmartCard(options);
+  }
+
+  moveInOrderedMode(1, options);
+}
+
+function prevCard(options = {}) {
+  if (isSmartPracticeActive()) return;
+  moveInOrderedMode(-1, options);
+}
+
+function applySM2Result(entry, correct, stepAfterReview) {
+  const updated = { ...entry };
+  const q = correct ? 5 : 2;
+
+  updated.ef = Math.max(
+    1.3,
+    updated.ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+  );
+
+  if (q < 3) {
+    updated.repetitions = 0;
+    updated.interval = 1;
+  } else if (updated.repetitions === 0) {
+    updated.repetitions = 1;
+    updated.interval = 1;
+  } else if (updated.repetitions === 1) {
+    updated.repetitions = 2;
+    updated.interval = 6;
+  } else {
+    updated.repetitions += 1;
+    updated.interval = Math.max(1, Math.round(updated.interval * updated.ef));
+  }
+
+  updated.dueStep = stepAfterReview + updated.interval;
+  return updated;
+}
+
+function recordSmartPracticeOutcome(card, correct) {
+  if (!card) return;
+
+  const id = cardId(card);
+  const bucket = state.progress.practice.smart;
+  const current = getSmartEntry(id);
+  current[correct ? "correct" : "wrong"] += 1;
+
+  const nextStep = (state.progress.practice.smartStep || 0) + 1;
+  const updated = applySM2Result(current, correct, nextStep);
+
+  bucket[id] = updated;
+  state.progress.practice.smartStep = nextStep;
+  state.progress.practice.smartLastId = id;
   saveProgress();
 }
 
-function ensurePracticeAppearance(card) {
-  if (state.mode !== "practice") return false;
-  if (!card) return false;
+function weightedPick(items, weightFn) {
+  const weighted = items.map((item) => ({ item, weight: Math.max(0, Number(weightFn(item)) || 0) }));
+  const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
+  if (total <= 0) return items[0] || null;
 
-  const quizType = getQuizType();
-  const appearanceKey = `${state.mode}:${quizType}:${cardId(card)}`;
-  if (state.round.appearanceKey === appearanceKey) return false;
+  let threshold = Math.random() * total;
+  for (const entry of weighted) {
+    threshold -= entry.weight;
+    if (threshold <= 0) return entry.item;
+  }
 
-  state.round.appearanceKey = appearanceKey;
-  recordCardAppearance("practice", quizType, card);
-  return true;
+  return weighted[weighted.length - 1]?.item || null;
+}
+
+function pickNextSmartCard() {
+  const cards = getModeCards("practice");
+  if (!cards.length) return null;
+
+  const step = state.progress.practice.smartStep || 0;
+  const lastId = state.progress.practice.smartLastId || "";
+  let candidates = cards.filter((card) => getSmartEntry(card).dueStep <= step);
+  let pickSoonest = false;
+
+  if (!candidates.length) {
+    const sorted = [...cards].sort((a, b) => getSmartEntry(a).dueStep - getSmartEntry(b).dueStep);
+    const minDue = getSmartEntry(sorted[0]).dueStep;
+    candidates = sorted.filter((card) => getSmartEntry(card).dueStep === minDue);
+    pickSoonest = true;
+  }
+
+  if (candidates.length > 1 && lastId) {
+    const filtered = candidates.filter((card) => cardId(card) !== lastId);
+    if (filtered.length) candidates = filtered;
+  }
+
+  if (candidates.length <= 1 || pickSoonest) {
+    return candidates[0] || null;
+  }
+
+  return weightedPick(candidates, (card) => {
+    const entry = getSmartEntry(card);
+    const overdue = Math.max(0, step - entry.dueStep);
+    return 1 + overdue + entry.wrong;
+  });
+}
+
+function nextSmartCard({ countAppearance = true } = {}) {
+  if (countAppearance) finalizeRoundAppearance();
+  if (state.round.smartCardId) {
+    state.progress.practice.smartLastId = state.round.smartCardId;
+  }
+  resetRoundState();
+  saveProgress();
+  render();
 }
 
 function renderCurrentCardStats(card) {
@@ -770,11 +1050,11 @@ function renderCurrentCardStats(card) {
   if (!card) return;
 
   const stats = getPracticeCardStats(card);
-  const hasAnyPractice = stats.translation.shown > 0 || stats.pinyin.shown > 0;
+  const hasAnyPractice = stats.translation.shown > 0 || stats.pinyin.shown > 0 || stats.smart.shown > 0;
   if (state.mode !== "practice" && !hasAnyPractice) return;
 
   const summary = getPracticeCardSummaryText(card);
-  [summary.translation, summary.pinyin].forEach((text) => {
+  [summary.translation, summary.pinyin, summary.smart].forEach((text) => {
     const chip = document.createElement("span");
     chip.className = "badge subtle";
     chip.textContent = `Practice · ${text}`;
@@ -791,8 +1071,7 @@ function shuffle(items) {
   return copy;
 }
 
-function buildTranslationOptions(mode = state.mode) {
-  const card = getCurrentCard();
+function buildTranslationOptionsForCard(card, mode = state.mode) {
   if (!card) return [];
 
   const modeCards = getModeCards(mode);
@@ -816,6 +1095,10 @@ function buildTranslationOptions(mode = state.mode) {
       correct: translation === card.translation
     }))
   );
+}
+
+function buildTranslationOptions(mode = state.mode) {
+  return buildTranslationOptionsForCard(getCurrentCard(), mode);
 }
 
 function toAnnotatedPinyin(value) {
@@ -1031,7 +1314,10 @@ function checkPinyinAnswer(input, answer) {
 }
 
 function isPinyinQuizActive() {
-  return state.mode !== "learn" && getQuizType() === "pinyin";
+  if (state.mode === "learn") return false;
+  const quizType = getQuizType();
+  if (quizType === "pinyin") return true;
+  return quizType === "smart" && state.round.smartStage === "pinyin";
 }
 
 function isEditableField(target) {
@@ -1051,6 +1337,21 @@ function getPinyinInputPlaceholder() {
     : "ni3hao3 · v=ü · neutral 5 optional";
 }
 
+function submitPinyinFormFromKeyboard(answerForm) {
+  if (!answerForm) return;
+  const event = {
+    preventDefault() {},
+    currentTarget: answerForm
+  };
+
+  if (isSmartPracticeActive()) {
+    submitSmartPinyinAnswer(event);
+    return;
+  }
+
+  submitPinyinAnswer(event);
+}
+
 function handlePinyinKeyboard(event) {
   if (!isPinyinQuizActive()) return;
   if (!getCurrentCard()) return;
@@ -1059,16 +1360,25 @@ function handlePinyinKeyboard(event) {
   const answerForm = target && typeof target.closest === "function" ? target.closest(".answer-form") : null;
   if (isEditableField(target) && !answerForm) return;
 
+  const inSmartPinyin = isSmartPracticeActive() && state.round.smartStage === "pinyin";
+
   if (event.key === "Enter") {
     if (state.round.pendingWrong) {
       event.preventDefault();
-      acceptPendingPinyinWrongAndNext();
+      if (inSmartPinyin) {
+        acceptPendingSmartPinyinWrong();
+      } else {
+        acceptPendingPinyinWrong();
+      }
       return;
     }
 
-    if (!state.round.answered) return;
-    event.preventDefault();
-    nextCard();
+    if (!inSmartPinyin && state.round.answered) {
+      event.preventDefault();
+      nextCard();
+      return;
+    }
+
     return;
   }
 
@@ -1076,11 +1386,15 @@ function handlePinyinKeyboard(event) {
 
   if (state.round.pendingWrong) {
     event.preventDefault();
-    acceptPendingPinyinWrongAndNext();
+    if (inSmartPinyin) {
+      acceptPendingSmartPinyinWrong();
+    } else {
+      acceptPendingPinyinWrong();
+    }
     return;
   }
 
-  if (state.round.answered) {
+  if (!inSmartPinyin && state.round.answered) {
     event.preventDefault();
     nextCard();
     return;
@@ -1102,10 +1416,7 @@ function handlePinyinKeyboard(event) {
   if (target === input && !cursorAtEnd) return;
 
   event.preventDefault();
-  submitPinyinAnswer({
-    preventDefault() {},
-    currentTarget: answerForm
-  });
+  submitPinyinFormFromKeyboard(answerForm);
 }
 
 function clearCard(message = "Waiting for vocabulary", detail = "Built-in HSK 1 loads automatically on first open.") {
@@ -1138,6 +1449,21 @@ function setPositionLabel(card, queueIndex, total) {
   elements.positionLabel.textContent = `${queueIndex + 1} / ${total} · #${card.index}`;
 }
 
+function setSmartPositionLabel(card, total) {
+  elements.positionLabel.textContent = `Adaptive · #${card.index} · ${total} cards`;
+}
+
+function getReviewPinyinText(card) {
+  const reviewAnswer = getPinyinDisplay(card.pinyin);
+  const reviewOriginal = String(card.pinyin || "").trim();
+  const reviewSuffix = reviewOriginal && reviewOriginal !== reviewAnswer ? ` (${reviewOriginal})` : "";
+  const reviewText = reviewOriginal && reviewOriginal !== reviewAnswer
+    ? `${reviewAnswer} · ${reviewOriginal}`
+    : reviewAnswer;
+
+  return { reviewAnswer, reviewOriginal, reviewSuffix, reviewText };
+}
+
 function renderLearn(card, queueIndex, total) {
   elements.cardPrompt.textContent = "Vocabulary";
   elements.cardHanzi.textContent = card.hanzi;
@@ -1146,9 +1472,8 @@ function renderLearn(card, queueIndex, total) {
   elements.answerArea.innerHTML = "";
   updateResult();
   setPositionLabel(card, queueIndex, total);
+  prepareRoundAppearance("learn", "", card);
   renderCurrentCardStats(card);
-
-  markSeen(card);
 
   const prevBtn = createButton("Previous", prevCard, "secondary");
   const nextBtn = createButton("Next", nextCard);
@@ -1182,11 +1507,7 @@ function renderTranslationQuiz(card, queueIndex, total) {
   elements.cardPinyin.textContent = state.round.answered ? card.pinyin : "";
   elements.cardTranslation.textContent = state.round.answered ? card.translation : "";
   setPositionLabel(card, queueIndex, total);
-  const appearanceRecorded = ensurePracticeAppearance(card);
-  if (appearanceRecorded) {
-    renderStats();
-    renderManageList();
-  }
+  prepareRoundAppearance(state.mode, "translation", card);
   renderCurrentCardStats(card);
 
   if (!state.round.options.length) {
@@ -1230,11 +1551,21 @@ function retryPinyinWithoutPenalty() {
   render();
 }
 
-function acceptPendingPinyinWrongAndNext() {
+function acceptPendingPinyinWrong() {
   if (!state.round.pendingWrong) return;
 
+  const card = getCurrentCard();
+  if (!card) return;
+
+  const { reviewAnswer, reviewSuffix } = getReviewPinyinText(card);
+  state.round.pendingWrong = false;
+  state.round.answered = true;
+  state.round.selectedCorrect = false;
+  state.round.resultText = `Wrong. Correct pinyin: ${reviewAnswer}${reviewSuffix}`;
+  state.round.resultClass = "bad";
+
   recordQuizResult("practice", "pinyin", "wrong");
-  nextCard();
+  render();
 }
 
 function submitPinyinAnswer(event) {
@@ -1247,9 +1578,7 @@ function submitPinyinAnswer(event) {
   const form = event.currentTarget;
   const input = form.querySelector("input");
   const answerText = input ? input.value : "";
-  const reviewAnswer = getPinyinDisplay(card.pinyin);
-  const reviewOriginal = String(card.pinyin || "").trim();
-  const reviewSuffix = reviewOriginal && reviewOriginal !== reviewAnswer ? ` (${reviewOriginal})` : "";
+  const { reviewAnswer, reviewSuffix } = getReviewPinyinText(card);
   const check = checkPinyinAnswer(answerText, card.pinyin);
 
   state.round.answerText = answerText;
@@ -1259,8 +1588,8 @@ function submitPinyinAnswer(event) {
   if (state.mode === "practice" && !check.correct) {
     state.round.pendingWrong = true;
     state.round.resultText = check.formatValid
-      ? "Not counted yet. Retry without penalty if this was a typo, or press Enter to count it wrong and move on."
-      : "Not counted yet. Missing tone numbers are only allowed on neutral-tone syllables. Retry without penalty, or press Enter to count it wrong and move on.";
+      ? "Not counted yet. Retry without penalty if this was a typo, or press Enter / → to count it wrong and reveal the answer."
+      : "Not counted yet. Missing tone numbers are only allowed on neutral-tone syllables. Retry without penalty, or press Enter / → to count it wrong and reveal the answer.";
     state.round.resultClass = "bad";
     render();
     return;
@@ -1282,14 +1611,9 @@ function submitPinyinAnswer(event) {
   render();
 }
 
-
 function renderPinyinQuiz(card, queueIndex, total) {
   const isPractice = state.mode === "practice";
-  const reviewAnswer = getPinyinDisplay(card.pinyin);
-  const reviewOriginal = String(card.pinyin || "").trim();
-  const reviewText = reviewOriginal && reviewOriginal !== reviewAnswer
-    ? `${reviewAnswer} · ${reviewOriginal}`
-    : reviewAnswer;
+  const { reviewText } = getReviewPinyinText(card);
 
   elements.cardPrompt.textContent = isPractice
     ? "Type the pinyin with tone numbers"
@@ -1298,11 +1622,7 @@ function renderPinyinQuiz(card, queueIndex, total) {
   elements.cardPinyin.textContent = state.round.answered ? reviewText : "";
   elements.cardTranslation.textContent = state.round.answered ? card.translation : "";
   setPositionLabel(card, queueIndex, total);
-  const appearanceRecorded = ensurePracticeAppearance(card);
-  if (appearanceRecorded) {
-    renderStats();
-    renderManageList();
-  }
+  prepareRoundAppearance(state.mode, "pinyin", card);
   renderCurrentCardStats(card);
 
   updateResult(
@@ -1362,7 +1682,7 @@ function renderPinyinQuiz(card, queueIndex, total) {
   let nextBtn;
 
   if (state.round.pendingWrong) {
-    nextBtn = createButton("Count wrong & next", acceptPendingPinyinWrongAndNext);
+    nextBtn = createButton("Count wrong", acceptPendingPinyinWrong);
   } else {
     const skipLabel = state.round.answered ? "Next" : "Skip";
     nextBtn = createButton(skipLabel, nextCard, state.round.answered ? "" : "secondary");
@@ -1371,15 +1691,215 @@ function renderPinyinQuiz(card, queueIndex, total) {
   elements.controls.append(prevBtn, nextBtn);
 }
 
-function renderOrderStatus() {
-  const total = getOrderedIds().length;
-  const modeLabel = state.mode.charAt(0).toUpperCase() + state.mode.slice(1);
-  const orderType = state.progress.orderType[state.mode] === "shuffled" ? "Shuffled" : "Sequential";
-  const extra = state.mode === "learn" ? "" : ` · ${getQuizType() === "translation" ? "translation" : "pinyin"}`;
+function retrySmartPinyinWithoutPenalty() {
+  if (!state.round.pendingWrong) return;
 
-  elements.orderStatus.textContent = `${modeLabel}${extra}: ${orderType.toLowerCase()} order · ${total} active cards.`;
-  elements.shuffleBtn.disabled = total < 2;
-  elements.resetOrderBtn.disabled = total < 2 && state.progress.orderType[state.mode] !== "shuffled";
+  state.round.pendingWrong = false;
+  state.round.pendingCheck = null;
+  state.round.resultText = "";
+  state.round.resultClass = "";
+  render();
+}
+
+function acceptPendingSmartPinyinWrong() {
+  if (!state.round.pendingWrong) return;
+
+  const card = getCurrentCard();
+  if (!card) return;
+
+  const { reviewAnswer, reviewSuffix } = getReviewPinyinText(card);
+  state.round.pendingWrong = false;
+  state.round.smartPinyinCorrect = false;
+  state.round.smartStage = "translation";
+  state.round.options = buildTranslationOptionsForCard(card, "practice");
+  state.round.resultText = `Wrong pinyin. Correct pinyin: ${reviewAnswer}${reviewSuffix}. Now choose the translation.`;
+  state.round.resultClass = "bad";
+  render();
+}
+
+function submitSmartPinyinAnswer(event) {
+  event.preventDefault();
+  if (state.round.smartStage !== "pinyin" || state.round.pendingWrong) return;
+
+  const card = getCurrentCard();
+  if (!card) return;
+
+  const form = event.currentTarget;
+  const input = form.querySelector("input");
+  const answerText = input ? input.value : "";
+  const check = checkPinyinAnswer(answerText, card.pinyin);
+
+  state.round.answerText = answerText;
+  state.round.pendingCheck = check;
+
+  if (!check.correct) {
+    state.round.pendingWrong = true;
+    state.round.resultText = check.formatValid
+      ? "Not counted yet. Retry without penalty if this was a typo, or press Enter / → to count it wrong and reveal the answer before step 2."
+      : "Not counted yet. Missing tone numbers are only allowed on neutral-tone syllables. Retry without penalty, or press Enter / → to count it wrong and reveal the answer before step 2.";
+    state.round.resultClass = "bad";
+    render();
+    return;
+  }
+
+  state.round.smartPinyinCorrect = true;
+  state.round.smartStage = "translation";
+  state.round.options = buildTranslationOptionsForCard(card, "practice");
+  state.round.resultText = "Pinyin correct. Now choose the translation.";
+  state.round.resultClass = "ok";
+  render();
+}
+
+function answerSmartTranslation(option) {
+  if (state.round.smartStage !== "translation") return;
+
+  const card = getCurrentCard();
+  if (!card) return;
+
+  const translationCorrect = !!option.correct;
+  const overallCorrect = state.round.smartPinyinCorrect === true && translationCorrect;
+
+  state.round.selectedLabel = option.label;
+  state.round.selectedCorrect = translationCorrect;
+  state.round.smartTranslationCorrect = translationCorrect;
+  state.round.smartStage = "completed";
+  state.round.answered = true;
+  state.round.resultText = overallCorrect
+    ? `Correct. ${card.hanzi} = ${card.translation} (${card.pinyin})`
+    : `Wrong. ${card.hanzi} = ${card.translation} (${card.pinyin})`;
+  state.round.resultClass = overallCorrect ? "ok" : "bad";
+
+  recordSmartPracticeOutcome(card, overallCorrect);
+  render();
+}
+
+function renderSmartPractice(card, total) {
+  const { reviewText } = getReviewPinyinText(card);
+  prepareRoundAppearance("practice", "smart", card);
+  setSmartPositionLabel(card, total);
+  renderCurrentCardStats(card);
+
+  elements.cardHanzi.textContent = card.hanzi;
+  elements.cardPinyin.textContent = state.round.smartStage === "pinyin" ? "" : reviewText;
+  elements.cardTranslation.textContent = state.round.smartStage === "completed" ? card.translation : "";
+
+  if (state.round.smartStage === "pinyin") {
+    elements.cardPrompt.textContent = "Smart practice · 1 of 2 · type the pinyin";
+    updateResult(
+      state.round.pendingWrong
+        ? state.round.resultText
+        : "Step 1 of 2. Use tone numbers. Example: ni3hao3, lv4, xie4xie.",
+      state.round.pendingWrong ? state.round.resultClass : ""
+    );
+
+    elements.answerArea.innerHTML = "";
+    const form = document.createElement("form");
+    form.className = "answer-form";
+    form.addEventListener("submit", submitSmartPinyinAnswer);
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.placeholder = getPinyinInputPlaceholder();
+    input.value = state.round.answerText;
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.disabled = state.round.pendingWrong;
+
+    const submitBtn = createButton(state.round.pendingWrong ? "Pending" : "Submit", () => {}, state.round.pendingWrong ? "secondary" : "");
+    submitBtn.type = "submit";
+    submitBtn.disabled = state.round.pendingWrong;
+
+    form.append(input, submitBtn);
+    elements.answerArea.appendChild(form);
+
+    if (state.round.pendingWrong) {
+      const pendingRow = document.createElement("div");
+      pendingRow.className = "answer-pending-row";
+      const retryBtn = createButton("Retry without error", retrySmartPinyinWithoutPenalty, "secondary");
+      pendingRow.appendChild(retryBtn);
+      elements.answerArea.appendChild(pendingRow);
+    }
+
+    if (!state.round.pendingWrong && shouldAutoFocusPinyinInput()) {
+      setTimeout(() => {
+        try {
+          input.focus({ preventScroll: true });
+        } catch (error) {
+          input.focus();
+        }
+      }, 0);
+    }
+
+    elements.controls.innerHTML = "";
+    const skipBtn = createButton("Skip", () => nextSmartCard({ countAppearance: true }), "secondary");
+    if (state.round.pendingWrong) {
+      const countWrongBtn = createButton("Count wrong", acceptPendingSmartPinyinWrong);
+      elements.controls.append(skipBtn, countWrongBtn);
+    } else {
+      elements.controls.append(skipBtn);
+    }
+    return;
+  }
+
+  elements.cardPrompt.textContent = state.round.smartStage === "translation"
+    ? "Smart practice · 2 of 2 · choose the translation"
+    : "Smart practice · result";
+
+  if (!state.round.options.length) {
+    state.round.options = buildTranslationOptionsForCard(card, "practice");
+  }
+
+  updateResult(
+    state.round.smartStage === "completed"
+      ? state.round.resultText
+      : state.round.resultText || "Step 2 of 2. Choose the English translation.",
+    state.round.smartStage === "completed" ? state.round.resultClass : ""
+  );
+
+  elements.answerArea.innerHTML = "";
+  state.round.options.forEach((option) => {
+    const optionButton = createButton(option.label, () => answerSmartTranslation(option), "answer-btn");
+
+    if (state.round.smartStage === "completed") {
+      if (option.correct) optionButton.classList.add("correct");
+      if (!option.correct && option.label === state.round.selectedLabel && !state.round.selectedCorrect) {
+        optionButton.classList.add("wrong");
+      }
+      optionButton.disabled = true;
+    }
+
+    elements.answerArea.appendChild(optionButton);
+  });
+
+  elements.controls.innerHTML = "";
+  if (state.round.smartStage === "completed") {
+    elements.controls.append(createButton("Next", () => nextSmartCard({ countAppearance: true })));
+  } else {
+    elements.controls.append(createButton("Skip", () => nextSmartCard({ countAppearance: true }), "secondary"));
+  }
+}
+
+function renderOrderStatus() {
+  const total = getModeCards(state.mode).length;
+  const modeLabel = state.mode.charAt(0).toUpperCase() + state.mode.slice(1);
+  const quizType = getQuizType();
+
+  if (isSmartPracticeActive()) {
+    elements.orderStatus.textContent = `${modeLabel} · smart: adaptive SM-2 order · ${total} active cards.`;
+    elements.shuffleBtn.disabled = true;
+    elements.resetOrderBtn.disabled = true;
+    return;
+  }
+
+  const orderedTotal = getOrderedIds().length;
+  const orderType = state.progress.orderType[state.mode] === "shuffled" ? "Shuffled" : "Sequential";
+  const extra = state.mode === "learn"
+    ? ""
+    : ` · ${quizType === "translation" ? "translation" : quizType === "pinyin" ? "pinyin" : "smart"}`;
+
+  elements.orderStatus.textContent = `${modeLabel}${extra}: ${orderType.toLowerCase()} order · ${orderedTotal} active cards.`;
+  elements.shuffleBtn.disabled = orderedTotal < 2;
+  elements.resetOrderBtn.disabled = orderedTotal < 2 && state.progress.orderType[state.mode] !== "shuffled";
 }
 
 function renderSelectionSummary() {
@@ -1554,7 +2074,7 @@ function renderManageList() {
     const stats = getPracticeCardStats(card);
     word.append(title, detail);
 
-    if (stats.translation.shown > 0 || stats.pinyin.shown > 0) {
+    if (stats.translation.shown > 0 || stats.pinyin.shown > 0 || stats.smart.shown > 0) {
       const cardStats = document.createElement("div");
       cardStats.className = "manage-stats";
       const summary = getPracticeCardSummaryText(card);
@@ -1565,7 +2085,10 @@ function renderManageList() {
       const pinyinStat = document.createElement("span");
       pinyinStat.textContent = summary.pinyin;
 
-      cardStats.append(translationStat, pinyinStat);
+      const smartStat = document.createElement("span");
+      smartStat.textContent = summary.smart;
+
+      cardStats.append(translationStat, pinyinStat, smartStat);
       word.appendChild(cardStats);
     }
 
@@ -1600,6 +2123,23 @@ function render() {
 
   if (!state.vocab.length) {
     clearCard();
+    return;
+  }
+
+  if (isSmartPracticeActive()) {
+    const total = getModeCards("practice").length;
+    if (!total) {
+      clearCard("No cards selected for practice", "Use Card setup to add cards to Practice.");
+      return;
+    }
+
+    const card = getCurrentCard();
+    if (!card) {
+      clearCard();
+      return;
+    }
+
+    renderSmartPractice(card, total);
     return;
   }
 
@@ -1672,7 +2212,7 @@ function setMode(mode) {
 
 function setQuizTypeForCurrentMode(quizType) {
   if (state.mode === "learn") return;
-  if (!QUIZ_TYPES.includes(quizType)) return;
+  if (!getAllowedQuizTypes(state.mode).includes(quizType)) return;
 
   state.progress.quizType[state.mode] = quizType;
   resetRoundState();
@@ -1681,6 +2221,11 @@ function setQuizTypeForCurrentMode(quizType) {
 }
 
 function shuffleCurrentMode() {
+  if (isSmartPracticeActive()) {
+    elements.statusText.textContent = "Smart practice uses adaptive order.";
+    return;
+  }
+
   const ids = getOrderedIds();
   if (ids.length < 2) return;
   state.progress.order[state.mode] = shuffle(ids);
@@ -1692,6 +2237,11 @@ function shuffleCurrentMode() {
 }
 
 function resetCurrentModeOrder() {
+  if (isSmartPracticeActive()) {
+    elements.statusText.textContent = "Smart practice uses adaptive order.";
+    return;
+  }
+
   state.progress.order[state.mode] = getModeIds(state.mode);
   state.progress.orderType[state.mode] = "default";
   state.progress.index[state.mode] = 0;
