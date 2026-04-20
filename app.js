@@ -1,7 +1,8 @@
 const STORAGE_KEYS = {
   vocab: "hsk_flashcards_vocab",
   progress: "hsk_flashcards_progress",
-  mode: "hsk_flashcards_mode"
+  mode: "hsk_flashcards_mode",
+  setupCollapsed: "hsk_flashcards_setup_collapsed"
 };
 
 const BUILTIN_CARDS = Array.isArray(window.HSK1_BUILTIN_CARDS) ? window.HSK1_BUILTIN_CARDS : [];
@@ -65,6 +66,8 @@ const state = {
   progress: createEmptyProgress(),
   mode: "learn",
   filterText: "",
+  setupCollapsed: true,
+  manageListDirty: true,
   round: createEmptyRound()
 };
 
@@ -81,6 +84,8 @@ const elements = {
   filterInput: document.getElementById("filterInput"),
   manageList: document.getElementById("manageList"),
   selectionSummary: document.getElementById("selectionSummary"),
+  setupToggleBtn: document.getElementById("setupToggleBtn"),
+  setupBody: document.getElementById("setupBody"),
   orderStatus: document.getElementById("orderStatus"),
   statusText: document.getElementById("statusText"),
   modeButtons: [...document.querySelectorAll(".mode-btn")],
@@ -368,6 +373,7 @@ function loadFromStorage() {
     const savedVocab = JSON.parse(localStorage.getItem(STORAGE_KEYS.vocab) || "[]");
     const savedProgress = JSON.parse(localStorage.getItem(STORAGE_KEYS.progress) || "null");
     const savedMode = localStorage.getItem(STORAGE_KEYS.mode);
+    const savedSetupCollapsed = localStorage.getItem(STORAGE_KEYS.setupCollapsed);
 
     const vocabArray = Array.isArray(savedVocab) ? savedVocab : [];
     state.vocab = vocabArray
@@ -376,6 +382,7 @@ function loadFromStorage() {
 
     state.progress = normalizeProgress(savedProgress);
     state.mode = MODES.includes(savedMode) ? savedMode : "learn";
+    state.setupCollapsed = savedSetupCollapsed === null ? true : savedSetupCollapsed === "true";
 
     if (state.vocab.length) {
       elements.statusText.textContent = `${state.vocab.length} cards loaded from local storage.`;
@@ -413,6 +420,31 @@ function saveProgress() {
   clampIndexes();
   localStorage.setItem(STORAGE_KEYS.progress, JSON.stringify(state.progress));
   localStorage.setItem(STORAGE_KEYS.mode, state.mode);
+}
+
+function markManageListDirty() {
+  state.manageListDirty = true;
+}
+
+function renderSetupPanel() {
+  if (!elements.setupBody || !elements.setupToggleBtn) return;
+  elements.setupBody.classList.toggle("hidden", state.setupCollapsed);
+  elements.setupToggleBtn.textContent = state.setupCollapsed ? "Show setup" : "Hide setup";
+  elements.setupToggleBtn.setAttribute("aria-expanded", String(!state.setupCollapsed));
+}
+
+function renderManageListIfNeeded(force = false) {
+  if (state.setupCollapsed) return;
+  if (!force && !state.manageListDirty) return;
+  renderManageList();
+  state.manageListDirty = false;
+}
+
+function toggleSetupPanel() {
+  state.setupCollapsed = !state.setupCollapsed;
+  localStorage.setItem(STORAGE_KEYS.setupCollapsed, String(state.setupCollapsed));
+  if (!state.setupCollapsed) markManageListDirty();
+  render();
 }
 
 function buildProgressExportPayload() {
@@ -460,6 +492,7 @@ function handleImportProgressFile(event) {
       const importedProgress = normalizeProgress(parsed && typeof parsed === "object" && parsed.progress ? parsed.progress : parsed);
       state.progress = importedProgress;
       resetRoundState();
+      markManageListDirty();
       saveProgress();
       elements.statusText.textContent = `Progress imported from ${file.name}.`;
       render();
@@ -478,9 +511,88 @@ function saveVocabulary(cards) {
   state.progress = createEmptyProgress();
   state.mode = "learn";
   resetRoundState();
+  markManageListDirty();
 
   persistVocabulary();
   saveProgress();
+}
+
+function getCardMatchKey(card) {
+  return `${String(card.hanzi || "").trim()}__${String(card.pinyin || "").trim().toLowerCase()}`;
+}
+
+function buildCardMatchQueues(cards) {
+  const queues = new Map();
+
+  cards.forEach((card) => {
+    const key = getCardMatchKey(card);
+    if (!key.trim()) return;
+    if (!queues.has(key)) queues.set(key, []);
+    queues.get(key).push(card);
+  });
+
+  return queues;
+}
+
+function filterObjectByValidIds(bucket, validIds) {
+  const output = {};
+
+  Object.entries(bucket || {}).forEach(([id, value]) => {
+    if (validIds.has(id)) output[id] = value;
+  });
+
+  return output;
+}
+
+function pruneProgressForValidCards(validIds) {
+  state.progress.seen = filterObjectByValidIds(state.progress.seen, validIds);
+
+  state.progress.practice.translation = filterObjectByValidIds(state.progress.practice.translation, validIds);
+  state.progress.practice.pinyin = filterObjectByValidIds(state.progress.practice.pinyin, validIds);
+  state.progress.practice.smart = filterObjectByValidIds(state.progress.practice.smart, validIds);
+
+  state.progress.test.translation = filterObjectByValidIds(state.progress.test.translation, validIds);
+  state.progress.test.pinyin = filterObjectByValidIds(state.progress.test.pinyin, validIds);
+
+  MODES.forEach((mode) => {
+    state.progress.order[mode] = (state.progress.order[mode] || []).filter((id) => validIds.has(id));
+  });
+
+  if (!validIds.has(state.progress.practice.smartLastId)) {
+    state.progress.practice.smartLastId = "";
+  }
+}
+
+function restoreVocabularyPreservingProgress(cards) {
+  const previousQueues = buildCardMatchQueues(state.vocab);
+  let preservedCount = 0;
+
+  state.vocab = cards.map((card, index) => {
+    const nextCard = normalizeCard(card, index + 1);
+    const key = getCardMatchKey(nextCard);
+    const queue = previousQueues.get(key);
+    const previousCard = queue && queue.length ? queue.shift() : null;
+
+    if (previousCard) {
+      nextCard.id = cardId(previousCard);
+      nextCard.learn = previousCard.learn !== false;
+      nextCard.practice = previousCard.practice !== false;
+      nextCard.test = previousCard.test !== false;
+      preservedCount += 1;
+    }
+
+    return nextCard;
+  });
+
+  state.progress = normalizeProgress(state.progress);
+  pruneProgressForValidCards(new Set(state.vocab.map((card) => cardId(card))));
+  resetRoundState();
+  markManageListDirty();
+
+  persistVocabulary();
+  saveProgress();
+
+  return preservedCount;
 }
 
 function restoreBuiltInVocabulary() {
@@ -490,9 +602,9 @@ function restoreBuiltInVocabulary() {
     return;
   }
 
-  saveVocabulary(builtInCards);
+  const preservedCount = restoreVocabularyPreservingProgress(builtInCards);
   elements.vocabInput.value = "";
-  elements.statusText.textContent = `${builtInCards.length} built-in HSK 1 cards restored.`;
+  elements.statusText.textContent = `${builtInCards.length} built-in cards restored. Progress and selections preserved for ${preservedCount} matching cards.`;
   render();
 }
 
@@ -1509,6 +1621,16 @@ function isTranslationKeyboardActive() {
   return isSmartPracticeActive() && ["translation", "completed"].includes(state.round.smartStage);
 }
 
+function updateTranslationSelectionUI() {
+  const selectedIndex = state.round.keyboardChoiceIndex;
+  const buttons = [...elements.answerArea.querySelectorAll(".answer-btn[data-option-index]")];
+
+  buttons.forEach((button) => {
+    const index = Number(button.dataset.optionIndex);
+    button.classList.toggle("selected", index === selectedIndex);
+  });
+}
+
 function selectTranslationOption(index) {
   const options = Array.isArray(state.round.options) ? state.round.options : [];
   if (!options.length) return;
@@ -1517,7 +1639,7 @@ function selectTranslationOption(index) {
   if (state.round.keyboardChoiceIndex === nextIndex) return;
 
   state.round.keyboardChoiceIndex = nextIndex;
-  render();
+  updateTranslationSelectionUI();
 }
 
 function moveTranslationSelection(direction) {
@@ -1703,6 +1825,7 @@ function renderTranslationQuiz(card, queueIndex, total) {
   state.round.options.forEach((option, index) => {
     const keyLabel = ["A", "B", "C", "D"][index] || String(index + 1);
     const optionButton = createButton(`${keyLabel}. ${option.label}`, () => answerTranslation(option), "answer-btn");
+    optionButton.dataset.optionIndex = String(index);
 
     if (!state.round.answered && state.round.keyboardChoiceIndex === index) {
       optionButton.classList.add("selected");
@@ -2047,6 +2170,7 @@ function renderSmartPractice(card, total) {
   state.round.options.forEach((option, index) => {
     const keyLabel = ["A", "B", "C", "D"][index] || String(index + 1);
     const optionButton = createButton(`${keyLabel}. ${option.label}`, () => answerSmartTranslation(option), "answer-btn");
+    optionButton.dataset.optionIndex = String(index);
 
     if (state.round.smartStage === "translation" && state.round.keyboardChoiceIndex === index) {
       optionButton.classList.add("selected");
@@ -2185,6 +2309,7 @@ function applyRangeToMode(mode, include) {
   persistVocabulary();
   clampIndexes();
   resetRoundState();
+  markManageListDirty();
   saveProgress();
   render();
 
@@ -2210,6 +2335,7 @@ function setAllForMode(mode, value) {
   persistVocabulary();
   clampIndexes();
   resetRoundState();
+  markManageListDirty();
   saveProgress();
   render();
 
@@ -2294,7 +2420,8 @@ function renderManageList() {
       const input = document.createElement("input");
       input.type = "checkbox";
       input.checked = !!card[mode];
-      input.addEventListener("change", () => updateCardMode(id, mode, input.checked));
+      input.dataset.cardId = id;
+      input.dataset.cardMode = mode;
 
       const text = document.createTextNode(mode.charAt(0).toUpperCase() + mode.slice(1));
       label.append(input, text);
@@ -2310,7 +2437,8 @@ function render() {
   updateModeButtons();
   renderStats();
   renderSelectionSummary();
-  renderManageList();
+  renderSetupPanel();
+  renderManageListIfNeeded();
   renderOrderStatus();
 
   if (!state.vocab.length) {
@@ -2390,6 +2518,7 @@ function handleResetProgress() {
   state.progress = createEmptyProgress();
   state.progress.quizType = keptQuizType;
   resetRoundState();
+  markManageListDirty();
   saveProgress();
   elements.statusText.textContent = "Progress reset. Vocabulary and card setup kept.";
   render();
@@ -2442,6 +2571,15 @@ function resetCurrentModeOrder() {
   render();
 }
 
+function handleManageListChange(event) {
+  const input = event.target.closest('input[data-card-id][data-card-mode]');
+  if (!input || !elements.manageList.contains(input)) return;
+  const mode = input.dataset.cardMode;
+  const id = input.dataset.cardId;
+  if (!MODES.includes(mode)) return;
+  updateCardMode(id, mode, input.checked);
+}
+
 function handleRangeButtonClick(event) {
   const button = event.currentTarget;
   const mode = button.dataset.rangeMode;
@@ -2473,6 +2611,8 @@ function bindEvents() {
   elements.saveVocabBtn.addEventListener("click", handleSaveVocabulary);
 
   elements.loadPlaceholderBtn.addEventListener("click", restoreBuiltInVocabulary);
+  if (elements.setupToggleBtn) elements.setupToggleBtn.addEventListener("click", toggleSetupPanel);
+  if (elements.manageList) elements.manageList.addEventListener("change", handleManageListChange);
 
   elements.resetProgressBtn.addEventListener("click", handleResetProgress);
   elements.exportProgressBtn.addEventListener("click", handleExportProgress);
@@ -2483,7 +2623,8 @@ function bindEvents() {
 
   elements.filterInput.addEventListener("input", (event) => {
     state.filterText = event.target.value || "";
-    renderManageList();
+    markManageListDirty();
+    renderManageListIfNeeded(true);
   });
 
   elements.modeButtons.forEach((button) => {

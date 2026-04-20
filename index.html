@@ -140,12 +140,16 @@ hanzi,pinyin,translation
     </section>
 
     <section class="panel setup-panel">
-      <div class="panel-header">
+      <div class="panel-header setup-panel-header">
         <h2>Card setup</h2>
-        <span id="selectionSummary" class="badge">Learn 0 · Practice 0 · Test 0</span>
+        <div class="setup-header-actions">
+          <span id="selectionSummary" class="badge">Learn 0 · Practice 0 · Test 0</span>
+          <button id="setupToggleBtn" class="ghost setup-toggle" type="button" aria-expanded="false">Show setup</button>
+        </div>
       </div>
 
-      <div class="range-tools">
+      <div id="setupBody" class="setup-body hidden">
+        <div class="range-tools">
         <p class="hint">Use original card indexes. Example: <code>1-20, 28, 30-35</code></p>
 
         <div class="range-row">
@@ -182,10 +186,11 @@ hanzi,pinyin,translation
         </div>
       </div>
 
-      <label for="filterInput" class="label">Filter cards</label>
-      <input id="filterInput" type="text" placeholder="Filter by index, hanzi, pinyin or translation" />
+        <label for="filterInput" class="label">Filter cards</label>
+        <input id="filterInput" type="text" placeholder="Filter by index, hanzi, pinyin or translation" />
 
-      <div id="manageList" class="manage-list"></div>
+        <div id="manageList" class="manage-list"></div>
+      </div>
     </section>
 
     <section class="panel card-panel">

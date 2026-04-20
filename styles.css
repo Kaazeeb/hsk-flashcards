@@ -77,6 +77,19 @@ code {
   font-size: 18px;
 }
 
+.setup-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.setup-toggle {
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
 .label,
 .label-inline {
   display: block;
@@ -483,6 +496,14 @@ button:disabled {
 
   .panel {
     padding: 14px;
+  }
+
+  .setup-panel-header {
+    align-items: flex-start;
+  }
+
+  .setup-header-actions {
+    justify-content: flex-start;
   }
 
   .stats-grid-6 {
