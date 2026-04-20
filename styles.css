@@ -434,6 +434,11 @@ button:disabled {
   border-color: var(--line);
 }
 
+.answer-area .answer-btn.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.12);
+}
+
 .answer-area .answer-btn.correct {
   border-color: var(--text);
   font-weight: 600;

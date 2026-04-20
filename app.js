@@ -11,6 +11,16 @@ const PRACTICE_QUIZ_TYPES = ["translation", "pinyin", "smart"];
 const TEST_QUIZ_TYPES = ["translation", "pinyin"];
 const QUIZ_TYPES = [...new Set([...PRACTICE_QUIZ_TYPES, ...TEST_QUIZ_TYPES])];
 
+const SMART_BOX_INTERVAL_FACTORS = [0.03, 0.12, 0.4, 1.2, 3, 8];
+const SMART_MAX_BOX = SMART_BOX_INTERVAL_FACTORS.length - 1;
+const SMART_ERROR_DEBT_PER_WRONG = 3;
+const SMART_ERROR_DEBT_DECAY_PER_CORRECT = 1;
+const SMART_ERROR_DEBT_WEIGHT = 15;
+const SMART_TOTAL_WRONG_WEIGHT = 3;
+const SMART_NO_CORRECT_BONUS = 30;
+const SMART_CORRECT_STREAK_PENALTY = 8;
+const SMART_OVERDUE_WEIGHT_CAP = 8;
+
 const PINYIN_SYLLABLES = [
   "a", "ai", "an", "ang", "ao",
   "ba", "bai", "ban", "bang", "bao", "bei", "ben", "beng", "bi", "bian", "biao", "bie", "bin", "bing", "bo", "bu",
@@ -126,7 +136,8 @@ function createEmptyRound() {
     smartCardId: "",
     smartStage: "pinyin",
     smartPinyinCorrect: null,
-    smartTranslationCorrect: null
+    smartTranslationCorrect: null,
+    keyboardChoiceIndex: -1
   };
 }
 
@@ -241,11 +252,30 @@ function normalizeSmartBucket(bucket) {
       shown = correct + wrong;
     }
 
+    const legacyRepetitions = Math.max(0, Math.floor(Number(entry.repetitions) || 0));
+    const importedBox = Number(entry.box);
+    const box = Number.isFinite(importedBox)
+      ? Math.min(SMART_MAX_BOX, Math.max(0, Math.floor(importedBox)))
+      : Math.min(SMART_MAX_BOX, legacyRepetitions);
+
+    const importedErrorDebt = Number(entry.errorDebt);
+    const errorDebt = Number.isFinite(importedErrorDebt)
+      ? Math.max(0, Math.floor(importedErrorDebt))
+      : Math.min(60, wrong * SMART_ERROR_DEBT_PER_WRONG);
+
+    const importedCorrectStreak = Number(entry.correctStreak);
+    const correctStreak = Number.isFinite(importedCorrectStreak)
+      ? Math.max(0, Math.floor(importedCorrectStreak))
+      : (wrong === 0 ? correct : 0);
+
     output[id] = {
       shown: Math.max(0, Math.floor(shown)),
       correct,
       wrong,
-      repetitions: Math.max(0, Math.floor(Number(entry.repetitions) || 0)),
+      box,
+      errorDebt,
+      correctStreak,
+      repetitions: legacyRepetitions,
       interval: Math.max(0, Math.floor(Number(entry.interval) || 0)),
       ef: Math.max(1.3, Number(entry.ef) || 2.5),
       dueStep: Math.max(0, Math.floor(Number(entry.dueStep) || 0))
@@ -666,6 +696,9 @@ function createSmartEntry() {
     shown: 0,
     correct: 0,
     wrong: 0,
+    box: 0,
+    errorDebt: 0,
+    correctStreak: 0,
     repetitions: 0,
     interval: 0,
     ef: 2.5,
@@ -680,11 +713,33 @@ function getSmartEntry(cardOrId) {
     return createSmartEntry();
   }
 
+  const legacyRepetitions = Math.max(0, Math.floor(Number(stored.repetitions) || 0));
+  const importedBox = Number(stored.box);
+  const wrong = Math.max(0, Number(stored.wrong) || 0);
+  const correct = Math.max(0, Number(stored.correct) || 0);
+
+  const box = Number.isFinite(importedBox)
+    ? clampSmartBox(importedBox)
+    : Math.min(SMART_MAX_BOX, legacyRepetitions);
+
+  const importedErrorDebt = Number(stored.errorDebt);
+  const errorDebt = Number.isFinite(importedErrorDebt)
+    ? Math.max(0, Math.floor(importedErrorDebt))
+    : Math.min(60, wrong * SMART_ERROR_DEBT_PER_WRONG);
+
+  const importedCorrectStreak = Number(stored.correctStreak);
+  const correctStreak = Number.isFinite(importedCorrectStreak)
+    ? Math.max(0, Math.floor(importedCorrectStreak))
+    : (wrong === 0 ? correct : 0);
+
   return {
     shown: Math.max(0, Number(stored.shown) || 0),
-    correct: Math.max(0, Number(stored.correct) || 0),
-    wrong: Math.max(0, Number(stored.wrong) || 0),
-    repetitions: Math.max(0, Math.floor(Number(stored.repetitions) || 0)),
+    correct,
+    wrong,
+    box,
+    errorDebt,
+    correctStreak,
+    repetitions: legacyRepetitions,
     interval: Math.max(0, Math.floor(Number(stored.interval) || 0)),
     ef: Math.max(1.3, Number(stored.ef) || 2.5),
     dueStep: Math.max(0, Math.floor(Number(stored.dueStep) || 0))
@@ -757,7 +812,7 @@ function getPracticeCardStats(card) {
     return {
       translation: { shown: 0, correct: 0, wrong: 0 },
       pinyin: { shown: 0, correct: 0, wrong: 0 },
-      smart: { shown: 0, correct: 0, wrong: 0, repetitions: 0, interval: 0, ef: 2.5, dueStep: 0 }
+      smart: { shown: 0, correct: 0, wrong: 0, box: 0, errorDebt: 0, correctStreak: 0, repetitions: 0, interval: 0, ef: 2.5, dueStep: 0 }
     };
   }
 
@@ -943,27 +998,40 @@ function prevCard(options = {}) {
   moveInOrderedMode(-1, options);
 }
 
-function applySM2Result(entry, correct, stepAfterReview) {
+function clampSmartBox(box) {
+  return Math.min(SMART_MAX_BOX, Math.max(0, Math.floor(Number(box) || 0)));
+}
+
+function getSmartActiveCount() {
+  return Math.max(1, getModeCards("practice").length);
+}
+
+function getSmartCorrectInterval(box, activeCount) {
+  const factor = SMART_BOX_INTERVAL_FACTORS[clampSmartBox(box)] || SMART_BOX_INTERVAL_FACTORS[0];
+  return Math.max(2, Math.round(Math.max(1, activeCount) * factor));
+}
+
+function getSmartWrongInterval(activeCount) {
+  return Math.max(2, Math.round(Math.max(1, activeCount) * 0.01));
+}
+
+function applySmartReviewResult(entry, correct, stepAfterReview, activeCount) {
   const updated = { ...entry };
-  const q = correct ? 5 : 2;
+  const currentBox = clampSmartBox(updated.box);
+  const currentDebt = Math.max(0, Math.floor(Number(updated.errorDebt) || 0));
 
-  updated.ef = Math.max(
-    1.3,
-    updated.ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
-  );
-
-  if (q < 3) {
-    updated.repetitions = 0;
-    updated.interval = 1;
-  } else if (updated.repetitions === 0) {
-    updated.repetitions = 1;
-    updated.interval = 1;
-  } else if (updated.repetitions === 1) {
-    updated.repetitions = 2;
-    updated.interval = 6;
+  if (correct) {
+    updated.correctStreak = Math.max(0, Math.floor(Number(updated.correctStreak) || 0)) + 1;
+    updated.errorDebt = Math.max(0, currentDebt - SMART_ERROR_DEBT_DECAY_PER_CORRECT);
+    updated.box = clampSmartBox(currentBox + 1);
+    updated.repetitions = Math.max(0, Math.floor(Number(updated.repetitions) || 0)) + 1;
+    updated.interval = getSmartCorrectInterval(updated.box, activeCount);
   } else {
-    updated.repetitions += 1;
-    updated.interval = Math.max(1, Math.round(updated.interval * updated.ef));
+    updated.correctStreak = 0;
+    updated.errorDebt = currentDebt + SMART_ERROR_DEBT_PER_WRONG;
+    updated.box = clampSmartBox(currentBox - 2);
+    updated.repetitions = 0;
+    updated.interval = getSmartWrongInterval(activeCount);
   }
 
   updated.dueStep = stepAfterReview + updated.interval;
@@ -979,7 +1047,7 @@ function recordSmartPracticeOutcome(card, correct) {
   current[correct ? "correct" : "wrong"] += 1;
 
   const nextStep = (state.progress.practice.smartStep || 0) + 1;
-  const updated = applySM2Result(current, correct, nextStep);
+  const updated = applySmartReviewResult(current, correct, nextStep, getSmartActiveCount());
 
   bucket[id] = updated;
   state.progress.practice.smartStep = nextStep;
@@ -1001,20 +1069,39 @@ function weightedPick(items, weightFn) {
   return weighted[weighted.length - 1]?.item || null;
 }
 
+function getSmartCardWeight(card, step, activeCount) {
+  const entry = getSmartEntry(card);
+  const overdue = Math.max(0, step - entry.dueStep);
+  const scale = Math.max(10, activeCount * 0.05);
+  const overdueWeight = Math.min(
+    SMART_OVERDUE_WEIGHT_CAP,
+    Math.log2(1 + overdue / scale)
+  );
+
+  const noCorrectBonus = entry.correct === 0 ? SMART_NO_CORRECT_BONUS : 0;
+  const errorDebtWeight = (entry.errorDebt || 0) * SMART_ERROR_DEBT_WEIGHT;
+  const wrongWeight = (entry.wrong || 0) * SMART_TOTAL_WRONG_WEIGHT;
+  const successPenalty = (entry.correctStreak || 0) * SMART_CORRECT_STREAK_PENALTY;
+
+  return Math.max(
+    0.1,
+    1 + noCorrectBonus + errorDebtWeight + wrongWeight + overdueWeight - successPenalty
+  );
+}
+
 function pickNextSmartCard() {
   const cards = getModeCards("practice");
   if (!cards.length) return null;
 
   const step = state.progress.practice.smartStep || 0;
+  const activeCount = Math.max(1, cards.length);
   const lastId = state.progress.practice.smartLastId || "";
   let candidates = cards.filter((card) => getSmartEntry(card).dueStep <= step);
-  let pickSoonest = false;
 
   if (!candidates.length) {
     const sorted = [...cards].sort((a, b) => getSmartEntry(a).dueStep - getSmartEntry(b).dueStep);
     const minDue = getSmartEntry(sorted[0]).dueStep;
     candidates = sorted.filter((card) => getSmartEntry(card).dueStep === minDue);
-    pickSoonest = true;
   }
 
   if (candidates.length > 1 && lastId) {
@@ -1022,15 +1109,11 @@ function pickNextSmartCard() {
     if (filtered.length) candidates = filtered;
   }
 
-  if (candidates.length <= 1 || pickSoonest) {
+  if (candidates.length <= 1) {
     return candidates[0] || null;
   }
 
-  return weightedPick(candidates, (card) => {
-    const entry = getSmartEntry(card);
-    const overdue = Math.max(0, step - entry.dueStep);
-    return 1 + overdue + entry.wrong;
-  });
+  return weightedPick(candidates, (card) => getSmartCardWeight(card, step, activeCount));
 }
 
 function nextSmartCard({ countAppearance = true } = {}) {
@@ -1419,6 +1502,103 @@ function handlePinyinKeyboard(event) {
   submitPinyinFormFromKeyboard(answerForm);
 }
 
+function isTranslationKeyboardActive() {
+  if (state.mode === "learn") return false;
+  const quizType = getQuizType();
+  if (quizType === "translation") return true;
+  return isSmartPracticeActive() && ["translation", "completed"].includes(state.round.smartStage);
+}
+
+function selectTranslationOption(index) {
+  const options = Array.isArray(state.round.options) ? state.round.options : [];
+  if (!options.length) return;
+
+  const nextIndex = Math.max(0, Math.min(options.length - 1, index));
+  if (state.round.keyboardChoiceIndex === nextIndex) return;
+
+  state.round.keyboardChoiceIndex = nextIndex;
+  render();
+}
+
+function moveTranslationSelection(direction) {
+  const options = Array.isArray(state.round.options) ? state.round.options : [];
+  if (!options.length) return;
+
+  const current = Number.isInteger(state.round.keyboardChoiceIndex) && state.round.keyboardChoiceIndex >= 0
+    ? state.round.keyboardChoiceIndex
+    : (direction > 0 ? -1 : 0);
+  const nextIndex = (current + direction + options.length) % options.length;
+  selectTranslationOption(nextIndex);
+}
+
+function submitSelectedTranslationOption() {
+  const options = Array.isArray(state.round.options) ? state.round.options : [];
+  const index = state.round.keyboardChoiceIndex;
+  if (!Number.isInteger(index) || index < 0 || index >= options.length) return false;
+
+  if (isSmartPracticeActive() && state.round.smartStage === "translation") {
+    answerSmartTranslation(options[index]);
+    return true;
+  }
+
+  if (getQuizType() === "translation" && !state.round.answered) {
+    answerTranslation(options[index]);
+    return true;
+  }
+
+  return false;
+}
+
+function handleTranslationKeyboard(event) {
+  if (!isTranslationKeyboardActive()) return;
+  if (!getCurrentCard()) return;
+  if (isEditableField(event.target)) return;
+
+  const isSmart = isSmartPracticeActive();
+  const completed = isSmart ? state.round.smartStage === "completed" : state.round.answered;
+
+  if (completed) {
+    if (event.key === "Enter" || event.key === "ArrowRight") {
+      event.preventDefault();
+      nextCard();
+    }
+    return;
+  }
+
+  const options = Array.isArray(state.round.options) ? state.round.options : [];
+  if (!options.length) return;
+
+  const key = String(event.key || "").toLowerCase();
+  const letterIndex = ["a", "b", "c", "d"].indexOf(key);
+  const numberIndex = ["1", "2", "3", "4"].indexOf(key);
+
+  if (letterIndex >= 0 || numberIndex >= 0) {
+    const index = letterIndex >= 0 ? letterIndex : numberIndex;
+    if (index < options.length) {
+      event.preventDefault();
+      selectTranslationOption(index);
+    }
+    return;
+  }
+
+  if (["ArrowDown", "ArrowRight"].includes(event.key)) {
+    event.preventDefault();
+    moveTranslationSelection(1);
+    return;
+  }
+
+  if (["ArrowUp", "ArrowLeft"].includes(event.key)) {
+    event.preventDefault();
+    moveTranslationSelection(-1);
+    return;
+  }
+
+  if (event.key === "Enter") {
+    event.preventDefault();
+    submitSelectedTranslationOption();
+  }
+}
+
 function clearCard(message = "Waiting for vocabulary", detail = "Built-in HSK 1 loads automatically on first open.") {
   elements.cardPrompt.textContent = message;
   elements.cardHanzi.textContent = "—";
@@ -1515,13 +1695,18 @@ function renderTranslationQuiz(card, queueIndex, total) {
   }
 
   updateResult(
-    state.round.answered ? state.round.resultText : "Pick one option.",
+    state.round.answered ? state.round.resultText : "Pick one option. Keyboard: A-D / arrows, Enter to answer.",
     state.round.answered ? state.round.resultClass : ""
   );
 
   elements.answerArea.innerHTML = "";
-  state.round.options.forEach((option) => {
-    const optionButton = createButton(option.label, () => answerTranslation(option), "answer-btn");
+  state.round.options.forEach((option, index) => {
+    const keyLabel = ["A", "B", "C", "D"][index] || String(index + 1);
+    const optionButton = createButton(`${keyLabel}. ${option.label}`, () => answerTranslation(option), "answer-btn");
+
+    if (!state.round.answered && state.round.keyboardChoiceIndex === index) {
+      optionButton.classList.add("selected");
+    }
 
     if (state.round.answered) {
       if (option.correct) optionButton.classList.add("correct");
@@ -1711,6 +1896,7 @@ function acceptPendingSmartPinyinWrong() {
   state.round.pendingWrong = false;
   state.round.smartPinyinCorrect = false;
   state.round.smartStage = "translation";
+  state.round.keyboardChoiceIndex = -1;
   state.round.options = buildTranslationOptionsForCard(card, "practice");
   state.round.resultText = `Wrong pinyin. Correct pinyin: ${reviewAnswer}${reviewSuffix}. Now choose the translation.`;
   state.round.resultClass = "bad";
@@ -1744,6 +1930,7 @@ function submitSmartPinyinAnswer(event) {
 
   state.round.smartPinyinCorrect = true;
   state.round.smartStage = "translation";
+  state.round.keyboardChoiceIndex = -1;
   state.round.options = buildTranslationOptionsForCard(card, "practice");
   state.round.resultText = "Pinyin correct. Now choose the translation.";
   state.round.resultClass = "ok";
@@ -1852,13 +2039,18 @@ function renderSmartPractice(card, total) {
   updateResult(
     state.round.smartStage === "completed"
       ? state.round.resultText
-      : state.round.resultText || "Step 2 of 2. Choose the English translation.",
+      : state.round.resultText || "Step 2 of 2. Choose the English translation. Keyboard: A-D / arrows, Enter to answer.",
     state.round.smartStage === "completed" ? state.round.resultClass : ""
   );
 
   elements.answerArea.innerHTML = "";
-  state.round.options.forEach((option) => {
-    const optionButton = createButton(option.label, () => answerSmartTranslation(option), "answer-btn");
+  state.round.options.forEach((option, index) => {
+    const keyLabel = ["A", "B", "C", "D"][index] || String(index + 1);
+    const optionButton = createButton(`${keyLabel}. ${option.label}`, () => answerSmartTranslation(option), "answer-btn");
+
+    if (state.round.smartStage === "translation" && state.round.keyboardChoiceIndex === index) {
+      optionButton.classList.add("selected");
+    }
 
     if (state.round.smartStage === "completed") {
       if (option.correct) optionButton.classList.add("correct");
@@ -1885,7 +2077,7 @@ function renderOrderStatus() {
   const quizType = getQuizType();
 
   if (isSmartPracticeActive()) {
-    elements.orderStatus.textContent = `${modeLabel} · smart: adaptive SM-2 order · ${total} active cards.`;
+    elements.orderStatus.textContent = `${modeLabel} · smart: adaptive error-weighted order · ${total} active cards.`;
     elements.shuffleBtn.disabled = true;
     elements.resetOrderBtn.disabled = true;
     return;
@@ -2307,6 +2499,7 @@ function bindEvents() {
   });
 
   window.addEventListener("keydown", handlePinyinKeyboard);
+  window.addEventListener("keydown", handleTranslationKeyboard);
 }
 
 loadFromStorage();
