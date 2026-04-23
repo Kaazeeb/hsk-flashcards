@@ -381,6 +381,13 @@ button:disabled {
   margin: 0;
 }
 
+.card-panel,
+.card,
+.answer-area {
+  scroll-margin-top: 12px;
+  scroll-margin-bottom: 18px;
+}
+
 .card-top {
   display: flex;
   align-items: center;
@@ -576,6 +583,19 @@ button:disabled {
 
   .controls button {
     width: 100%;
+  }
+
+  .answer-area {
+    margin-top: 10px;
+  }
+
+  .answer-area .answer-btn {
+    padding: 9px 10px;
+    line-height: 1.25;
+  }
+
+  .result {
+    margin-top: 10px;
   }
 }
 

@@ -1532,6 +1532,56 @@ function getPinyinInputPlaceholder() {
     : "ni3hao3 · v=ü · neutral 5 optional";
 }
 
+function blurActiveEditableField() {
+  if (typeof document === "undefined") return;
+  const active = document.activeElement;
+  if (active && isEditableField(active) && typeof active.blur === "function") {
+    active.blur();
+  }
+}
+
+function keepElementComfortablyVisible(element) {
+  if (!element || typeof element.getBoundingClientRect !== "function" || typeof window === "undefined") return;
+
+  const rect = element.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  if (!viewportHeight) return;
+
+  const topPadding = 12;
+  const bottomPadding = 18;
+
+  if (rect.bottom > viewportHeight - bottomPadding) {
+    const delta = rect.bottom - viewportHeight + bottomPadding;
+    window.scrollBy({ top: delta, behavior: "smooth" });
+    return;
+  }
+
+  if (rect.top < topPadding) {
+    const delta = rect.top - topPadding;
+    window.scrollBy({ top: delta, behavior: "smooth" });
+  }
+}
+
+function scheduleKeepAnswerAreaVisible() {
+  if (typeof window === "undefined") return;
+
+  const run = () => {
+    const target = elements.answerArea || elements.flashcard;
+    keepElementComfortablyVisible(target);
+  };
+
+  if (typeof window.requestAnimationFrame === "function") {
+    window.requestAnimationFrame(run);
+  } else {
+    setTimeout(run, 0);
+  }
+
+  // Mobile browsers may update viewport height after the keyboard closes.
+  // A second pass keeps the MCQ options visible after that resize settles.
+  setTimeout(run, 120);
+  setTimeout(run, 260);
+}
+
 function submitPinyinFormFromKeyboard(answerForm) {
   if (!answerForm) return;
   const event = {
@@ -2023,7 +2073,9 @@ function acceptPendingSmartPinyinWrong() {
   state.round.options = buildTranslationOptionsForCard(card, "practice");
   state.round.resultText = `Wrong pinyin. Correct pinyin: ${reviewAnswer}${reviewSuffix}. Now choose the translation.`;
   state.round.resultClass = "bad";
+  blurActiveEditableField();
   render();
+  scheduleKeepAnswerAreaVisible();
 }
 
 function submitSmartPinyinAnswer(event) {
@@ -2057,7 +2109,9 @@ function submitSmartPinyinAnswer(event) {
   state.round.options = buildTranslationOptionsForCard(card, "practice");
   state.round.resultText = "Pinyin correct. Now choose the translation.";
   state.round.resultClass = "ok";
+  blurActiveEditableField();
   render();
+  scheduleKeepAnswerAreaVisible();
 }
 
 function answerSmartTranslation(option) {
