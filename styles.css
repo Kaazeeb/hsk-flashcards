@@ -39,6 +39,7 @@ code {
 .app {
   width: min(920px, calc(100% - 32px));
   margin: 32px auto 48px;
+  padding-bottom: clamp(96px, 18vh, 180px);
 }
 
 .hero {
@@ -384,8 +385,8 @@ button:disabled {
 .card-panel,
 .card,
 .answer-area {
-  scroll-margin-top: 12px;
-  scroll-margin-bottom: 18px;
+  scroll-margin-top: 8vh;
+  scroll-margin-bottom: 12vh;
 }
 
 .card-top {

@@ -68,6 +68,7 @@ const state = {
   filterText: "",
   setupCollapsed: true,
   manageListDirty: true,
+  studyFocusActive: true,
   round: createEmptyRound()
 };
 
@@ -102,8 +103,10 @@ const elements = {
   cardHanzi: document.getElementById("cardHanzi"),
   cardPinyin: document.getElementById("cardPinyin"),
   cardTranslation: document.getElementById("cardTranslation"),
+  flashcard: document.getElementById("flashcard"),
   resultText: document.getElementById("resultText"),
   answerArea: document.getElementById("answerArea"),
+  cardPanel: document.querySelector(".card-panel"),
   controls: document.getElementById("controls"),
   statTotal: document.getElementById("statTotal"),
   statSeen: document.getElementById("statSeen"),
@@ -1095,6 +1098,7 @@ function moveInOrderedMode(step, { countAppearance = true } = {}) {
   resetRoundState();
   saveProgress();
   render();
+  scheduleStudyAreaFocus({ preferAnswer: true });
 }
 
 function nextCard(options = {}) {
@@ -1236,6 +1240,7 @@ function nextSmartCard({ countAppearance = true } = {}) {
   resetRoundState();
   saveProgress();
   render();
+  scheduleStudyAreaFocus({ preferAnswer: true });
 }
 
 function renderCurrentCardStats(card) {
@@ -1540,35 +1545,74 @@ function blurActiveEditableField() {
   }
 }
 
-function keepElementComfortablyVisible(element) {
-  if (!element || typeof element.getBoundingClientRect !== "function" || typeof window === "undefined") return;
+function isMobileViewport() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(max-width: 760px)").matches;
+}
 
-  const rect = element.getBoundingClientRect();
+function getStudyPanelElement() {
+  return elements.cardPanel || elements.flashcard || elements.answerArea;
+}
+
+function handleStudyFocusPointer(event) {
+  const panel = getStudyPanelElement();
+  if (!panel || !event.target) return;
+
+  // Keep automatic study scrolling only while the user is interacting with the
+  // card panel. Clicking/tapping setup, import, or progress disables it until
+  // the user returns to the card area.
+  state.studyFocusActive = panel.contains(event.target);
+}
+
+function keepStudyAreaInView({ preferAnswer = true } = {}) {
+  if (!state.studyFocusActive || typeof window === "undefined") return;
+
+  const panel = getStudyPanelElement();
+  if (!panel || typeof panel.getBoundingClientRect !== "function") return;
+
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
   if (!viewportHeight) return;
 
-  const topPadding = 12;
-  const bottomPadding = 18;
+  const mobile = isMobileViewport();
+  const topPadding = mobile ? 8 : 18;
+  const bottomPadding = mobile ? 14 : 24;
+  const usableHeight = Math.max(160, viewportHeight - topPadding - bottomPadding);
+  const panelRect = panel.getBoundingClientRect();
 
-  if (rect.bottom > viewportHeight - bottomPadding) {
-    const delta = rect.bottom - viewportHeight + bottomPadding;
-    window.scrollBy({ top: delta, behavior: "smooth" });
-    return;
+  // Keep the study panel partially centered. If the panel is taller than the
+  // viewport, anchor its top instead of trying to center an oversized block.
+  const desiredTop = panelRect.height <= usableHeight
+    ? topPadding + Math.max(0, (usableHeight - panelRect.height) * 0.38)
+    : topPadding;
+  const deltaToPanel = panelRect.top - desiredTop;
+
+  if (Math.abs(deltaToPanel) > 6) {
+    window.scrollBy({ top: deltaToPanel, behavior: "auto" });
   }
 
-  if (rect.top < topPadding) {
-    const delta = rect.top - topPadding;
-    window.scrollBy({ top: delta, behavior: "smooth" });
+  if (!preferAnswer) return;
+
+  const interactiveTarget = elements.answerArea && elements.answerArea.children.length
+    ? elements.answerArea
+    : elements.controls;
+  if (!interactiveTarget || typeof interactiveTarget.getBoundingClientRect !== "function") return;
+
+  const targetRect = interactiveTarget.getBoundingClientRect();
+  const lowerLimit = viewportHeight - bottomPadding;
+
+  // After centering, nudge just enough to keep the actual interaction area
+  // visible. This handles Smart pinyin -> MCQ and Enter-driven navigation.
+  if (targetRect.bottom > lowerLimit) {
+    window.scrollBy({ top: targetRect.bottom - lowerLimit, behavior: "auto" });
+  } else if (targetRect.top < topPadding) {
+    window.scrollBy({ top: targetRect.top - topPadding, behavior: "auto" });
   }
 }
 
-function scheduleKeepAnswerAreaVisible() {
-  if (typeof window === "undefined") return;
+function scheduleStudyAreaFocus({ afterKeyboard = false, preferAnswer = true } = {}) {
+  if (typeof window === "undefined" || !state.studyFocusActive) return;
 
-  const run = () => {
-    const target = elements.answerArea || elements.flashcard;
-    keepElementComfortablyVisible(target);
-  };
+  const run = () => keepStudyAreaInView({ preferAnswer });
 
   if (typeof window.requestAnimationFrame === "function") {
     window.requestAnimationFrame(run);
@@ -1576,10 +1620,12 @@ function scheduleKeepAnswerAreaVisible() {
     setTimeout(run, 0);
   }
 
-  // Mobile browsers may update viewport height after the keyboard closes.
-  // A second pass keeps the MCQ options visible after that resize settles.
-  setTimeout(run, 120);
-  setTimeout(run, 260);
+  // Mobile browsers may update viewport height after the virtual keyboard closes.
+  // Run a couple of extra passes, but use instant scroll to avoid animation races.
+  if (afterKeyboard || isMobileViewport()) {
+    setTimeout(run, 120);
+    setTimeout(run, 280);
+  }
 }
 
 function submitPinyinFormFromKeyboard(answerForm) {
@@ -1605,6 +1651,7 @@ function handlePinyinKeyboard(event) {
   const answerForm = target && typeof target.closest === "function" ? target.closest(".answer-form") : null;
   if (isEditableField(target) && !answerForm) return;
 
+  state.studyFocusActive = true;
   const inSmartPinyin = isSmartPracticeActive() && state.round.smartStage === "pinyin";
 
   if (event.key === "Enter") {
@@ -1726,6 +1773,7 @@ function handleTranslationKeyboard(event) {
   if (!getCurrentCard()) return;
   if (isEditableField(event.target)) return;
 
+  state.studyFocusActive = true;
   const isSmart = isSmartPracticeActive();
   const completed = isSmart ? state.round.smartStage === "completed" : state.round.answered;
 
@@ -1850,6 +1898,7 @@ function answerTranslation(option) {
 
   recordQuizResult(state.mode, "translation", correct ? "correct" : "wrong");
   render();
+  scheduleStudyAreaFocus({ preferAnswer: true });
 }
 
 function renderTranslationQuiz(card, queueIndex, total) {
@@ -1924,6 +1973,7 @@ function acceptPendingPinyinWrong() {
 
   recordQuizResult("practice", "pinyin", "wrong");
   render();
+  scheduleStudyAreaFocus({ preferAnswer: true });
 }
 
 function submitPinyinAnswer(event) {
@@ -1950,6 +2000,7 @@ function submitPinyinAnswer(event) {
       : "Not counted yet. Missing tone numbers are only allowed on neutral-tone syllables. Retry without penalty, or press Enter / → to count it wrong and reveal the answer.";
     state.round.resultClass = "bad";
     render();
+    scheduleStudyAreaFocus({ preferAnswer: true });
     return;
   }
 
@@ -1967,6 +2018,7 @@ function submitPinyinAnswer(event) {
 
   recordQuizResult(state.mode, "pinyin", check.correct ? "correct" : "wrong");
   render();
+  scheduleStudyAreaFocus({ preferAnswer: true });
 }
 
 function renderPinyinQuiz(card, queueIndex, total) {
@@ -2075,7 +2127,7 @@ function acceptPendingSmartPinyinWrong() {
   state.round.resultClass = "bad";
   blurActiveEditableField();
   render();
-  scheduleKeepAnswerAreaVisible();
+  scheduleStudyAreaFocus({ afterKeyboard: true, preferAnswer: true });
 }
 
 function submitSmartPinyinAnswer(event) {
@@ -2100,6 +2152,7 @@ function submitSmartPinyinAnswer(event) {
       : "Not counted yet. Missing tone numbers are only allowed on neutral-tone syllables. Retry without penalty, or press Enter / → to count it wrong and reveal the answer before step 2.";
     state.round.resultClass = "bad";
     render();
+    scheduleStudyAreaFocus({ preferAnswer: true });
     return;
   }
 
@@ -2111,7 +2164,7 @@ function submitSmartPinyinAnswer(event) {
   state.round.resultClass = "ok";
   blurActiveEditableField();
   render();
-  scheduleKeepAnswerAreaVisible();
+  scheduleStudyAreaFocus({ afterKeyboard: true, preferAnswer: true });
 }
 
 function answerSmartTranslation(option) {
@@ -2135,6 +2188,7 @@ function answerSmartTranslation(option) {
 
   recordSmartPracticeOutcome(card, overallCorrect);
   render();
+  scheduleStudyAreaFocus({ preferAnswer: true });
 }
 
 function renderSmartPractice(card, total) {
@@ -2693,6 +2747,7 @@ function bindEvents() {
     button.addEventListener("click", handleRangeButtonClick);
   });
 
+  window.addEventListener("pointerdown", handleStudyFocusPointer, { passive: true });
   window.addEventListener("keydown", handlePinyinKeyboard);
   window.addEventListener("keydown", handleTranslationKeyboard);
 }
