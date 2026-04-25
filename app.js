@@ -9,8 +9,17 @@ const BUILTIN_CARDS = Array.isArray(window.HSK1_BUILTIN_CARDS) ? window.HSK1_BUI
 
 const FSRS_API = typeof window !== "undefined" && window.FSRS ? window.FSRS : null;
 const SMART_FSRS = FSRS_API && typeof FSRS_API.fsrs === "function" ? FSRS_API.fsrs({ enable_fuzz: true }) : null;
-const FSRS_RATING_GOOD = FSRS_API?.Rating?.Good ?? 3;
 const FSRS_RATING_AGAIN = FSRS_API?.Rating?.Again ?? 1;
+const FSRS_RATING_HARD = FSRS_API?.Rating?.Hard ?? 2;
+const FSRS_RATING_GOOD = FSRS_API?.Rating?.Good ?? 3;
+const FSRS_RATING_EASY = FSRS_API?.Rating?.Easy ?? 4;
+const SMART_FSRS_RATINGS = [FSRS_RATING_AGAIN, FSRS_RATING_HARD, FSRS_RATING_GOOD, FSRS_RATING_EASY];
+const SMART_FSRS_RATING_LABELS = {
+  [FSRS_RATING_AGAIN]: "Again",
+  [FSRS_RATING_HARD]: "Hard",
+  [FSRS_RATING_GOOD]: "Good",
+  [FSRS_RATING_EASY]: "Easy"
+};
 
 const MODES = ["learn", "practice", "test"];
 const PRACTICE_QUIZ_TYPES = ["translation", "pinyin", "smart"];
@@ -150,6 +159,8 @@ function createEmptyRound() {
     smartStage: "pinyin",
     smartPinyinCorrect: null,
     smartTranslationCorrect: null,
+    smartOutcomeCorrect: null,
+    smartSelectedRating: FSRS_RATING_GOOD,
     keyboardChoiceIndex: -1
   };
 }
@@ -1002,15 +1013,27 @@ function getSmartReviewQueue(now = new Date()) {
     .filter((card) => isSmartCardDue(card, now))
     .sort((a, b) => compareSmartCardsByDue(a, b, now));
 }
-function recordSmartPracticeOutcome(card, correct) {
+function normalizeSmartFsrsRating(rating, fallback = FSRS_RATING_GOOD) {
+  return SMART_FSRS_RATINGS.includes(rating) ? rating : fallback;
+}
+
+function getSmartFsrsRatingLabel(rating) {
+  return SMART_FSRS_RATING_LABELS[normalizeSmartFsrsRating(rating, FSRS_RATING_GOOD)] || "Good";
+}
+
+function getDefaultSmartFsrsRating(correct) {
+  return correct ? FSRS_RATING_GOOD : FSRS_RATING_AGAIN;
+}
+
+function recordSmartPracticeOutcome(card, correct, rating = getDefaultSmartFsrsRating(correct)) {
   if (!card || !SMART_FSRS) return;
 
   const id = cardId(card);
   const bucket = state.progress.practice.smart;
   const current = getSmartEntry(id, new Date());
   const now = new Date();
-  const rating = correct ? FSRS_RATING_GOOD : FSRS_RATING_AGAIN;
-  const next = SMART_FSRS.next(current.card, now, rating);
+  const normalizedRating = normalizeSmartFsrsRating(rating, getDefaultSmartFsrsRating(correct));
+  const next = SMART_FSRS.next(current.card, now, normalizedRating);
   const roundedCard = roundFsrsCardToDueDay(next.card, now);
 
   bucket[id] = {
@@ -1783,7 +1806,7 @@ function isTranslationKeyboardActive() {
   if (state.mode === "learn") return false;
   const quizType = getQuizType();
   if (quizType === "translation") return true;
-  return isSmartPracticeActive() && ["translation", "completed"].includes(state.round.smartStage);
+  return isSmartPracticeActive() && ["translation", "feedback"].includes(state.round.smartStage);
 }
 
 function updateTranslationSelectionUI() {
@@ -1843,7 +1866,38 @@ function handleTranslationKeyboard(event) {
 
   state.studyFocusActive = true;
   const isSmart = isSmartPracticeActive();
-  const completed = isSmart ? state.round.smartStage === "completed" : state.round.answered;
+  const inSmartFeedback = isSmart && state.round.smartStage === "feedback";
+
+  if (inSmartFeedback) {
+    const key = String(event.key || "").toLowerCase();
+    const numberIndex = ["1", "2", "3", "4"].indexOf(key);
+
+    if (numberIndex >= 0) {
+      event.preventDefault();
+      setSmartFsrsRating(SMART_FSRS_RATINGS[numberIndex]);
+      return;
+    }
+
+    if (["ArrowDown", "ArrowRight"].includes(event.key)) {
+      event.preventDefault();
+      moveSmartFsrsRatingSelection(1);
+      return;
+    }
+
+    if (["ArrowUp", "ArrowLeft"].includes(event.key)) {
+      event.preventDefault();
+      moveSmartFsrsRatingSelection(-1);
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      acceptSmartFsrsFeedback();
+    }
+    return;
+  }
+
+  const completed = !isSmart && state.round.answered;
 
   if (completed) {
     if (event.key === "Enter" || event.key === "ArrowRight") {
@@ -2246,6 +2300,46 @@ function submitSmartPinyinAnswer(event) {
   scheduleStudyAreaFocus({ afterKeyboard: true, preferAnswer: true });
 }
 
+function setSmartFsrsRating(rating) {
+  const nextRating = normalizeSmartFsrsRating(rating, state.round.smartSelectedRating || FSRS_RATING_GOOD);
+  if (state.round.smartSelectedRating === nextRating) return;
+  state.round.smartSelectedRating = nextRating;
+  updateSmartFsrsRatingUI();
+}
+
+function updateSmartFsrsRatingUI() {
+  const selectedRating = normalizeSmartFsrsRating(state.round.smartSelectedRating, FSRS_RATING_GOOD);
+  const buttons = [...elements.answerArea.querySelectorAll(".answer-btn[data-smart-rating]")];
+
+  buttons.forEach((button) => {
+    const rating = Number(button.dataset.smartRating);
+    button.classList.toggle("selected", rating === selectedRating);
+  });
+}
+
+function moveSmartFsrsRatingSelection(direction) {
+  const currentRating = normalizeSmartFsrsRating(state.round.smartSelectedRating, FSRS_RATING_GOOD);
+  const currentIndex = SMART_FSRS_RATINGS.indexOf(currentRating);
+  const baseIndex = currentIndex >= 0 ? currentIndex : 2;
+  const nextIndex = (baseIndex + direction + SMART_FSRS_RATINGS.length) % SMART_FSRS_RATINGS.length;
+  setSmartFsrsRating(SMART_FSRS_RATINGS[nextIndex]);
+}
+
+function acceptSmartFsrsFeedback() {
+  if (state.round.smartStage !== "feedback") return;
+
+  const card = getCurrentCard();
+  if (!card) return;
+
+  const rating = normalizeSmartFsrsRating(
+    state.round.smartSelectedRating,
+    getDefaultSmartFsrsRating(state.round.smartOutcomeCorrect === true)
+  );
+
+  recordSmartPracticeOutcome(card, state.round.smartOutcomeCorrect === true, rating);
+  nextSmartCard({ countAppearance: true });
+}
+
 function answerSmartTranslation(option) {
   if (state.round.smartStage !== "translation") return;
 
@@ -2258,14 +2352,15 @@ function answerSmartTranslation(option) {
   state.round.selectedLabel = option.label;
   state.round.selectedCorrect = translationCorrect;
   state.round.smartTranslationCorrect = translationCorrect;
-  state.round.smartStage = "completed";
+  state.round.smartOutcomeCorrect = overallCorrect;
+  state.round.smartSelectedRating = getDefaultSmartFsrsRating(overallCorrect);
+  state.round.smartStage = "feedback";
   state.round.answered = true;
   state.round.resultText = overallCorrect
-    ? `Correct. ${card.hanzi} = ${card.translation} (${card.pinyin})`
-    : `Wrong. ${card.hanzi} = ${card.translation} (${card.pinyin})`;
+    ? `Correct. ${card.hanzi} = ${card.translation} (${card.pinyin}). Choose a rating for FSRS.`
+    : `Wrong. ${card.hanzi} = ${card.translation} (${card.pinyin}). Choose a rating for FSRS.`;
   state.round.resultClass = overallCorrect ? "ok" : "bad";
 
-  recordSmartPracticeOutcome(card, overallCorrect);
   render();
   scheduleStudyAreaFocus({ preferAnswer: true });
 }
@@ -2278,7 +2373,7 @@ function renderSmartPractice(card, dueCount, activeCount) {
 
   elements.cardHanzi.textContent = card.hanzi;
   elements.cardPinyin.textContent = state.round.smartStage === "pinyin" ? "" : reviewText;
-  elements.cardTranslation.textContent = state.round.smartStage === "completed" ? card.translation : "";
+  elements.cardTranslation.textContent = state.round.smartStage === "feedback" ? card.translation : "";
 
   if (state.round.smartStage === "pinyin") {
     elements.cardPrompt.textContent = "Smart practice · 1 of 2 · type the pinyin";
@@ -2338,48 +2433,50 @@ function renderSmartPractice(card, dueCount, activeCount) {
     return;
   }
 
-  elements.cardPrompt.textContent = state.round.smartStage === "translation"
-    ? "Smart practice · 2 of 2 · choose the translation"
-    : "Smart practice · result";
+  if (state.round.smartStage === "translation") {
+    elements.cardPrompt.textContent = "Smart practice · 2 of 2 · choose the translation";
 
-  if (!state.round.options.length) {
-    state.round.options = buildTranslationOptionsForCard(card, "practice");
+    if (!state.round.options.length) {
+      state.round.options = buildTranslationOptionsForCard(card, "practice");
+    }
+
+    updateResult(
+      state.round.resultText || "Step 2 of 2. Choose the English translation. Keyboard: A-D / arrows, Enter to answer.",
+      ""
+    );
+
+    elements.answerArea.innerHTML = "";
+    state.round.options.forEach((option, index) => {
+      const keyLabel = ["A", "B", "C", "D"][index] || String(index + 1);
+      const optionButton = createButton(`${keyLabel}. ${option.label}`, () => answerSmartTranslation(option), "answer-btn");
+      optionButton.dataset.optionIndex = String(index);
+
+      if (state.round.keyboardChoiceIndex === index) {
+        optionButton.classList.add("selected");
+      }
+
+      elements.answerArea.appendChild(optionButton);
+    });
+
+    elements.controls.innerHTML = "";
+    elements.controls.append(createButton("Skip", () => nextSmartCard({ countAppearance: true }), "secondary"));
+    return;
   }
 
-  updateResult(
-    state.round.smartStage === "completed"
-      ? state.round.resultText
-      : state.round.resultText || "Step 2 of 2. Choose the English translation. Keyboard: A-D / arrows, Enter to answer.",
-    state.round.smartStage === "completed" ? state.round.resultClass : ""
-  );
+  elements.cardPrompt.textContent = "Smart practice · rate this review · 1 Again · 2 Hard · 3 Good · 4 Easy";
+  updateResult(state.round.resultText, state.round.resultClass);
 
   elements.answerArea.innerHTML = "";
-  state.round.options.forEach((option, index) => {
-    const keyLabel = ["A", "B", "C", "D"][index] || String(index + 1);
-    const optionButton = createButton(`${keyLabel}. ${option.label}`, () => answerSmartTranslation(option), "answer-btn");
-    optionButton.dataset.optionIndex = String(index);
-
-    if (state.round.smartStage === "translation" && state.round.keyboardChoiceIndex === index) {
-      optionButton.classList.add("selected");
-    }
-
-    if (state.round.smartStage === "completed") {
-      if (option.correct) optionButton.classList.add("correct");
-      if (!option.correct && option.label === state.round.selectedLabel && !state.round.selectedCorrect) {
-        optionButton.classList.add("wrong");
-      }
-      optionButton.disabled = true;
-    }
-
+  SMART_FSRS_RATINGS.forEach((rating, index) => {
+    const optionButton = createButton(`${index + 1}. ${getSmartFsrsRatingLabel(rating)}`, () => setSmartFsrsRating(rating), "answer-btn");
+    optionButton.dataset.smartRating = String(rating);
     elements.answerArea.appendChild(optionButton);
   });
+  updateSmartFsrsRatingUI();
 
   elements.controls.innerHTML = "";
-  if (state.round.smartStage === "completed") {
-    elements.controls.append(createButton("Next", () => nextSmartCard({ countAppearance: true })));
-  } else {
-    elements.controls.append(createButton("Skip", () => nextSmartCard({ countAppearance: true }), "secondary"));
-  }
+  const acceptButton = createButton("Accept rating", acceptSmartFsrsFeedback);
+  elements.controls.append(acceptButton);
 }
 
 function renderOrderStatus() {
