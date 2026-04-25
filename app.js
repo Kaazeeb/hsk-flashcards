@@ -7,6 +7,11 @@ const STORAGE_KEYS = {
 
 const BUILTIN_CARDS = Array.isArray(window.HSK1_BUILTIN_CARDS) ? window.HSK1_BUILTIN_CARDS : [];
 
+const FSRS_API = typeof window !== "undefined" && window.FSRS ? window.FSRS : null;
+const SMART_FSRS = FSRS_API && typeof FSRS_API.fsrs === "function" ? FSRS_API.fsrs({ enable_fuzz: true }) : null;
+const FSRS_RATING_GOOD = FSRS_API?.Rating?.Good ?? 3;
+const FSRS_RATING_AGAIN = FSRS_API?.Rating?.Again ?? 1;
+
 const MODES = ["learn", "practice", "test"];
 const PRACTICE_QUIZ_TYPES = ["translation", "pinyin", "smart"];
 const TEST_QUIZ_TYPES = ["translation", "pinyin"];
@@ -245,6 +250,111 @@ function normalizeScoreBucket(bucket) {
   return output;
 }
 
+function createEmptyFsrsCard(now = new Date()) {
+  if (FSRS_API && typeof FSRS_API.createEmptyCard === "function") {
+    return FSRS_API.createEmptyCard(now);
+  }
+
+  return {
+    due: new Date(now),
+    stability: 0,
+    difficulty: 0,
+    elapsed_days: 0,
+    scheduled_days: 0,
+    learning_steps: 0,
+    reps: 0,
+    lapses: 0,
+    state: 0,
+    last_review: undefined
+  };
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function normalizeFsrsDate(value, fallback = new Date()) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  const parsed = new Date(value || fallback);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  return new Date(fallback);
+}
+
+function getStartOfLocalDay(value = new Date()) {
+  const date = normalizeFsrsDate(value);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getLocalNoon(value = new Date()) {
+  const date = getStartOfLocalDay(value);
+  date.setHours(12, 0, 0, 0);
+  return date;
+}
+
+function addLocalDays(value, days) {
+  const date = getStartOfLocalDay(value);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function getLocalDayStamp(value = new Date()) {
+  return getStartOfLocalDay(value).getTime();
+}
+
+function formatLocalDayKey(value = new Date()) {
+  const date = getStartOfLocalDay(value);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function getFuzzyRoundedDueDate(rawDue, now = new Date()) {
+  const normalizedNow = normalizeFsrsDate(now);
+  const normalizedDue = normalizeFsrsDate(rawDue, normalizedNow);
+  const exactDays = Math.max(0, (normalizedDue.getTime() - normalizedNow.getTime()) / MS_PER_DAY);
+  const lowerDays = Math.floor(exactDays);
+  const fraction = exactDays - lowerDays;
+  const roundedDays = lowerDays + (fraction > 0 && Math.random() < fraction ? 1 : 0);
+  return getLocalNoon(addLocalDays(normalizedNow, roundedDays));
+}
+
+function roundFsrsCardToDueDay(card, now = new Date()) {
+  const normalized = normalizeFsrsCard(card, now);
+  const roundedDue = getFuzzyRoundedDueDate(normalized.due, now);
+  const scheduledDays = Math.max(0, Math.round((getStartOfLocalDay(roundedDue).getTime() - getStartOfLocalDay(now).getTime()) / MS_PER_DAY));
+
+  return {
+    ...normalized,
+    due: roundedDue,
+    scheduled_days: scheduledDays
+  };
+}
+
+function hashStringToUnitInterval(value) {
+  let hash = 2166136261;
+  const input = String(value || "");
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967295;
+}
+
+function normalizeFsrsCard(card, now = new Date()) {
+  if (!card || typeof card !== "object") return createEmptyFsrsCard(now);
+
+  return {
+    due: normalizeFsrsDate(card.due, now),
+    stability: Math.max(0, Number(card.stability) || 0),
+    difficulty: Math.max(0, Number(card.difficulty) || 0),
+    elapsed_days: Math.max(0, Math.floor(Number(card.elapsed_days) || 0)),
+    scheduled_days: Math.max(0, Math.floor(Number(card.scheduled_days) || 0)),
+    learning_steps: Math.max(0, Math.floor(Number(card.learning_steps) || 0)),
+    reps: Math.max(0, Math.floor(Number(card.reps) || 0)),
+    lapses: Math.max(0, Math.floor(Number(card.lapses) || 0)),
+    state: Number.isFinite(Number(card.state)) ? Number(card.state) : 0,
+    last_review: card.last_review ? normalizeFsrsDate(card.last_review, now) : undefined
+  };
+}
+
 function normalizeSmartBucket(bucket) {
   const output = {};
   if (!bucket || typeof bucket !== "object") return output;
@@ -260,33 +370,11 @@ function normalizeSmartBucket(bucket) {
       shown = correct + wrong;
     }
 
-    const legacyRepetitions = Math.max(0, Math.floor(Number(entry.repetitions) || 0));
-    const importedBox = Number(entry.box);
-    const box = Number.isFinite(importedBox)
-      ? Math.min(SMART_MAX_BOX, Math.max(0, Math.floor(importedBox)))
-      : Math.min(SMART_MAX_BOX, legacyRepetitions);
-
-    const importedErrorDebt = Number(entry.errorDebt);
-    const errorDebt = Number.isFinite(importedErrorDebt)
-      ? Math.max(0, Math.floor(importedErrorDebt))
-      : Math.min(60, wrong * SMART_ERROR_DEBT_PER_WRONG);
-
-    const importedCorrectStreak = Number(entry.correctStreak);
-    const correctStreak = Number.isFinite(importedCorrectStreak)
-      ? Math.max(0, Math.floor(importedCorrectStreak))
-      : (wrong === 0 ? correct : 0);
-
     output[id] = {
       shown: Math.max(0, Math.floor(shown)),
       correct,
       wrong,
-      box,
-      errorDebt,
-      correctStreak,
-      repetitions: legacyRepetitions,
-      interval: Math.max(0, Math.floor(Number(entry.interval) || 0)),
-      ef: Math.max(1.3, Number(entry.ef) || 2.5),
-      dueStep: Math.max(0, Math.floor(Number(entry.dueStep) || 0))
+      card: normalizeFsrsCard(entry.card || entry.fsrsCard)
     };
   });
 
@@ -806,59 +894,149 @@ function clampIndexes() {
   });
 }
 
-function createSmartEntry() {
+function createSmartEntry(now = new Date()) {
   return {
     shown: 0,
     correct: 0,
     wrong: 0,
-    box: 0,
-    errorDebt: 0,
-    correctStreak: 0,
-    repetitions: 0,
-    interval: 0,
-    ef: 2.5,
-    dueStep: 0
+    card: createEmptyFsrsCard(now)
   };
 }
 
-function getSmartEntry(cardOrId) {
+function getSmartEntry(cardOrId, now = new Date()) {
   const id = typeof cardOrId === "string" ? cardOrId : cardId(cardOrId);
   const stored = state.progress.practice?.smart?.[id];
   if (!stored || typeof stored !== "object") {
-    return createSmartEntry();
+    return createSmartEntry(now);
   }
-
-  const legacyRepetitions = Math.max(0, Math.floor(Number(stored.repetitions) || 0));
-  const importedBox = Number(stored.box);
-  const wrong = Math.max(0, Number(stored.wrong) || 0);
-  const correct = Math.max(0, Number(stored.correct) || 0);
-
-  const box = Number.isFinite(importedBox)
-    ? clampSmartBox(importedBox)
-    : Math.min(SMART_MAX_BOX, legacyRepetitions);
-
-  const importedErrorDebt = Number(stored.errorDebt);
-  const errorDebt = Number.isFinite(importedErrorDebt)
-    ? Math.max(0, Math.floor(importedErrorDebt))
-    : Math.min(60, wrong * SMART_ERROR_DEBT_PER_WRONG);
-
-  const importedCorrectStreak = Number(stored.correctStreak);
-  const correctStreak = Number.isFinite(importedCorrectStreak)
-    ? Math.max(0, Math.floor(importedCorrectStreak))
-    : (wrong === 0 ? correct : 0);
 
   return {
     shown: Math.max(0, Number(stored.shown) || 0),
-    correct,
-    wrong,
-    box,
-    errorDebt,
-    correctStreak,
-    repetitions: legacyRepetitions,
-    interval: Math.max(0, Math.floor(Number(stored.interval) || 0)),
-    ef: Math.max(1.3, Number(stored.ef) || 2.5),
-    dueStep: Math.max(0, Math.floor(Number(stored.dueStep) || 0))
+    correct: Math.max(0, Number(stored.correct) || 0),
+    wrong: Math.max(0, Number(stored.wrong) || 0),
+    card: normalizeFsrsCard(stored.card || stored.fsrsCard, now)
   };
+}
+
+function getSmartDueDate(cardLike, fallback = new Date()) {
+  return normalizeFsrsDate(cardLike?.due, fallback);
+}
+
+function getSmartDueDay(cardLike, fallback = new Date()) {
+  return getStartOfLocalDay(getSmartDueDate(cardLike, fallback));
+}
+
+function getSmartDailyShuffleScore(card, now = new Date()) {
+  const dueDay = getSmartDueDay(getSmartEntry(card, now).card, now);
+  return hashStringToUnitInterval(`${formatLocalDayKey(now)}|${formatLocalDayKey(dueDay)}|${cardId(card)}`);
+}
+
+function getSmartNextDueDate(now = new Date()) {
+  let nextDue = null;
+  const todayStamp = getLocalDayStamp(now);
+
+  getModeCards("practice").forEach((card) => {
+    const dueDay = getSmartDueDay(getSmartEntry(card, now).card, now);
+    const dueStamp = dueDay.getTime();
+    if (dueStamp <= todayStamp) return;
+    if (!nextDue || dueStamp < nextDue.getTime()) {
+      nextDue = dueDay;
+    }
+  });
+
+  return nextDue;
+}
+
+function getSmartDueCounts(now = new Date()) {
+  const cards = getModeCards("practice");
+  const todayStamp = getLocalDayStamp(now);
+  let dueCount = 0;
+  let nextDue = null;
+
+  cards.forEach((card) => {
+    const dueDay = getSmartDueDay(getSmartEntry(card, now).card, now);
+    const dueStamp = dueDay.getTime();
+
+    if (dueStamp <= todayStamp) {
+      dueCount += 1;
+      return;
+    }
+
+    if (!nextDue || dueStamp < nextDue.getTime()) {
+      nextDue = dueDay;
+    }
+  });
+
+  return {
+    activeCount: cards.length,
+    dueCount,
+    nextDue
+  };
+}
+
+function isSmartCardDue(card, now = new Date()) {
+  const entry = getSmartEntry(card, now);
+  return getSmartDueDay(entry.card, now).getTime() <= getLocalDayStamp(now);
+}
+
+function compareSmartCardsByDue(a, b, now = new Date()) {
+  const aCard = getSmartEntry(a, now).card;
+  const bCard = getSmartEntry(b, now).card;
+  const aDue = getSmartDueDay(aCard, now).getTime();
+  const bDue = getSmartDueDay(bCard, now).getTime();
+  if (aDue !== bDue) return aDue - bDue;
+
+  const aShuffle = getSmartDailyShuffleScore(a, now);
+  const bShuffle = getSmartDailyShuffleScore(b, now);
+  if (aShuffle !== bShuffle) return aShuffle - bShuffle;
+
+  const aLast = aCard.last_review ? normalizeFsrsDate(aCard.last_review, now).getTime() : 0;
+  const bLast = bCard.last_review ? normalizeFsrsDate(bCard.last_review, now).getTime() : 0;
+  if (aLast !== bLast) return aLast - bLast;
+
+  return (a.index || 0) - (b.index || 0);
+}
+
+function getSmartReviewQueue(now = new Date()) {
+  return getModeCards("practice")
+    .filter((card) => isSmartCardDue(card, now))
+    .sort((a, b) => compareSmartCardsByDue(a, b, now));
+}
+function recordSmartPracticeOutcome(card, correct) {
+  if (!card || !SMART_FSRS) return;
+
+  const id = cardId(card);
+  const bucket = state.progress.practice.smart;
+  const current = getSmartEntry(id, new Date());
+  const now = new Date();
+  const rating = correct ? FSRS_RATING_GOOD : FSRS_RATING_AGAIN;
+  const next = SMART_FSRS.next(current.card, now, rating);
+  const roundedCard = roundFsrsCardToDueDay(next.card, now);
+
+  bucket[id] = {
+    shown: current.shown,
+    correct: current.correct + (correct ? 1 : 0),
+    wrong: current.wrong + (correct ? 0 : 1),
+    card: normalizeFsrsCard(roundedCard, now)
+  };
+
+  state.progress.practice.smartLastId = id;
+  saveProgress();
+}
+
+function pickNextSmartCard(now = new Date()) {
+  if (!SMART_FSRS) return null;
+
+  let dueCards = getSmartReviewQueue(now);
+  if (!dueCards.length) return null;
+
+  const lastId = state.progress.practice.smartLastId || "";
+  if (dueCards.length > 1 && lastId) {
+    const alternative = dueCards.find((card) => cardId(card) !== lastId);
+    if (alternative) return alternative;
+  }
+
+  return dueCards[0] || null;
 }
 
 function getSmartCurrentCard() {
@@ -869,7 +1047,7 @@ function getSmartCurrentCard() {
     return getCardById(state.round.smartCardId);
   }
 
-  const picked = pickNextSmartCard();
+  const picked = pickNextSmartCard(new Date());
   if (!picked) return null;
 
   state.round.smartCardId = cardId(picked);
@@ -1120,116 +1298,6 @@ function clampSmartBox(box) {
 
 function getSmartActiveCount() {
   return Math.max(1, getModeCards("practice").length);
-}
-
-function getSmartCorrectInterval(box, activeCount) {
-  const factor = SMART_BOX_INTERVAL_FACTORS[clampSmartBox(box)] || SMART_BOX_INTERVAL_FACTORS[0];
-  return Math.max(2, Math.round(Math.max(1, activeCount) * factor));
-}
-
-function getSmartWrongInterval(activeCount) {
-  return Math.max(2, Math.round(Math.max(1, activeCount) * 0.01));
-}
-
-function applySmartReviewResult(entry, correct, stepAfterReview, activeCount) {
-  const updated = { ...entry };
-  const currentBox = clampSmartBox(updated.box);
-  const currentDebt = Math.max(0, Math.floor(Number(updated.errorDebt) || 0));
-
-  if (correct) {
-    updated.correctStreak = Math.max(0, Math.floor(Number(updated.correctStreak) || 0)) + 1;
-    updated.errorDebt = Math.max(0, currentDebt - SMART_ERROR_DEBT_DECAY_PER_CORRECT);
-    updated.box = clampSmartBox(currentBox + 1);
-    updated.repetitions = Math.max(0, Math.floor(Number(updated.repetitions) || 0)) + 1;
-    updated.interval = getSmartCorrectInterval(updated.box, activeCount);
-  } else {
-    updated.correctStreak = 0;
-    updated.errorDebt = currentDebt + SMART_ERROR_DEBT_PER_WRONG;
-    updated.box = clampSmartBox(currentBox - 2);
-    updated.repetitions = 0;
-    updated.interval = getSmartWrongInterval(activeCount);
-  }
-
-  updated.dueStep = stepAfterReview + updated.interval;
-  return updated;
-}
-
-function recordSmartPracticeOutcome(card, correct) {
-  if (!card) return;
-
-  const id = cardId(card);
-  const bucket = state.progress.practice.smart;
-  const current = getSmartEntry(id);
-  current[correct ? "correct" : "wrong"] += 1;
-
-  const nextStep = (state.progress.practice.smartStep || 0) + 1;
-  const updated = applySmartReviewResult(current, correct, nextStep, getSmartActiveCount());
-
-  bucket[id] = updated;
-  state.progress.practice.smartStep = nextStep;
-  state.progress.practice.smartLastId = id;
-  saveProgress();
-}
-
-function weightedPick(items, weightFn) {
-  const weighted = items.map((item) => ({ item, weight: Math.max(0, Number(weightFn(item)) || 0) }));
-  const total = weighted.reduce((sum, entry) => sum + entry.weight, 0);
-  if (total <= 0) return items[0] || null;
-
-  let threshold = Math.random() * total;
-  for (const entry of weighted) {
-    threshold -= entry.weight;
-    if (threshold <= 0) return entry.item;
-  }
-
-  return weighted[weighted.length - 1]?.item || null;
-}
-
-function getSmartCardWeight(card, step, activeCount) {
-  const entry = getSmartEntry(card);
-  const overdue = Math.max(0, step - entry.dueStep);
-  const scale = Math.max(10, activeCount * 0.05);
-  const overdueWeight = Math.min(
-    SMART_OVERDUE_WEIGHT_CAP,
-    Math.log2(1 + overdue / scale)
-  );
-
-  const noCorrectBonus = entry.correct === 0 ? SMART_NO_CORRECT_BONUS : 0;
-  const errorDebtWeight = (entry.errorDebt || 0) * SMART_ERROR_DEBT_WEIGHT;
-  const wrongWeight = (entry.wrong || 0) * SMART_TOTAL_WRONG_WEIGHT;
-  const successPenalty = (entry.correctStreak || 0) * SMART_CORRECT_STREAK_PENALTY;
-
-  return Math.max(
-    0.1,
-    1 + noCorrectBonus + errorDebtWeight + wrongWeight + overdueWeight - successPenalty
-  );
-}
-
-function pickNextSmartCard() {
-  const cards = getModeCards("practice");
-  if (!cards.length) return null;
-
-  const step = state.progress.practice.smartStep || 0;
-  const activeCount = Math.max(1, cards.length);
-  const lastId = state.progress.practice.smartLastId || "";
-  let candidates = cards.filter((card) => getSmartEntry(card).dueStep <= step);
-
-  if (!candidates.length) {
-    const sorted = [...cards].sort((a, b) => getSmartEntry(a).dueStep - getSmartEntry(b).dueStep);
-    const minDue = getSmartEntry(sorted[0]).dueStep;
-    candidates = sorted.filter((card) => getSmartEntry(card).dueStep === minDue);
-  }
-
-  if (candidates.length > 1 && lastId) {
-    const filtered = candidates.filter((card) => cardId(card) !== lastId);
-    if (filtered.length) candidates = filtered;
-  }
-
-  if (candidates.length <= 1) {
-    return candidates[0] || null;
-  }
-
-  return weightedPick(candidates, (card) => getSmartCardWeight(card, step, activeCount));
 }
 
 function nextSmartCard({ countAppearance = true } = {}) {
@@ -1849,8 +1917,8 @@ function setPositionLabel(card, queueIndex, total) {
   elements.positionLabel.textContent = `${queueIndex + 1} / ${total} · #${card.index}`;
 }
 
-function setSmartPositionLabel(card, total) {
-  elements.positionLabel.textContent = `Adaptive · #${card.index} · ${total} cards`;
+function setSmartPositionLabel(card, dueCount, activeCount) {
+  elements.positionLabel.textContent = `Due today ${dueCount} / ${activeCount} · #${card.index}`;
 }
 
 function getReviewPinyinText(card) {
@@ -1862,6 +1930,17 @@ function getReviewPinyinText(card) {
     : reviewAnswer;
 
   return { reviewAnswer, reviewOriginal, reviewSuffix, reviewText };
+}
+
+function formatSmartDueDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "later";
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium"
+    }).format(date);
+  } catch (error) {
+    return date.toLocaleDateString();
+  }
 }
 
 function renderLearn(card, queueIndex, total) {
@@ -2191,10 +2270,10 @@ function answerSmartTranslation(option) {
   scheduleStudyAreaFocus({ preferAnswer: true });
 }
 
-function renderSmartPractice(card, total) {
+function renderSmartPractice(card, dueCount, activeCount) {
   const { reviewText } = getReviewPinyinText(card);
   prepareRoundAppearance("practice", "smart", card);
-  setSmartPositionLabel(card, total);
+  setSmartPositionLabel(card, dueCount, activeCount);
   renderCurrentCardStats(card);
 
   elements.cardHanzi.textContent = card.hanzi;
@@ -2309,7 +2388,9 @@ function renderOrderStatus() {
   const quizType = getQuizType();
 
   if (isSmartPracticeActive()) {
-    elements.orderStatus.textContent = `${modeLabel} · smart: adaptive error-weighted order · ${total} active cards.`;
+    const dueInfo = getSmartDueCounts(new Date());
+    const nextDueLabel = dueInfo.nextDue ? ` · next due ${formatSmartDueDate(dueInfo.nextDue)}` : "";
+    elements.orderStatus.textContent = `${modeLabel} · smart: FSRS scheduler · ${dueInfo.dueCount} due today / ${dueInfo.activeCount} active${nextDueLabel}`;
     elements.shuffleBtn.disabled = true;
     elements.resetOrderBtn.disabled = true;
     return;
@@ -2554,22 +2635,31 @@ function render() {
     return;
   }
 
-  if (isSmartPracticeActive()) {
-    const total = getModeCards("practice").length;
-    if (!total) {
-      clearCard("No cards selected for practice", "Use Card setup to add cards to Practice.");
-      return;
-    }
-
-    const card = getCurrentCard();
-    if (!card) {
-      clearCard();
-      return;
-    }
-
-    renderSmartPractice(card, total);
+if (isSmartPracticeActive()) {
+  const dueInfo = getSmartDueCounts(new Date());
+  const total = getModeCards("practice").length;
+  if (!total) {
+    clearCard("No cards selected for practice", "Use Card setup to add cards to Practice.");
     return;
   }
+
+  if (!SMART_FSRS) {
+    clearCard("FSRS library missing", "The local fsrs-lib.js file could not be loaded.");
+    return;
+  }
+
+  const card = getCurrentCard();
+  if (!card) {
+    const nextDueDetail = dueInfo.nextDue
+      ? `No smart cards are due today. Next due: ${formatSmartDueDate(dueInfo.nextDue)}.`
+      : "No smart cards are due today.";
+    clearCard("No smart reviews due", nextDueDetail);
+    return;
+  }
+
+  renderSmartPractice(card, dueInfo.dueCount, dueInfo.activeCount);
+  return;
+}
 
   const modeCards = getOrderedCards();
   const total = modeCards.length;
