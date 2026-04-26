@@ -214,6 +214,14 @@ button:disabled {
   color: var(--muted);
 }
 
+.status.ok {
+  color: var(--ok);
+}
+
+.status.bad {
+  color: var(--bad);
+}
+
 .stats-grid {
   display: grid;
   gap: 12px;
@@ -804,4 +812,29 @@ select {
 }
 .manage-row {
   grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.auth-credentials-grid {
+  margin-top: 12px;
+}
+
+.auth-panel input[type="email"],
+.auth-panel input[type="password"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+}
+
+@media (max-width: 760px) {
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
 }

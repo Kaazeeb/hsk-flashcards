@@ -13,6 +13,9 @@
     elements: null,
     store: null,
     smartLastCardId: "",
+    authScope: "anon",
+    authMessage: "",
+    authMessageClass: "muted",
     round: createEmptyRound()
   };
 
@@ -53,6 +56,16 @@
       importProgressInput: document.getElementById("importProgressInput"),
       storageModeBadge: document.getElementById("storageModeBadge"),
       statusText: document.getElementById("statusText"),
+      authBadge: document.getElementById("authBadge"),
+      authStatusText: document.getElementById("authStatusText"),
+      supabaseUrlInput: document.getElementById("supabaseUrlInput"),
+      supabaseKeyInput: document.getElementById("supabaseKeyInput"),
+      saveSupabaseConfigBtn: document.getElementById("saveSupabaseConfigBtn"),
+      authEmailInput: document.getElementById("authEmailInput"),
+      authPasswordInput: document.getElementById("authPasswordInput"),
+      authSignUpBtn: document.getElementById("authSignUpBtn"),
+      authSignInBtn: document.getElementById("authSignInBtn"),
+      authSignOutBtn: document.getElementById("authSignOutBtn"),
       modeButtons: [...document.querySelectorAll(".mode-btn")],
       quizTypeWrap: document.getElementById("quizTypeWrap"),
       quizTypeButtons: [...document.querySelectorAll(".quiz-type-btn")],
@@ -119,6 +132,191 @@
 
   function getUi() {
     return getDb().ui;
+  }
+
+  function getAuthStatus() {
+    return ns.auth && typeof ns.auth.getStatus === "function"
+      ? ns.auth.getStatus()
+      : {
+          ready: false,
+          providerReady: false,
+          configured: false,
+          signedIn: false,
+          email: "",
+          userId: "",
+          config: { url: "", key: "" },
+          lastEvent: "INIT"
+        };
+  }
+
+  function setAuthMessage(text, tone = "muted") {
+    state.authMessage = String(text || "").trim();
+    state.authMessageClass = tone;
+  }
+
+  function updateStorageModeBadge() {
+    const info = getAuthStatus();
+    if (!state.elements?.storageModeBadge) return;
+    if (info.signedIn) {
+      state.elements.storageModeBadge.textContent = "cloud sync · signed in";
+      return;
+    }
+    if (info.configured && info.providerReady) {
+      state.elements.storageModeBadge.textContent = "Supabase ready · local cache";
+      return;
+    }
+    if (info.configured && !info.providerReady) {
+      state.elements.storageModeBadge.textContent = "Supabase script missing · local cache";
+      return;
+    }
+    state.elements.storageModeBadge.textContent = "built in · local data layer";
+  }
+
+  async function syncStoreToAuthScope(force = false) {
+    const nextScope = ns.auth && typeof ns.auth.getCacheScope === "function"
+      ? ns.auth.getCacheScope()
+      : "anon";
+    if (!force && state.authScope === nextScope) return false;
+    state.authScope = nextScope;
+    await state.store.load();
+    markManageListDirty();
+    resetRoundState();
+    return true;
+  }
+
+  function renderAuthPanel() {
+    const info = getAuthStatus();
+    if (state.elements.supabaseUrlInput && document.activeElement !== state.elements.supabaseUrlInput) {
+      state.elements.supabaseUrlInput.value = info.config?.url || "";
+    }
+    if (state.elements.supabaseKeyInput && document.activeElement !== state.elements.supabaseKeyInput) {
+      state.elements.supabaseKeyInput.value = info.config?.key || "";
+    }
+    if (state.elements.authEmailInput && info.signedIn && document.activeElement !== state.elements.authEmailInput) {
+      state.elements.authEmailInput.value = info.email || "";
+    }
+    if (state.elements.authPasswordInput && info.signedIn && document.activeElement !== state.elements.authPasswordInput) {
+      state.elements.authPasswordInput.value = "";
+    }
+
+    if (state.elements.authBadge) {
+      if (info.signedIn) {
+        state.elements.authBadge.textContent = info.email || "Signed in";
+      } else if (info.configured && info.providerReady) {
+        state.elements.authBadge.textContent = "Supabase ready";
+      } else if (info.configured) {
+        state.elements.authBadge.textContent = "Config saved";
+      } else {
+        state.elements.authBadge.textContent = "Local only";
+      }
+    }
+
+    if (state.elements.saveSupabaseConfigBtn) {
+      state.elements.saveSupabaseConfigBtn.disabled = false;
+    }
+    if (state.elements.authSignUpBtn) {
+      state.elements.authSignUpBtn.disabled = !(info.configured && info.providerReady);
+    }
+    if (state.elements.authSignInBtn) {
+      state.elements.authSignInBtn.disabled = !(info.configured && info.providerReady);
+    }
+    if (state.elements.authSignOutBtn) {
+      state.elements.authSignOutBtn.disabled = !info.signedIn;
+    }
+
+    let defaultMessage = "Local-only mode. Sign in to sync your progress between devices.";
+    let defaultTone = "muted";
+    if (!info.providerReady) {
+      defaultMessage = "Supabase client script is unavailable. Local-only mode remains active.";
+      defaultTone = "bad";
+    } else if (!info.configured) {
+      defaultMessage = "Paste your Supabase URL and publishable key to enable cloud sync.";
+    } else if (info.signedIn) {
+      defaultMessage = `Signed in as ${info.email || "user"}. Cloud sync is active.`;
+      defaultTone = "ok";
+    } else {
+      defaultMessage = "Supabase configured. Sign in to sync data between devices.";
+    }
+
+    const message = state.authMessage || defaultMessage;
+    const tone = state.authMessage ? state.authMessageClass : defaultTone;
+    if (state.elements.authStatusText) {
+      state.elements.authStatusText.textContent = message;
+      state.elements.authStatusText.className = `status ${tone === "muted" ? "muted" : tone}`;
+    }
+  }
+
+  function getAuthCredentials() {
+    const email = String(state.elements.authEmailInput?.value || "").trim();
+    const password = String(state.elements.authPasswordInput?.value || "");
+    if (!email || !password) throw new Error("Enter both email and password.");
+    return { email, password };
+  }
+
+  async function handleSaveSupabaseConfig() {
+    try {
+      const url = state.elements.supabaseUrlInput?.value || "";
+      const key = state.elements.supabaseKeyInput?.value || "";
+      if (!ns.auth || typeof ns.auth.setConfig !== "function") throw new Error("Auth module unavailable.");
+      await ns.auth.setConfig(url, key);
+      await syncStoreToAuthScope(true);
+      setAuthMessage("Supabase config saved.", "ok");
+    } catch (error) {
+      setAuthMessage(error?.message || "Failed to save Supabase config.", "bad");
+    }
+    updateStorageModeBadge();
+    render();
+  }
+
+  async function handleAuthSignUp() {
+    try {
+      const { email, password } = getAuthCredentials();
+      if (!ns.auth || typeof ns.auth.signUp !== "function") throw new Error("Auth module unavailable.");
+      await ns.auth.signUp(email, password);
+      setAuthMessage("Sign-up submitted. If email confirmation is enabled, confirm your email first, then sign in.", "ok");
+    } catch (error) {
+      setAuthMessage(error?.message || "Sign-up failed.", "bad");
+    }
+    renderAuthPanel();
+  }
+
+  async function handleAuthSignIn() {
+    try {
+      const { email, password } = getAuthCredentials();
+      if (!ns.auth || typeof ns.auth.signIn !== "function") throw new Error("Auth module unavailable.");
+      setAuthMessage("Signing in...", "muted");
+      renderAuthPanel();
+      await ns.auth.signIn(email, password);
+    } catch (error) {
+      setAuthMessage(error?.message || "Sign-in failed.", "bad");
+      renderAuthPanel();
+    }
+  }
+
+  async function handleAuthSignOut() {
+    try {
+      if (!ns.auth || typeof ns.auth.signOut !== "function") throw new Error("Auth module unavailable.");
+      await ns.auth.signOut();
+    } catch (error) {
+      setAuthMessage(error?.message || "Sign-out failed.", "bad");
+      renderAuthPanel();
+    }
+  }
+
+  async function handleAuthStateChange(info) {
+    const changed = await syncStoreToAuthScope();
+    if (info?.event === "SIGNED_IN") {
+      setAuthMessage("Signed in. Cloud sync active.", "ok");
+    } else if (info?.event === "SIGNED_OUT") {
+      setAuthMessage("Signed out. Showing local-only data.", "muted");
+    } else if (info?.event === "READY" && info?.signedIn) {
+      setAuthMessage("Session restored. Cloud sync active.", "ok");
+    } else if (info?.event === "CONFIG_UPDATED") {
+      setAuthMessage("Supabase config updated.", "ok");
+    }
+    updateStorageModeBadge();
+    if (changed) state.filterText = state.elements.filterInput.value || state.filterText || "";
+    render();
   }
 
   function resetRoundState() {
@@ -1145,6 +1343,8 @@
 
   function render() {
     updateModeButtons();
+    updateStorageModeBadge();
+    renderAuthPanel();
     renderStats();
     renderSetPanel();
     renderSelectionSummary();
@@ -1544,6 +1744,10 @@
   }
 
   function bindEvents() {
+    state.elements.saveSupabaseConfigBtn.addEventListener("click", handleSaveSupabaseConfig);
+    state.elements.authSignUpBtn.addEventListener("click", handleAuthSignUp);
+    state.elements.authSignInBtn.addEventListener("click", handleAuthSignIn);
+    state.elements.authSignOutBtn.addEventListener("click", handleAuthSignOut);
     state.elements.saveVocabBtn.addEventListener("click", handleSaveVocabulary);
     state.elements.loadPlaceholderBtn.addEventListener("click", handleRestoreBuiltIn);
     state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
@@ -1571,12 +1775,19 @@
 
   async function bootstrap() {
     state.elements = getElements();
+    if (ns.auth && typeof ns.auth.init === "function") {
+      await ns.auth.init();
+    }
     const builtinCards = ns.getBuiltInCards();
     const adapter = createPersistenceAdapter();
     state.store = createAppStore(adapter, builtinCards);
+    state.authScope = ns.auth && typeof ns.auth.getCacheScope === "function" ? ns.auth.getCacheScope() : "anon";
     await state.store.load();
     state.filterText = state.elements.filterInput.value || "";
-    state.elements.storageModeBadge.textContent = adapter.kind === "remote" ? "remote adapter + local cache" : "built in · local data layer";
+    updateStorageModeBadge();
+    if (ns.auth && typeof ns.auth.subscribe === "function") {
+      ns.auth.subscribe(handleAuthStateChange);
+    }
     bindEvents();
     render();
   }

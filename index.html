@@ -13,6 +13,51 @@
       <p>Local-first flashcards for hanzi, pinyin and English translation.</p>
     </header>
 
+
+
+    <section class="panel auth-panel">
+      <div class="panel-header">
+        <h2>Cloud sync / login</h2>
+        <span id="authBadge" class="badge subtle">Local only</span>
+      </div>
+
+      <p class="hint">Optional. Add your Supabase project URL and publishable key to enable sync across devices.</p>
+
+      <div class="auth-grid">
+        <div>
+          <label for="supabaseUrlInput" class="label">Supabase URL</label>
+          <input id="supabaseUrlInput" type="text" placeholder="https://your-project-ref.supabase.co" />
+        </div>
+        <div>
+          <label for="supabaseKeyInput" class="label">Publishable / anon key</label>
+          <input id="supabaseKeyInput" type="text" placeholder="sb_publishable_... or anon key" />
+        </div>
+      </div>
+
+      <div class="button-row compact-row">
+        <button id="saveSupabaseConfigBtn" class="secondary">Save Supabase config</button>
+      </div>
+
+      <div class="auth-grid auth-credentials-grid">
+        <div>
+          <label for="authEmailInput" class="label">Email</label>
+          <input id="authEmailInput" type="email" placeholder="you@example.com" />
+        </div>
+        <div>
+          <label for="authPasswordInput" class="label">Password</label>
+          <input id="authPasswordInput" type="password" placeholder="Password" />
+        </div>
+      </div>
+
+      <div class="button-row compact-row">
+        <button id="authSignUpBtn" class="secondary">Sign up</button>
+        <button id="authSignInBtn">Sign in</button>
+        <button id="authSignOutBtn" class="ghost">Sign out</button>
+      </div>
+
+      <p id="authStatusText" class="status muted">Local-only mode. Sign in to sync your progress between devices.</p>
+    </section>
+
     <section class="panel import-panel">
       <div class="panel-header">
         <h2>Vocabulary</h2>
@@ -262,11 +307,13 @@ hanzi,pinyin,translation
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="hsk1-data.js"></script>
   <script src="fsrs-lib.js"></script>
   <script src="js/constants.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/pinyin.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/storage-adapters.js"></script>
   <script src="js/store.js"></script>
   <script src="js/smart-fsrs.js"></script>

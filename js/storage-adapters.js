@@ -1,72 +1,118 @@
 /*
-Remote adapter hook for future DB use (Supabase or similar):
-provide window.HSK_APP_REMOTE_ADAPTER with async methods:
-- loadAppData() -> object | null
-- saveAppData(payload) -> void
-The UI and business logic talk only to the store layer, not directly to localStorage.
+Persistence adapter layer.
+- Local cache is namespaced by current auth scope (anon or user id).
+- If Supabase auth is active and signed in, remote state is loaded/saved too.
 */
 (function (ns) {
   class LocalJsonAdapter {
-    constructor(key) {
-      this.key = key;
+    constructor(baseKey, scopeProvider) {
+      this.baseKey = baseKey;
+      this.scopeProvider = typeof scopeProvider === "function" ? scopeProvider : () => "anon";
       this.kind = "local";
     }
 
-    async loadAppData() {
+    getScope(scopeOverride) {
+      return String(scopeOverride || this.scopeProvider() || "anon");
+    }
+
+    getKey(scopeOverride) {
+      return `${this.baseKey}::${this.getScope(scopeOverride)}`;
+    }
+
+    async loadByScope(scopeOverride) {
       try {
-        const raw = localStorage.getItem(this.key);
-        return raw ? JSON.parse(raw) : null;
+        const scopedKey = this.getKey(scopeOverride);
+        const raw = localStorage.getItem(scopedKey);
+        if (raw) return JSON.parse(raw);
+        const scope = this.getScope(scopeOverride);
+        if (scope === "anon") {
+          const legacyRaw = localStorage.getItem(this.baseKey);
+          if (legacyRaw) {
+            localStorage.setItem(scopedKey, legacyRaw);
+            return JSON.parse(legacyRaw);
+          }
+        }
+        return null;
       } catch (error) {
         return null;
       }
     }
 
-    async saveAppData(payload) {
-      localStorage.setItem(this.key, JSON.stringify(payload));
-    }
-  }
-
-  class ExternalAdapterWrapper {
-    constructor(delegate, fallbackKey) {
-      this.delegate = delegate;
-      this.fallback = new LocalJsonAdapter(fallbackKey);
-      this.kind = "remote";
+    async saveByScope(scopeOverride, payload) {
+      localStorage.setItem(this.getKey(scopeOverride), JSON.stringify(payload));
     }
 
     async loadAppData() {
-      try {
-        if (this.delegate && typeof this.delegate.loadAppData === "function") {
-          return await this.delegate.loadAppData();
-        }
-      } catch (error) {
-        console.warn("Remote adapter load failed, falling back to local cache.", error);
-      }
-      return this.fallback.loadAppData();
+      return this.loadByScope();
     }
 
     async saveAppData(payload) {
-      try {
-        if (this.delegate && typeof this.delegate.saveAppData === "function") {
-          await this.delegate.saveAppData(payload);
+      return this.saveByScope(undefined, payload);
+    }
+  }
+
+  class SwitchableAdapter {
+    constructor(localAdapter, remoteProvider) {
+      this.local = localAdapter;
+      this.remoteProvider = typeof remoteProvider === "function" ? remoteProvider : () => null;
+    }
+
+    getRemote() {
+      return this.remoteProvider() || null;
+    }
+
+    get kind() {
+      return this.getRemote() ? "remote" : "local";
+    }
+
+    async loadLocalOnly(scopeOverride) {
+      return this.local.loadByScope(scopeOverride);
+    }
+
+    async loadAppData() {
+      const remote = this.getRemote();
+      if (remote && typeof remote.loadAppData === "function") {
+        try {
+          const remoteData = await remote.loadAppData();
+          if (remoteData) {
+            await this.local.saveAppData(remoteData);
+            return remoteData;
+          }
+        } catch (error) {
+          console.warn("Remote adapter load failed, falling back to local cache.", error);
         }
-      } catch (error) {
-        console.warn("Remote adapter save failed, keeping local cache.", error);
       }
-      await this.fallback.saveAppData(payload);
+      return this.local.loadAppData();
+    }
+
+    async saveAppData(payload) {
+      const remote = this.getRemote();
+      if (remote && typeof remote.saveAppData === "function") {
+        try {
+          await remote.saveAppData(payload);
+        } catch (error) {
+          console.warn("Remote adapter save failed, keeping local cache.", error);
+        }
+      }
+      await this.local.saveAppData(payload);
     }
   }
 
   function createPersistenceAdapter() {
-    const remote = window.HSK_APP_REMOTE_ADAPTER;
-    if (remote && typeof remote.loadAppData === "function" && typeof remote.saveAppData === "function") {
-      return new ExternalAdapterWrapper(remote, ns.constants.STORAGE_KEY);
-    }
-    return new LocalJsonAdapter(ns.constants.STORAGE_KEY);
+    const local = new LocalJsonAdapter(
+      ns.constants.STORAGE_KEY,
+      () => (ns.auth && typeof ns.auth.getCacheScope === "function" ? ns.auth.getCacheScope() : "anon")
+    );
+
+    return new SwitchableAdapter(
+      local,
+      () => (ns.auth && typeof ns.auth.getRemoteAdapter === "function" ? ns.auth.getRemoteAdapter() : null)
+    );
   }
 
   ns.adapters = {
     createPersistenceAdapter,
     LocalJsonAdapter,
-    ExternalAdapterWrapper
+    SwitchableAdapter
   };
 })(window.HSKFlashcards);
