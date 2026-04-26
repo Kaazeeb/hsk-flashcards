@@ -144,6 +144,24 @@
     return Object.fromEntries(getScopedCards().map((card) => [cardId(card), card]));
   }
 
+  function getAllCardMap() {
+    return Object.fromEntries(getDb().vocab.map((card) => [cardId(card), card]));
+  }
+
+  function getPracticeScopedIdsForSet(setId = getActiveSet().id) {
+    const allMap = getAllCardMap();
+    const setRecord = getDb().sets.byId[setId] || getActiveSet();
+    return (setRecord?.cardIds || []).filter((id) => {
+      const card = allMap[id];
+      return !!card && card.practice !== false;
+    });
+  }
+
+  function getPracticeScopedCardsForSet(setId = getActiveSet().id) {
+    const map = getAllCardMap();
+    return getPracticeScopedIdsForSet(setId).map((id) => map[id]).filter(Boolean);
+  }
+
   function getModeCards(mode = getUi().mode) {
     return getScopedCards().filter((card) => card[mode] !== false);
   }
@@ -175,22 +193,34 @@
     return getSmartBucketForSet(getActiveSet().id);
   }
 
-  function getSmartQueue(now = new Date()) {
+  function getSmartDueQueue(now = new Date()) {
     const activeSet = getActiveSet();
     const bucket = getSmartBucketForSet(activeSet.id);
-    return smart.getDueQueue(activeSet.cardIds, bucket, getScopedCardMap(), now).map((item) => item.card);
+    return smart.getDueQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now).map((item) => item.card);
+  }
+
+  function getSmartNewQueue(now = new Date()) {
+    const activeSet = getActiveSet();
+    const bucket = getSmartBucketForSet(activeSet.id);
+    return smart.getNewQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now).map((item) => item.card);
+  }
+
+  function getSmartQueue(now = new Date()) {
+    const dueQueue = getSmartDueQueue(now);
+    if (dueQueue.length) return dueQueue;
+    return getSmartNewQueue(now);
   }
 
   function getSmartScheduleForSet(setId, now = new Date()) {
     const setRecord = getDb().sets.byId[setId];
-    if (!setRecord) return { dueTodayCount: 0, nextDueDate: null, byDay: [] };
-    return smart.getScheduleSummary(setRecord.cardIds, getSmartBucketForSet(setId), now);
+    if (!setRecord) return { dueTodayCount: 0, nextDueDate: null, byDay: [], startedCount: 0, newCount: 0 };
+    return smart.getScheduleSummary(getPracticeScopedIdsForSet(setId), getSmartBucketForSet(setId), now);
   }
 
   function getSmartStatsForSet(setId) {
     const setRecord = getDb().sets.byId[setId];
     if (!setRecord) return { shown: 0, correct: 0, wrong: 0 };
-    const ids = new Set(setRecord.cardIds);
+    const ids = new Set(getPracticeScopedIdsForSet(setId));
     const bucket = getSmartBucketForSet(setId);
     let shown = 0;
     let correct = 0;
@@ -242,7 +272,7 @@
 
   function getSmartCurrentCard() {
     if (!isSmartPracticeActive()) return null;
-    const activeIds = new Set(getActiveSet().cardIds);
+    const activeIds = new Set(getPracticeScopedIdsForSet(getActiveSet().id));
     if (state.round.smartCardId && activeIds.has(state.round.smartCardId)) {
       const map = getScopedCardMap();
       if (map[state.round.smartCardId]) return map[state.round.smartCardId];
@@ -350,7 +380,7 @@
       getTouchedIds("practice", "translation").forEach((id) => ids.add(id));
       getTouchedIds("practice", "pinyin").forEach((id) => ids.add(id));
       if (getActiveSet()) {
-        const smartStatsIds = new Set(getActiveSet().cardIds);
+        const smartStatsIds = new Set(getPracticeScopedIdsForSet(getActiveSet().id));
         Object.entries(getSmartBucketForActiveSet()).forEach(([id, entry]) => {
           if (smartStatsIds.has(id) && ((entry.shown || 0) > 0 || (entry.correct || 0) > 0 || (entry.wrong || 0) > 0)) ids.add(id);
         });
@@ -437,7 +467,7 @@
 
   function renderOrderStatus() {
     if (isSmartPracticeActive()) {
-      state.elements.orderStatus.textContent = "Smart practice uses FSRS due order for today.";
+      state.elements.orderStatus.textContent = "Smart practice uses only Practice cards. Started cards follow today's FSRS due order; new cards enter FSRS after their first Smart review.";
       return;
     }
     const type = getUi().orderType[getUi().mode];
@@ -492,8 +522,17 @@
       const stats = document.createElement("div");
       stats.className = "manage-mini muted";
       const summary = getPracticeCardSummaryText(card);
-      const due = smart.getDueDay(getSmartBucketForActiveSet()[cardId(card)] || smart.createSmartEntry(new Date()), new Date());
-      stats.textContent = `${summary.translation} · ${summary.pinyin} · smart due ${formatReviewDateLabel(due)}`;
+      let smartMeta = "smart inactive";
+      if (card.practice !== false) {
+        const smartEntry = getSmartBucketForActiveSet()[cardId(card)] || smart.createSmartEntry(new Date());
+        if (smart.isStarted(smartEntry)) {
+          const due = smart.getDueDay(smartEntry, new Date());
+          smartMeta = `smart due ${formatReviewDateLabel(due)}`;
+        } else {
+          smartMeta = "smart new";
+        }
+      }
+      stats.textContent = `${summary.translation} · ${summary.pinyin} · ${smartMeta}`;
 
       meta.append(title, sub, stats);
 
@@ -541,9 +580,9 @@
 
     state.elements.activeSetBadge.textContent = activeSet.name;
     state.elements.deleteSetBtn.disabled = !!activeSet.locked;
-    state.elements.setCardCount.textContent = String(activeSet.cardIds.length);
+    state.elements.setCardCount.textContent = String(getPracticeScopedIdsForSet(activeSet.id).length);
     state.elements.setDueToday.textContent = String(summary.dueTodayCount);
-    state.elements.setNextDue.textContent = summary.nextDueDate ? formatReviewDateLabel(summary.nextDueDate) : "No pending future review";
+    state.elements.setNextDue.textContent = summary.nextDueDate ? formatReviewDateLabel(summary.nextDueDate) : (summary.newCount ? "No due cards yet" : "No pending future review");
 
     clearNode(state.elements.scheduleList);
     const upcoming = summary.byDay.slice(0, 24);
@@ -575,8 +614,8 @@
       name.textContent = setRecord.name;
       const meta = document.createElement("div");
       meta.className = "saved-set-meta muted";
-      const nextDue = setSummary.nextDueDate ? formatLongDate(setSummary.nextDueDate) : "—";
-      meta.textContent = `${setRecord.cardIds.length} cards · due today ${setSummary.dueTodayCount} · next ${nextDue}`;
+      const nextDue = setSummary.nextDueDate ? formatLongDate(setSummary.nextDueDate) : (setSummary.newCount ? "No due yet" : "—");
+      meta.textContent = `${getPracticeScopedIdsForSet(setRecord.id).length} practice · due today ${setSummary.dueTodayCount} · new ${setSummary.newCount} · next ${nextDue}`;
       row.append(name, meta);
       state.elements.setsOverview.appendChild(row);
     });
@@ -611,7 +650,7 @@
   }
 
   function setSmartPositionLabel(card, dueCount, activeCount) {
-    state.elements.positionLabel.textContent = `Due ${dueCount} / ${activeCount}`;
+    state.elements.positionLabel.textContent = `Due ${dueCount} / Started ${activeCount}`;
   }
 
   function buildTranslationOptionsForCard(card, mode = getUi().mode) {
@@ -998,6 +1037,8 @@
 
   function renderSmartPractice(card, dueCount, activeCount) {
     const { reviewText } = getReviewPinyinText(card);
+    const smartEntry = getSmartBucketForActiveSet()[cardId(card)] || smart.createSmartEntry(new Date());
+    const isNewSmartCard = !smart.isStarted(smartEntry);
     prepareRoundAppearance("practice", "smart", card);
     setSmartPositionLabel(card, dueCount, activeCount);
     renderCurrentCardStats(card);
@@ -1007,10 +1048,10 @@
     state.elements.cardTranslation.textContent = state.round.smartStage === "feedback" ? card.translation : "";
 
     if (state.round.smartStage === "pinyin") {
-      state.elements.cardPrompt.textContent = "Smart practice · 1 of 3 · type the pinyin";
+      state.elements.cardPrompt.textContent = isNewSmartCard ? "Smart practice · new card · 1 of 3 · type the pinyin" : "Smart practice · 1 of 3 · type the pinyin";
       updateResult(
         state.elements.resultText,
-        state.round.pendingWrong ? state.round.resultText : "Step 1 of 3. Use tone numbers. Example: ni3hao3, lv4, xie4xie.",
+        state.round.pendingWrong ? state.round.resultText : (isNewSmartCard ? "First Smart review for this card. It will only enter the FSRS schedule after you finish this review. Use tone numbers. Example: ni3hao3, lv4, xie4xie." : "Step 1 of 3. Use tone numbers. Example: ni3hao3, lv4, xie4xie."),
         state.round.pendingWrong ? state.round.resultClass : ""
       );
 
@@ -1083,16 +1124,23 @@
   function renderSmartBlocked() {
     const activeSet = getActiveSet();
     const summary = getSmartScheduleForSet(activeSet.id);
+    const practiceCount = getPracticeScopedIdsForSet(activeSet.id).length;
     state.elements.cardPrompt.textContent = "Smart practice blocked";
     state.elements.cardHanzi.textContent = "—";
-    state.elements.cardPinyin.textContent = summary.nextDueDate ? `Next due: ${formatReviewDateLabel(summary.nextDueDate)}` : "No cards scheduled yet.";
-    state.elements.cardTranslation.textContent = summary.dueTodayCount ? "" : "No cards are due today in the active set.";
+    if (summary.nextDueDate) {
+      state.elements.cardPinyin.textContent = `Next due: ${formatReviewDateLabel(summary.nextDueDate)}`;
+    } else if (summary.newCount) {
+      state.elements.cardPinyin.textContent = `${summary.newCount} practice card${summary.newCount === 1 ? '' : 's'} not started in Smart yet.`;
+    } else {
+      state.elements.cardPinyin.textContent = "No cards scheduled yet.";
+    }
+    state.elements.cardTranslation.textContent = practiceCount ? "No started Practice cards are due today." : "No cards are currently marked for Practice in the active set.";
     clearNode(state.elements.cardStats);
-    updateResult(state.elements.resultText, summary.dueTodayCount ? "" : "No due cards today. Review is only available on due days.", summary.dueTodayCount ? "" : "bad");
+    updateResult(state.elements.resultText, practiceCount ? "No due reviews today. New cards stay outside the FSRS schedule until their first Smart review." : "Add cards to Practice to make them eligible for Smart.", "bad");
     clearNode(state.elements.answerArea);
     clearNode(state.elements.controls);
     state.elements.controls.append(createButton("Next mode card", nextCard, "secondary", { disabled: true }));
-    state.elements.positionLabel.textContent = `Due 0 / ${activeSet.cardIds.length}`;
+    state.elements.positionLabel.textContent = `Due 0 / ${summary.startedCount}`;
   }
 
   function render() {
@@ -1130,7 +1178,9 @@
         renderSmartBlocked();
         return;
       }
-      renderSmartPractice(card, queue.length, getActiveSet().cardIds.length);
+      const dueQueue = getSmartDueQueue(new Date());
+      const summary = getSmartScheduleForSet(getActiveSet().id);
+      renderSmartPractice(card, dueQueue.length, summary.startedCount);
       return;
     }
 

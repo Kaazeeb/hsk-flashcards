@@ -64,17 +64,20 @@
       shown: 0,
       correct: 0,
       wrong: 0,
-      card: roundFsrsCardToDueDay(createEmptyFsrsCard(now), now)
+      started: false,
+      card: null
     };
   }
 
   function normalizeEntry(entry, now = new Date()) {
     if (!entry || typeof entry !== "object") return createSmartEntry(now);
+    const started = entry.started === undefined ? !!(entry.card || entry.fsrsCard) : !!entry.started;
     return {
       shown: Math.max(0, Math.floor(Number(entry.shown) || 0)),
       correct: Math.max(0, Math.floor(Number(entry.correct) || 0)),
       wrong: Math.max(0, Math.floor(Number(entry.wrong) || 0)),
-      card: normalizeFsrsCard(entry.card || entry.fsrsCard, now)
+      started,
+      card: started ? normalizeFsrsCard(entry.card || entry.fsrsCard, now) : null
     };
   }
 
@@ -83,13 +86,19 @@
     return normalizeEntry(bucket?.[id], now);
   }
 
+  function isStarted(entry) {
+    return !!entry?.started && !!entry?.card;
+  }
+
   function getDueDay(cardLike, fallback = new Date()) {
     const entryCard = cardLike?.card ? cardLike.card : cardLike;
-    return getStartOfLocalDay(normalizeDate(entryCard?.due, fallback));
+    if (!entryCard || !entryCard.due) return null;
+    return getStartOfLocalDay(normalizeDate(entryCard.due, fallback));
   }
 
   function isDueToday(entry, now = new Date()) {
-    return getDueDay(entry, now).getTime() <= getLocalDayStamp(now);
+    const dueDay = getDueDay(entry, now);
+    return !!dueDay && dueDay.getTime() <= getLocalDayStamp(now);
   }
 
   function getDailyShuffleScore(cardLike, dueDay, now = new Date()) {
@@ -102,14 +111,16 @@
     if (!scheduler) throw new Error("FSRS scheduler not available.");
     const id = cardId(cardOrId);
     const current = getEntry(bucket, id, now);
+    const currentCard = isStarted(current) ? current.card : createEmptyFsrsCard(now);
     const normalizedRating = SMART_RATINGS.includes(rating) ? rating : 3;
-    const next = scheduler.next(current.card, now, normalizedRating);
+    const next = scheduler.next(currentCard, now, normalizedRating);
     const rounded = roundFsrsCardToDueDay(next.card, now);
     const correct = normalizedRating !== 1;
     bucket[id] = {
       shown: current.shown + 1,
       correct: current.correct + (correct ? 1 : 0),
       wrong: current.wrong + (correct ? 0 : 1),
+      started: true,
       card: normalizeFsrsCard(rounded, now)
     };
     return bucket[id];
@@ -124,7 +135,11 @@
         entry: getEntry(bucket, id, now)
       }))
       .filter((item) => item.card)
-      .filter((item) => getDueDay(item.entry, now).getTime() <= todayStamp)
+      .filter((item) => isStarted(item.entry))
+      .filter((item) => {
+        const dueDay = getDueDay(item.entry, now);
+        return !!dueDay && dueDay.getTime() <= todayStamp;
+      })
       .sort((a, b) => {
         const aDay = getDueDay(a.entry, now).getTime();
         const bDay = getDueDay(b.entry, now).getTime();
@@ -140,13 +155,37 @@
     return candidates;
   }
 
+  function getNewQueue(cardIds, bucket, vocabById, now = new Date()) {
+    return (cardIds || [])
+      .map((id) => ({
+        id,
+        card: vocabById[id],
+        entry: getEntry(bucket, id, now)
+      }))
+      .filter((item) => item.card)
+      .filter((item) => !isStarted(item.entry))
+      .sort((a, b) => {
+        const aIndex = Number(a.card.index) || 0;
+        const bIndex = Number(b.card.index) || 0;
+        return aIndex - bIndex;
+      });
+  }
+
   function getScheduleSummary(cardIds, bucket, now = new Date()) {
     const map = new Map();
     let dueTodayCount = 0;
     let nextDueDate = null;
+    let startedCount = 0;
+    let newCount = 0;
     (cardIds || []).forEach((id) => {
       const entry = getEntry(bucket, id, now);
+      if (!isStarted(entry)) {
+        newCount += 1;
+        return;
+      }
+      startedCount += 1;
       const day = getDueDay(entry, now);
+      if (!day) return;
       const stamp = day.getTime();
       map.set(stamp, (map.get(stamp) || 0) + 1);
       if (stamp <= getLocalDayStamp(now)) {
@@ -161,7 +200,9 @@
     return {
       dueTodayCount,
       nextDueDate,
-      byDay
+      byDay,
+      startedCount,
+      newCount
     };
   }
 
@@ -182,7 +223,9 @@
     getScheduleSummary,
     getDueDay,
     isDueToday,
+    isStarted,
     canReviewToday,
+    getNewQueue,
     ratingLabel,
     roundFsrsCardToDueDay
   };
