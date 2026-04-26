@@ -660,3 +660,148 @@ button:disabled {
     width: 100%;
   }
 }
+
+select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  font: inherit;
+}
+
+.stats-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.set-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.subpanel-block + .subpanel-block {
+  margin-top: 16px;
+}
+
+.subpanel-title {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.schedule-list,
+.sets-overview {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.schedule-row,
+.saved-set-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #ececec;
+}
+
+.schedule-row:last-child,
+.saved-set-row:last-child {
+  border-bottom: 0;
+}
+
+.saved-set-row {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.saved-set-row.active {
+  background: #ffffff;
+}
+
+.saved-set-name {
+  font-weight: 600;
+}
+
+.saved-set-meta {
+  font-size: 13px;
+}
+
+.manage-meta {
+  min-width: 0;
+}
+
+.manage-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.manage-sub,
+.manage-mini {
+  font-size: 13px;
+}
+
+.manage-sub {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manage-mini {
+  margin-top: 4px;
+}
+
+.flag-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+.flag-check input {
+  margin: 0;
+}
+
+.schedule-empty {
+  padding: 14px;
+}
+
+@media (max-width: 760px) {
+  .stats-grid-3,
+  .stats-grid-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .set-row {
+    grid-template-columns: 1fr;
+  }
+
+  .set-row button {
+    width: 100%;
+  }
+
+  .saved-set-row,
+  .schedule-row {
+    align-items: flex-start;
+  }
+
+  .manage-row {
+    grid-template-columns: 1fr;
+  }
+
+  .manage-flags {
+    justify-content: flex-start;
+  }
+}
+.manage-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
