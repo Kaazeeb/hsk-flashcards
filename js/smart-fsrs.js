@@ -72,6 +72,21 @@
     };
   }
 
+  function normalizeReviewEvents(events) {
+    return (Array.isArray(events) ? events : [])
+      .map((event) => ({
+        id: String(event?.id || "").trim(),
+        rating: SMART_RATINGS.includes(Number(event?.rating)) ? Number(event.rating) : 3,
+        occurredAt: normalizeDate(event?.occurredAt || event?.occurred_at || Date.now()).toISOString()
+      }))
+      .filter((event) => event.id && event.occurredAt);
+  }
+
+  function createReviewEventId(cardIdValue, rating, occurredAt) {
+    const randomPart = Math.random().toString(36).slice(2, 10);
+    return ["smart", cardIdValue, rating, occurredAt, randomPart].join("::");
+  }
+
   function normalizeEntry(entry, now = new Date()) {
     if (!entry || typeof entry !== "object") return createSmartEntry(now);
     const started = entry.started === undefined ? !!(entry.card || entry.fsrsCard) : !!entry.started;
@@ -84,7 +99,8 @@
       started,
       lastRating,
       lastReviewedAt: lastReviewedAt ? normalizeDate(lastReviewedAt, now).toISOString() : null,
-      card: started ? normalizeFsrsCard(entry.card || entry.fsrsCard, now) : null
+      card: started ? normalizeFsrsCard(entry.card || entry.fsrsCard, now) : null,
+      reviewEvents: normalizeReviewEvents(entry.reviewEvents)
     };
   }
 
@@ -108,13 +124,14 @@
     return !!dueDay && dueDay.getTime() <= getLocalDayStamp(now);
   }
 
-  function getDailyShuffleScore(cardLike, dueDay, now = new Date()) {
+  function getDailyShuffleScore(cardLike, dueDay, now = new Date(), sessionSeed = "") {
     const id = cardId(cardLike);
     const dayKey = formatLocalDayKey(dueDay || now);
-    return hashStringToUnitInterval(`${id}::${dayKey}`);
+    const seed = sessionSeed || dayKey;
+    return hashStringToUnitInterval(`${seed}::${id}::${dayKey}`);
   }
 
-  function reviewCard(bucket, cardOrId, rating, now = new Date()) {
+  function reviewCard(bucket, cardOrId, rating, now = new Date(), options = {}) {
     if (!scheduler) throw new Error("FSRS scheduler not available.");
     const id = cardId(cardOrId);
     const normalizedNow = normalizeDate(now);
@@ -125,20 +142,31 @@
     const fuzzSeed = `${id}::${normalizedRating}::${normalizedNow.toISOString()}::${currentCard.reps || 0}::${currentCard.lapses || 0}::${currentCard.state || 0}`;
     const rounded = roundFsrsCardToDueDay(next.card, normalizedNow, fuzzSeed);
     const correct = normalizedRating !== 1;
+    const occurredAt = normalizedNow.toISOString();
+    const reviewEvents = [...(current.reviewEvents || [])];
+    if (options.trackEvent !== false) {
+      reviewEvents.push({
+        id: options.eventId || createReviewEventId(id, normalizedRating, occurredAt),
+        rating: normalizedRating,
+        occurredAt
+      });
+    }
     bucket[id] = {
       shown: current.shown + 1,
       correct: current.correct + (correct ? 1 : 0),
       wrong: current.wrong + (correct ? 0 : 1),
       started: true,
       lastRating: normalizedRating,
-      lastReviewedAt: normalizedNow.toISOString(),
-      card: normalizeFsrsCard(rounded, normalizedNow)
+      lastReviewedAt: occurredAt,
+      card: normalizeFsrsCard(rounded, normalizedNow),
+      reviewEvents
     };
     return bucket[id];
   }
 
-  function getDueQueue(cardIds, bucket, vocabById, now = new Date()) {
+  function getDueQueue(cardIds, bucket, vocabById, now = new Date(), options = {}) {
     const todayStamp = getLocalDayStamp(now);
+    const sessionSeed = options.sessionSeed || "";
     const candidates = (cardIds || [])
       .map((id) => ({
         id,
@@ -155,18 +183,16 @@
         const aDay = getDueDay(a.entry, now).getTime();
         const bDay = getDueDay(b.entry, now).getTime();
         if (aDay !== bDay) return aDay - bDay;
-        const aShuffle = getDailyShuffleScore(a.id, getDueDay(a.entry, now), now);
-        const bShuffle = getDailyShuffleScore(b.id, getDueDay(b.entry, now), now);
+        const aShuffle = getDailyShuffleScore(a.id, getDueDay(a.entry, now), now, sessionSeed);
+        const bShuffle = getDailyShuffleScore(b.id, getDueDay(b.entry, now), now, sessionSeed);
         if (aShuffle !== bShuffle) return aShuffle - bShuffle;
-        const aLast = a.entry.card.last_review ? normalizeDate(a.entry.card.last_review, now).getTime() : 0;
-        const bLast = b.entry.card.last_review ? normalizeDate(b.entry.card.last_review, now).getTime() : 0;
-        if (aLast !== bLast) return aLast - bLast;
         return (a.card.index || 0) - (b.card.index || 0);
       });
     return candidates;
   }
 
-  function getNewQueue(cardIds, bucket, vocabById, now = new Date()) {
+  function getNewQueue(cardIds, bucket, vocabById, now = new Date(), options = {}) {
+    const sessionSeed = options.sessionSeed || "";
     return (cardIds || [])
       .map((id) => ({
         id,
@@ -176,6 +202,9 @@
       .filter((item) => item.card)
       .filter((item) => !isStarted(item.entry))
       .sort((a, b) => {
+        const aShuffle = getDailyShuffleScore(a.id, now, now, sessionSeed);
+        const bShuffle = getDailyShuffleScore(b.id, now, now, sessionSeed);
+        if (aShuffle !== bShuffle) return aShuffle - bShuffle;
         const aIndex = Number(a.card.index) || 0;
         const bIndex = Number(b.card.index) || 0;
         return aIndex - bIndex;
@@ -238,6 +267,7 @@
     canReviewToday,
     getNewQueue,
     ratingLabel,
-    roundFsrsCardToDueDay
+    roundFsrsCardToDueDay,
+    normalizeReviewEvents
   };
 })(window.HSKFlashcards);

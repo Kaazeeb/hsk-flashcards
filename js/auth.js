@@ -305,27 +305,37 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       cardIds.forEach((cardId) => {
         const a = getSmartEntryRaw(nextBucket, cardId);
         const b = getSmartEntryRaw(prevBucket, cardId);
-        if (!a && !b) return;
-        if (!a && b) throw new Error("NON_MONOTONIC_SMART");
-        if (!a?.started && b?.started) throw new Error("NON_MONOTONIC_SMART");
-        if (!a?.started) return;
+        if (!a || !a.started) return;
+
+        const currentEvents = ns.smart && typeof ns.smart.normalizeReviewEvents === "function"
+          ? ns.smart.normalizeReviewEvents(a.reviewEvents)
+          : (Array.isArray(a.reviewEvents) ? a.reviewEvents : []);
+        const previousEvents = ns.smart && typeof ns.smart.normalizeReviewEvents === "function"
+          ? ns.smart.normalizeReviewEvents(b?.reviewEvents)
+          : (Array.isArray(b?.reviewEvents) ? b.reviewEvents : []);
+        const previousIds = new Set(previousEvents.map((event) => String(event.id)));
+        currentEvents.forEach((event) => {
+          if (!event.id || previousIds.has(event.id)) return;
+          events.push({
+            event_id: event.id,
+            kind: SMART_EVENT_KIND,
+            set_id: String(setId),
+            card_id: String(cardId),
+            occurred_at: toIso(event.occurredAt),
+            payload: { rating: event.rating }
+          });
+        });
+
+        if (currentEvents.length) return;
+
+        // Backward-compatible fallback for old local states that only have counters.
         const nextShown = Math.max(0, Math.floor(Number(a.shown) || 0));
         const prevShown = Math.max(0, Math.floor(Number(b?.shown) || 0));
-        const nextCorrect = Math.max(0, Math.floor(Number(a.correct) || 0));
-        const prevCorrect = Math.max(0, Math.floor(Number(b?.correct) || 0));
-        const nextWrong = Math.max(0, Math.floor(Number(a.wrong) || 0));
-        const prevWrong = Math.max(0, Math.floor(Number(b?.wrong) || 0));
-        if (nextShown < prevShown || nextCorrect < prevCorrect || nextWrong < prevWrong) {
-          throw new Error("NON_MONOTONIC_SMART");
-        }
         const deltaShown = nextShown - prevShown;
-        if (deltaShown === 0) return;
-        if (deltaShown !== 1) throw new Error("NON_MONOTONIC_SMART");
+        if (deltaShown !== 1) return;
         const rating = Number(a.lastRating);
         const occurredAt = a.lastReviewedAt || a.card?.last_review || null;
-        if (![1, 2, 3, 4].includes(rating) || !occurredAt) {
-          throw new Error("NON_MONOTONIC_SMART");
-        }
+        if (![1, 2, 3, 4].includes(rating) || !occurredAt) return;
         events.push({
           kind: SMART_EVENT_KIND,
           set_id: String(setId),
@@ -406,7 +416,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         const cardIdValue = String(event.card_id || "");
         if (!setId || !cardIdValue || !ns.smart || typeof ns.smart.reviewCard !== "function") return;
         if (!smartBySet[setId]) smartBySet[setId] = {};
-        ns.smart.reviewCard(smartBySet[setId], cardIdValue, Number(event.payload?.rating) || 3, new Date(event.occurred_at || Date.now()));
+        ns.smart.reviewCard(smartBySet[setId], cardIdValue, Number(event.payload?.rating) || 3, new Date(event.occurred_at || Date.now()), { trackEvent: false });
       } else {
         applyProgressEvent(progress, event);
       }
@@ -458,7 +468,9 @@ window.HSKFlashcards = window.HSKFlashcards || {};
 
   async function insertEvents(client, rows) {
     if (!rows.length) return;
-    const { error } = await client.from(EVENT_TABLE).insert(rows);
+    const { error } = await client
+      .from(EVENT_TABLE)
+      .upsert(rows, { onConflict: "user_id,event_id", ignoreDuplicates: true });
     if (error) throw error;
   }
 
@@ -553,14 +565,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       events = buildProgressDiffEvents(currentState?.progress, previousState?.progress);
     } catch (error) {
       if (error?.message !== "NON_MONOTONIC_PROGRESS") throw error;
-      await deleteEventsByKinds(client, userId, PROGRESS_EVENT_KINDS);
-      await upsertDocs(client, [{
-        user_id: userId,
-        namespace: DOC_NS.SNAPSHOTS,
-        doc_id: DOC_IDS.PROGRESS,
-        payload: { progress: cloneProgress(currentState?.progress) },
-        updated_at: new Date().toISOString()
-      }]);
+      console.warn("Refusing to destructively overwrite remote progress from a non-monotonic local state.");
       return;
     }
     if (!events.length) return;
@@ -583,20 +588,13 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       events = buildSmartDiffEvents(currentState?.smartBySet, previousState?.smartBySet);
     } catch (error) {
       if (error?.message !== "NON_MONOTONIC_SMART") throw error;
-      await deleteEventsByKinds(client, userId, [SMART_EVENT_KIND]);
-      await upsertDocs(client, [{
-        user_id: userId,
-        namespace: DOC_NS.SNAPSHOTS,
-        doc_id: DOC_IDS.SMART,
-        payload: { smartBySet: cloneSmartState(currentState?.smartBySet) },
-        updated_at: new Date().toISOString()
-      }]);
+      console.warn("Refusing to destructively overwrite remote Smart FSRS history from a non-monotonic local state.");
       return;
     }
     if (!events.length) return;
     const rows = events.map((event, index) => ({
       user_id: userId,
-      event_id: makeEventId(event.kind, event.card_id, event.set_id, event.occurred_at, index),
+      event_id: event.event_id || makeEventId(event.kind, event.card_id, event.set_id, event.occurred_at, index),
       kind: event.kind,
       card_id: event.card_id,
       set_id: event.set_id || null,

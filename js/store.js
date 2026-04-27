@@ -101,7 +101,13 @@
           shown: Math.max(0, Math.floor(Number(entry.shown) || 0)),
           correct: Math.max(0, Math.floor(Number(entry.correct) || 0)),
           wrong: Math.max(0, Math.floor(Number(entry.wrong) || 0)),
-          card: entry.card || entry.fsrsCard || null
+          started: entry.started === undefined ? !!(entry.card || entry.fsrsCard) : !!entry.started,
+          lastRating: [1, 2, 3, 4].includes(Number(entry.lastRating)) ? Number(entry.lastRating) : null,
+          lastReviewedAt: entry.lastReviewedAt || entry.card?.last_review || entry.fsrsCard?.last_review || null,
+          card: entry.card || entry.fsrsCard || null,
+          reviewEvents: ns.smart && typeof ns.smart.normalizeReviewEvents === "function"
+            ? ns.smart.normalizeReviewEvents(entry.reviewEvents)
+            : (Array.isArray(entry.reviewEvents) ? entry.reviewEvents : [])
         };
       });
     });
@@ -225,7 +231,6 @@
       async load() {
         const raw = await adapter.loadAppData();
         this.state = normalizeDb(raw, builtinCards);
-        await this.persist();
         return this.state;
       },
 

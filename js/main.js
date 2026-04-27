@@ -7,12 +7,17 @@
   const { createButton, clearNode, setBar, updateResult, scheduleStudyAreaFocus } = ns.ui;
   const smart = ns.smart;
 
+  function createSmartSessionSeed() {
+    return ["smart-session", Date.now().toString(36), Math.random().toString(36).slice(2, 10)].join("::");
+  }
+
   const state = {
     filterText: "",
     manageListDirty: true,
     elements: null,
     store: null,
     smartLastCardId: "",
+    smartSessionSeed: createSmartSessionSeed(),
     authScope: "anon",
     authMessage: "",
     authMessageClass: "muted",
@@ -448,13 +453,13 @@
   function getSmartDueQueue(now = new Date()) {
     const activeSet = getActiveSet();
     const bucket = getSmartBucketForSet(activeSet.id);
-    return smart.getDueQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now).map((item) => item.card);
+    return smart.getDueQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now, { sessionSeed: state.smartSessionSeed }).map((item) => item.card);
   }
 
   function getSmartNewQueue(now = new Date()) {
     const activeSet = getActiveSet();
     const bucket = getSmartBucketForSet(activeSet.id);
-    return smart.getNewQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now).map((item) => item.card);
+    return smart.getNewQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now, { sessionSeed: state.smartSessionSeed }).map((item) => item.card);
   }
 
   function getSmartQueue(now = new Date()) {
