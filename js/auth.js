@@ -1,10 +1,11 @@
 window.HSKFlashcards = window.HSKFlashcards || {};
 
 (function (ns) {
-  const CONFIG_KEY = "hsk_flashcards_supabase_config_v1";
+  const HARDCODED_SUPABASE_URL = "https://vfivrshzlhmocjoozawx.supabase.co";
+  const HARDCODED_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmaXZyc2h6bGhtb2Nqb296YXd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTQwMDMsImV4cCI6MjA5Mjc5MDAwM30.DHTy3vI2aQBUSygvIhALMxdslAPItzwV7Dspv0ElE8A";
 
   const state = {
-    config: { url: "", key: "" },
+    config: { url: HARDCODED_SUPABASE_URL, key: HARDCODED_SUPABASE_KEY },
     client: null,
     session: null,
     user: null,
@@ -22,22 +23,10 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   function loadConfig() {
-    try {
-      const raw = localStorage.getItem(CONFIG_KEY);
-      if (!raw) return { url: "", key: "" };
-      const parsed = JSON.parse(raw);
-      return {
-        url: String(parsed?.url || "").trim(),
-        key: String(parsed?.key || "").trim()
-      };
-    } catch (error) {
-      return { url: "", key: "" };
-    }
+    return { url: HARDCODED_SUPABASE_URL, key: HARDCODED_SUPABASE_KEY };
   }
 
-  function persistConfig() {
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
-  }
+  function persistConfig() {}
 
   function clearSubscription() {
     const sub = state.subscription;
@@ -57,7 +46,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return {
       ready: state.ready,
       providerReady: state.providerReady,
-      configured: !!(state.config.url && state.config.key),
+      configured: true,
       signedIn: !!state.user,
       email: state.user?.email || "",
       userId: state.user?.id || "",
@@ -122,11 +111,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   async function setConfig(url, key) {
-    state.config = {
-      url: String(url || "").trim(),
-      key: String(key || "").trim()
-    };
-    persistConfig();
+    state.config = loadConfig();
     await initializeClient();
     notify("CONFIG_UPDATED");
     return getStatus();

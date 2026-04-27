@@ -13,29 +13,24 @@
       <p>Local-first flashcards for hanzi, pinyin and English translation.</p>
     </header>
 
+    <nav class="page-nav" aria-label="App sections">
+      <button id="pageLoginBtn" class="page-btn active" type="button" data-page="login">Login</button>
+      <button id="pageSetupBtn" class="page-btn" type="button" data-page="setup">Setup</button>
+      <button id="pageFlashcardsBtn" class="page-btn" type="button" data-page="flashcards">Flash cards</button>
+    </nav>
 
 
-    <section class="panel auth-panel">
+
+    <section class="panel auth-panel page-panel" data-page="login">
       <div class="panel-header">
-        <h2>Cloud sync / login</h2>
+        <h2>Login</h2>
         <span id="authBadge" class="badge subtle">Local only</span>
       </div>
 
-      <p class="hint">Optional. Add your Supabase project URL and publishable key to enable sync across devices.</p>
-
-      <div class="auth-grid">
-        <div>
-          <label for="supabaseUrlInput" class="label">Supabase URL</label>
-          <input id="supabaseUrlInput" type="text" placeholder="https://your-project-ref.supabase.co" />
-        </div>
-        <div>
-          <label for="supabaseKeyInput" class="label">Publishable / anon key</label>
-          <input id="supabaseKeyInput" type="text" placeholder="sb_publishable_... or anon key" />
-        </div>
-      </div>
-
-      <div class="button-row compact-row">
-        <button id="saveSupabaseConfigBtn" class="secondary">Save Supabase config</button>
+      <p class="hint">This build is hardcoded to your Supabase project and will sync progress across devices after sign in.</p>
+      <div class="auth-project-line">
+        <span class="badge subtle">Project</span>
+        <code>vfivrshzlhmocjoozawx.supabase.co</code>
       </div>
 
       <div class="auth-grid auth-credentials-grid">
@@ -55,10 +50,10 @@
         <button id="authSignOutBtn" class="ghost">Sign out</button>
       </div>
 
-      <p id="authStatusText" class="status muted">Local-only mode. Sign in to sync your progress between devices.</p>
+      <p id="authStatusText" class="status muted">Sign in to sync your progress between devices.</p>
     </section>
 
-    <section class="panel import-panel">
+    <section class="panel import-panel page-panel" data-page="setup">
       <div class="panel-header">
         <h2>Vocabulary</h2>
         <span class="badge" id="storageModeBadge">built in · local data layer</span>
@@ -85,7 +80,7 @@ hanzi,pinyin,translation
       <p id="statusText" class="status muted">Built-in HSK 1–3 loads automatically on first open.</p>
     </section>
 
-    <section class="panel mode-panel">
+    <section class="panel mode-panel page-panel" data-page="flashcards">
       <div class="panel-header">
         <h2>Modes</h2>
       </div>
@@ -113,7 +108,7 @@ hanzi,pinyin,translation
       <p id="orderStatus" class="status muted">Sequential order.</p>
     </section>
 
-    <section class="panel report-panel">
+    <section class="panel report-panel page-panel" data-page="setup">
       <div class="panel-header">
         <h2>Progress</h2>
       </div>
@@ -184,7 +179,7 @@ hanzi,pinyin,translation
       </div>
     </section>
 
-    <section class="panel sets-panel">
+    <section class="panel sets-panel page-panel" data-page="setup">
       <div class="panel-header">
         <h2>Card sets & review plan</h2>
         <span id="activeSetBadge" class="badge subtle">All cards</span>
@@ -229,7 +224,7 @@ hanzi,pinyin,translation
       </div>
     </section>
 
-    <section class="panel setup-panel">
+    <section class="panel setup-panel page-panel" data-page="setup">
       <div class="panel-header setup-panel-header">
         <h2>Card setup</h2>
         <div class="setup-header-actions">
@@ -283,7 +278,7 @@ hanzi,pinyin,translation
       </div>
     </section>
 
-    <section class="panel card-panel">
+    <section class="panel card-panel page-panel" data-page="flashcards">
       <div class="card-top">
         <div class="top-badges">
           <span id="modeLabel" class="badge">Learn</span>

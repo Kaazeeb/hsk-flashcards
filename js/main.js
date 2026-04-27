@@ -16,6 +16,7 @@
     authScope: "anon",
     authMessage: "",
     authMessageClass: "muted",
+    currentPage: "login",
     round: createEmptyRound()
   };
 
@@ -66,6 +67,8 @@
       authSignUpBtn: document.getElementById("authSignUpBtn"),
       authSignInBtn: document.getElementById("authSignInBtn"),
       authSignOutBtn: document.getElementById("authSignOutBtn"),
+      pageButtons: [...document.querySelectorAll(".page-btn[data-page]")],
+      pagePanels: [...document.querySelectorAll(".page-panel[data-page]")],
       modeButtons: [...document.querySelectorAll(".mode-btn")],
       quizTypeWrap: document.getElementById("quizTypeWrap"),
       quizTypeButtons: [...document.querySelectorAll(".quiz-type-btn")],
@@ -224,18 +227,16 @@
       state.elements.authSignOutBtn.disabled = !info.signedIn;
     }
 
-    let defaultMessage = "Local-only mode. Sign in to sync your progress between devices.";
+    let defaultMessage = "Sign in to sync your progress between devices.";
     let defaultTone = "muted";
     if (!info.providerReady) {
-      defaultMessage = "Supabase client script is unavailable. Local-only mode remains active.";
+      defaultMessage = "Supabase client script is unavailable.";
       defaultTone = "bad";
-    } else if (!info.configured) {
-      defaultMessage = "Paste your Supabase URL and publishable key to enable cloud sync.";
     } else if (info.signedIn) {
       defaultMessage = `Signed in as ${info.email || "user"}. Cloud sync is active.`;
       defaultTone = "ok";
     } else {
-      defaultMessage = "Supabase configured. Sign in to sync data between devices.";
+      defaultMessage = "Connected to the hardcoded Supabase project. Sign in to sync data.";
     }
 
     const message = state.authMessage || defaultMessage;
@@ -244,6 +245,36 @@
       state.elements.authStatusText.textContent = message;
       state.elements.authStatusText.className = `status ${tone === "muted" ? "muted" : tone}`;
     }
+  }
+
+  function ensureCurrentPageAllowed() {
+    const signedIn = !!getAuthStatus().signedIn;
+    if (!signedIn && state.currentPage !== "login") state.currentPage = "login";
+    if (!["login", "setup", "flashcards"].includes(state.currentPage)) state.currentPage = signedIn ? "flashcards" : "login";
+  }
+
+  function setPage(page) {
+    const signedIn = !!getAuthStatus().signedIn;
+    if (!["login", "setup", "flashcards"].includes(page)) return;
+    if (!signedIn && page !== "login") return;
+    state.currentPage = page;
+    renderPageShell();
+    if (page === "setup") renderManageListIfNeeded(true);
+  }
+
+  function renderPageShell() {
+    ensureCurrentPageAllowed();
+    const signedIn = !!getAuthStatus().signedIn;
+    state.elements.pageButtons.forEach((button) => {
+      const page = button.dataset.page;
+      const disabled = !signedIn && page !== "login";
+      button.disabled = disabled;
+      button.classList.toggle("active", state.currentPage === page);
+      button.setAttribute("aria-current", state.currentPage === page ? "page" : "false");
+    });
+    state.elements.pagePanels.forEach((panel) => {
+      panel.hidden = panel.dataset.page !== state.currentPage;
+    });
   }
 
   function getAuthCredentials() {
@@ -307,12 +338,12 @@
     const changed = await syncStoreToAuthScope();
     if (info?.event === "SIGNED_IN") {
       setAuthMessage("Signed in. Cloud sync active.", "ok");
+      state.currentPage = "flashcards";
     } else if (info?.event === "SIGNED_OUT") {
-      setAuthMessage("Signed out. Showing local-only data.", "muted");
+      setAuthMessage("Signed out.", "muted");
+      state.currentPage = "login";
     } else if (info?.event === "READY" && info?.signedIn) {
       setAuthMessage("Session restored. Cloud sync active.", "ok");
-    } else if (info?.event === "CONFIG_UPDATED") {
-      setAuthMessage("Supabase config updated.", "ok");
     }
     updateStorageModeBadge();
     if (changed) state.filterText = state.elements.filterInput.value || state.filterText || "";
@@ -1342,6 +1373,7 @@
   }
 
   function render() {
+    renderPageShell();
     updateModeButtons();
     updateStorageModeBadge();
     renderAuthPanel();
@@ -1626,6 +1658,7 @@
   }
 
   function handleTranslationKeyboard(event) {
+    if (state.currentPage !== "flashcards") return;
     const active = document.activeElement;
     const isTypingField = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
     if (!getCurrentCard()) return;
@@ -1699,6 +1732,7 @@
   }
 
   function handlePinyinKeyboard(event) {
+    if (state.currentPage !== "flashcards") return;
     const active = document.activeElement;
     const isTextInput = active && active.tagName === "INPUT" && active.type === "text";
     if (event.key !== "Enter" && event.key !== "ArrowRight") return;
@@ -1744,10 +1778,11 @@
   }
 
   function bindEvents() {
-    state.elements.saveSupabaseConfigBtn.addEventListener("click", handleSaveSupabaseConfig);
-    state.elements.authSignUpBtn.addEventListener("click", handleAuthSignUp);
-    state.elements.authSignInBtn.addEventListener("click", handleAuthSignIn);
-    state.elements.authSignOutBtn.addEventListener("click", handleAuthSignOut);
+    if (state.elements.saveSupabaseConfigBtn) state.elements.saveSupabaseConfigBtn.addEventListener("click", handleSaveSupabaseConfig);
+    if (state.elements.authSignUpBtn) state.elements.authSignUpBtn.addEventListener("click", handleAuthSignUp);
+    if (state.elements.authSignInBtn) state.elements.authSignInBtn.addEventListener("click", handleAuthSignIn);
+    if (state.elements.authSignOutBtn) state.elements.authSignOutBtn.addEventListener("click", handleAuthSignOut);
+    state.elements.pageButtons.forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
     state.elements.saveVocabBtn.addEventListener("click", handleSaveVocabulary);
     state.elements.loadPlaceholderBtn.addEventListener("click", handleRestoreBuiltIn);
     state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
@@ -1784,6 +1819,7 @@
     state.authScope = ns.auth && typeof ns.auth.getCacheScope === "function" ? ns.auth.getCacheScope() : "anon";
     await state.store.load();
     state.filterText = state.elements.filterInput.value || "";
+    state.currentPage = getAuthStatus().signedIn ? "flashcards" : "login";
     updateStorageModeBadge();
     if (ns.auth && typeof ns.auth.subscribe === "function") {
       ns.auth.subscribe(handleAuthStateChange);
