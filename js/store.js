@@ -57,9 +57,7 @@
         practice: "default",
         test: "default"
       },
-      activeSetId: ALL_SET_ID,
-      smartSessionSetId: ALL_SET_ID,
-      smartSessionMode: "review"
+      activeSetId: ALL_SET_ID
     };
   }
 
@@ -87,9 +85,7 @@
         practice: ui?.orderType?.practice === "shuffled" ? "shuffled" : "default",
         test: ui?.orderType?.test === "shuffled" ? "shuffled" : "default"
       },
-      activeSetId: typeof ui?.activeSetId === "string" ? ui.activeSetId : ALL_SET_ID,
-      smartSessionSetId: typeof ui?.smartSessionSetId === "string" ? ui.smartSessionSetId : ALL_SET_ID,
-      smartSessionMode: ui?.smartSessionMode === "new" ? "new" : "review"
+      activeSetId: typeof ui?.activeSetId === "string" ? ui.activeSetId : ALL_SET_ID
     };
   }
 
@@ -213,7 +209,6 @@
     };
 
     if (!db.sets.byId[db.ui.activeSetId]) db.ui.activeSetId = ALL_SET_ID;
-    if (!db.sets.byId[db.ui.smartSessionSetId]) db.ui.smartSessionSetId = ALL_SET_ID;
     pruneDbToValidIds(db);
     return db;
   }
@@ -231,6 +226,16 @@
         const raw = await adapter.loadAppData();
         this.state = normalizeDb(raw, builtinCards);
         await this.persist();
+        return this.state;
+      },
+
+      async refreshRemote({ preserveUi = true } = {}) {
+        const currentUi = preserveUi ? cloneDb({ ui: this.state?.ui || createDefaultUiState() }).ui : null;
+        const raw = await adapter.loadAppData();
+        const next = normalizeDb(raw, builtinCards);
+        if (currentUi) next.ui = normalizeUiState(currentUi);
+        if (!next.sets.byId[next.ui.activeSetId]) next.ui.activeSetId = ALL_SET_ID;
+        this.state = next;
         return this.state;
       },
 
@@ -264,11 +269,6 @@
 
       async setActiveSet(setId) {
         this.state.ui.activeSetId = this.state.sets.byId[setId] ? setId : ALL_SET_ID;
-        await this.persist();
-      },
-
-      async setSmartSessionSet(setId) {
-        this.state.ui.smartSessionSetId = this.state.sets.byId[setId] ? setId : ALL_SET_ID;
         await this.persist();
       },
 
@@ -307,7 +307,6 @@
         this.state.sets.order = this.state.sets.order.filter((id) => id !== setId);
         delete this.state.smartBySet[setId];
         if (this.state.ui.activeSetId === setId) this.state.ui.activeSetId = ALL_SET_ID;
-        if (this.state.ui.smartSessionSetId === setId) this.state.ui.smartSessionSetId = ALL_SET_ID;
         await this.persist();
         return true;
       },

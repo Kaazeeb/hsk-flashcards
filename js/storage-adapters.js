@@ -1,9 +1,13 @@
 /*
 Persistence adapter layer.
 - Local cache is namespaced by current auth scope (anon or user id).
-- If Supabase auth is active and signed in, remote state is loaded/saved too.
+- Remote sync is granular when Supabase auth is active and signed in.
 */
 (function (ns) {
+  function deepClone(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
   class LocalJsonAdapter {
     constructor(baseKey, scopeProvider) {
       this.baseKey = baseKey;
@@ -51,10 +55,26 @@ Persistence adapter layer.
     }
   }
 
+  function buildSettingsFragment(db) {
+    return {
+      vocab: deepClone(db?.vocab || []),
+      sets: deepClone(db?.sets || {}),
+      ui: deepClone(db?.ui || {})
+    };
+  }
+
+  function buildProgressBaseFragment(db) {
+    return {
+      progress: deepClone(db?.progress || {}),
+      smartBySet: deepClone(db?.smartBySet || {})
+    };
+  }
+
   class SwitchableAdapter {
     constructor(localAdapter, remoteProvider) {
       this.local = localAdapter;
       this.remoteProvider = typeof remoteProvider === "function" ? remoteProvider : () => null;
+      this.lastSnapshot = null;
     }
 
     getRemote() {
@@ -76,25 +96,32 @@ Persistence adapter layer.
           const remoteData = await remote.loadAppData();
           if (remoteData) {
             await this.local.saveAppData(remoteData);
+            this.lastSnapshot = deepClone(remoteData);
             return remoteData;
           }
         } catch (error) {
           console.warn("Remote adapter load failed, falling back to local cache.", error);
         }
       }
-      return this.local.loadAppData();
+      const localData = await this.local.loadAppData();
+      this.lastSnapshot = deepClone(localData);
+      return localData;
     }
 
     async saveAppData(payload) {
       const remote = this.getRemote();
+      const previousSnapshot = deepClone(this.lastSnapshot);
+      let remoteSaved = !remote || typeof remote.saveAppData !== "function";
       if (remote && typeof remote.saveAppData === "function") {
         try {
-          await remote.saveAppData(payload);
+          await remote.saveAppData(payload, previousSnapshot || {});
+          remoteSaved = true;
         } catch (error) {
           console.warn("Remote adapter save failed, keeping local cache.", error);
         }
       }
       await this.local.saveAppData(payload);
+      if (remoteSaved) this.lastSnapshot = deepClone(payload);
     }
   }
 
@@ -113,6 +140,8 @@ Persistence adapter layer.
   ns.adapters = {
     createPersistenceAdapter,
     LocalJsonAdapter,
-    SwitchableAdapter
+    SwitchableAdapter,
+    buildSettingsFragment,
+    buildProgressBaseFragment
   };
 })(window.HSKFlashcards);
