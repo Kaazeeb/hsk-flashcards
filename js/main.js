@@ -1,6 +1,6 @@
 (function (ns) {
   const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, SMART_RATINGS } = ns.constants;
-  const { normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate } = ns.utils;
+  const { normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate, formatLocalDayKey } = ns.utils;
   const { checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, getPinyinDisplay } = ns.pinyin;
   const { createPersistenceAdapter } = ns.adapters;
   const { createAppStore } = ns.store;
@@ -17,6 +17,8 @@
     authMessage: "",
     authMessageClass: "muted",
     currentPage: "login",
+    smartQueueShuffleSalts: {},
+    smartSessionExclusions: {},
     round: createEmptyRound()
   };
 
@@ -72,6 +74,10 @@
       modeButtons: [...document.querySelectorAll(".mode-btn")],
       quizTypeWrap: document.getElementById("quizTypeWrap"),
       quizTypeButtons: [...document.querySelectorAll(".quiz-type-btn")],
+      smartSessionWrap: document.getElementById("smartSessionWrap"),
+      smartSetSelect: document.getElementById("smartSetSelect"),
+      smartSessionButtons: [...document.querySelectorAll(".smart-session-btn")],
+      smartSessionStatus: document.getElementById("smartSessionStatus"),
       shuffleBtn: document.getElementById("shuffleBtn"),
       resetOrderBtn: document.getElementById("resetOrderBtn"),
       orderStatus: document.getElementById("orderStatus"),
@@ -354,6 +360,57 @@
     state.round = createEmptyRound();
   }
 
+  function getSmartSessionMode() {
+    return getUi().smartSessionMode === "new" ? "new" : "review";
+  }
+
+  function getSmartQueueTypeForSessionMode(sessionMode = getSmartSessionMode()) {
+    return sessionMode === "new" ? "new" : "due";
+  }
+
+  function getSmartSessionKey(setId = getSmartSessionSet().id, sessionMode = getSmartSessionMode(), now = new Date()) {
+    return `${setId}:${sessionMode}:${formatLocalDayKey(now)}`;
+  }
+
+  function getSmartSessionExclusionSet(setId = getSmartSessionSet().id, sessionMode = getSmartSessionMode(), now = new Date()) {
+    const key = getSmartSessionKey(setId, sessionMode, now);
+    if (!state.smartSessionExclusions[key]) state.smartSessionExclusions[key] = new Set();
+    return state.smartSessionExclusions[key];
+  }
+
+  function clearSmartSession(setId = getSmartSessionSet().id, sessionMode = getSmartSessionMode(), now = new Date()) {
+    delete state.smartSessionExclusions[getSmartSessionKey(setId, sessionMode, now)];
+    state.smartLastCardId = "";
+    resetRoundState();
+  }
+
+  function clearSmartSessionsForSet(setId) {
+    Object.keys(state.smartSessionExclusions).forEach((key) => {
+      if (key.startsWith(`${setId}:`)) delete state.smartSessionExclusions[key];
+    });
+  }
+
+  function markSmartSessionCardHandled(card, sessionMode = getSmartSessionMode(), now = new Date()) {
+    if (!card) return;
+    getSmartSessionExclusionSet(getSmartSessionSet().id, sessionMode, now).add(cardId(card));
+  }
+
+  function getSmartQueueSalt(queueType, now = new Date()) {
+    const key = `${getSmartSessionSet().id}:${queueType}:${formatLocalDayKey(now)}`;
+    if (!state.smartQueueShuffleSalts[key]) {
+      state.smartQueueShuffleSalts[key] = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+    return state.smartQueueShuffleSalts[key];
+  }
+
+  function refreshSmartQueueOrder(sessionMode = getSmartSessionMode(), now = new Date()) {
+    const queueType = getSmartQueueTypeForSessionMode(sessionMode);
+    const key = `${getSmartSessionSet().id}:${queueType}:${formatLocalDayKey(now)}`;
+    delete state.smartQueueShuffleSalts[key];
+    getSmartQueueSalt(queueType, now);
+    clearSmartSession(getSmartSessionSet().id, sessionMode, now);
+  }
+
   function markManageListDirty() {
     state.manageListDirty = true;
   }
@@ -361,6 +418,11 @@
   function getActiveSet() {
     const db = getDb();
     return db.sets.byId[db.ui.activeSetId] || db.sets.byId[ALL_SET_ID];
+  }
+
+  function getSmartSessionSet() {
+    const db = getDb();
+    return db.sets.byId[db.ui.smartSessionSetId] || db.sets.byId[ALL_SET_ID];
   }
 
   function getScopedCards() {
@@ -422,22 +484,60 @@
     return getSmartBucketForSet(getActiveSet().id);
   }
 
-  function getSmartDueQueue(now = new Date()) {
-    const activeSet = getActiveSet();
-    const bucket = getSmartBucketForSet(activeSet.id);
-    return smart.getDueQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now).map((item) => item.card);
+  function getSmartBucketForSessionSet() {
+    return getSmartBucketForSet(getSmartSessionSet().id);
   }
 
-  function getSmartNewQueue(now = new Date()) {
-    const activeSet = getActiveSet();
-    const bucket = getSmartBucketForSet(activeSet.id);
-    return smart.getNewQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now).map((item) => item.card);
+  function getSmartDueQueue(now = new Date(), options = {}) {
+    const sessionSet = getSmartSessionSet();
+    const bucket = getSmartBucketForSet(sessionSet.id);
+    const shuffleSalt = getSmartQueueSalt("due", now);
+    const excludeIds = options.excludeSession ? getSmartSessionExclusionSet(sessionSet.id, "review", now) : null;
+    return smart.getDueQueue(getPracticeScopedIdsForSet(sessionSet.id), bucket, getAllCardMap(), now, shuffleSalt, excludeIds).map((item) => item.card);
+  }
+
+  function getSmartNewQueue(now = new Date(), options = {}) {
+    const sessionSet = getSmartSessionSet();
+    const bucket = getSmartBucketForSet(sessionSet.id);
+    const shuffleSalt = getSmartQueueSalt("new", now);
+    const excludeIds = options.excludeSession ? getSmartSessionExclusionSet(sessionSet.id, "new", now) : null;
+    return smart.getNewQueue(getPracticeScopedIdsForSet(sessionSet.id), bucket, getAllCardMap(), now, shuffleSalt, excludeIds).map((item) => item.card);
+  }
+
+  function getSmartQueueInfo(now = new Date()) {
+    const sessionMode = getSmartSessionMode();
+    const dueAll = getSmartDueQueue(now, { excludeSession: false });
+    const dueSession = getSmartDueQueue(now, { excludeSession: true });
+    const newAll = getSmartNewQueue(now, { excludeSession: false });
+    const newSession = getSmartNewQueue(now, { excludeSession: true });
+
+    if (sessionMode === "new") {
+      return {
+        sessionMode,
+        type: "new",
+        cards: newSession,
+        overallCount: newAll.length,
+        remainingCount: newSession.length,
+        excludedCount: Math.max(0, newAll.length - newSession.length),
+        overallDueCount: dueAll.length,
+        overallNewCount: newAll.length
+      };
+    }
+
+    return {
+      sessionMode,
+      type: "due",
+      cards: dueSession,
+      overallCount: dueAll.length,
+      remainingCount: dueSession.length,
+      excludedCount: Math.max(0, dueAll.length - dueSession.length),
+      overallDueCount: dueAll.length,
+      overallNewCount: newAll.length
+    };
   }
 
   function getSmartQueue(now = new Date()) {
-    const dueQueue = getSmartDueQueue(now);
-    if (dueQueue.length) return dueQueue;
-    return getSmartNewQueue(now);
+    return getSmartQueueInfo(now).cards;
   }
 
   function getSmartScheduleForSet(setId, now = new Date()) {
@@ -501,12 +601,12 @@
 
   function getSmartCurrentCard() {
     if (!isSmartPracticeActive()) return null;
-    const activeIds = new Set(getPracticeScopedIdsForSet(getActiveSet().id));
-    if (state.round.smartCardId && activeIds.has(state.round.smartCardId)) {
-      const map = getScopedCardMap();
+    const queue = getSmartQueue(new Date());
+    const queueIds = new Set(queue.map((card) => cardId(card)));
+    if (state.round.smartCardId && queueIds.has(state.round.smartCardId)) {
+      const map = getAllCardMap();
       if (map[state.round.smartCardId]) return map[state.round.smartCardId];
     }
-    const queue = getSmartQueue(new Date());
     let picked = queue[0] || null;
     if (picked && queue.length > 1 && state.smartLastCardId) {
       const alternative = queue.find((item) => cardId(item) !== state.smartLastCardId);
@@ -621,10 +721,10 @@
     return ids.size;
   }
 
-  function getPracticeCardStats(card) {
+  function getPracticeCardStats(card, smartSetId = getActiveSet().id) {
     const id = cardId(card);
     const progress = getDb().progress;
-    const smartBucket = getSmartBucketForActiveSet();
+    const smartBucket = getSmartBucketForSet(smartSetId);
     return {
       translation: progress.practice.translation[id] || { shown: 0, correct: 0, wrong: 0 },
       pinyin: progress.practice.pinyin[id] || { shown: 0, correct: 0, wrong: 0 },
@@ -632,8 +732,8 @@
     };
   }
 
-  function getPracticeCardSummaryText(card) {
-    const stats = getPracticeCardStats(card);
+  function getPracticeCardSummaryText(card, smartSetId = getActiveSet().id) {
+    const stats = getPracticeCardStats(card, smartSetId);
     return {
       translation: `translation ${stats.translation.correct}/${stats.translation.wrong} · seen ${stats.translation.shown}`,
       pinyin: `pinyin ${stats.pinyin.correct}/${stats.pinyin.wrong} · seen ${stats.pinyin.shown}`,
@@ -647,10 +747,11 @@
       button.classList.toggle("active", button.dataset.mode === ui.mode);
     });
     state.elements.modeLabel.textContent = ui.mode.charAt(0).toUpperCase() + ui.mode.slice(1);
-    state.elements.cardSetLabel.textContent = getActiveSet().name;
+    state.elements.cardSetLabel.textContent = isSmartPracticeActive(ui.mode, getQuizType(ui.mode)) ? getSmartSessionSet().name : getActiveSet().name;
 
     if (ui.mode === "learn") {
       state.elements.quizTypeWrap.classList.add("hidden");
+      if (state.elements.smartSessionWrap) state.elements.smartSessionWrap.classList.add("hidden");
       state.elements.quizLabel.textContent = "Study card";
       return;
     }
@@ -664,6 +765,44 @@
     if (quizType === "translation") state.elements.quizLabel.textContent = "Translation · MCQ";
     else if (quizType === "pinyin") state.elements.quizLabel.textContent = "Pinyin · typed";
     else state.elements.quizLabel.textContent = "Smart · FSRS";
+
+    if (state.elements.smartSessionWrap) {
+      state.elements.smartSessionWrap.classList.toggle("hidden", !isSmartPracticeActive(ui.mode, quizType));
+    }
+  }
+
+  function renderSmartSessionControls() {
+    if (!state.elements.smartSessionWrap) return;
+    const active = isSmartPracticeActive();
+    state.elements.smartSessionWrap.classList.toggle("hidden", !active);
+    if (!active) return;
+
+    const sets = getDb().sets.order.map((id) => getDb().sets.byId[id]).filter(Boolean);
+    clearNode(state.elements.smartSetSelect);
+    sets.forEach((setRecord) => {
+      const option = document.createElement("option");
+      option.value = setRecord.id;
+      option.textContent = `${setRecord.name} (${getPracticeScopedIdsForSet(setRecord.id).length})`;
+      option.selected = setRecord.id === getSmartSessionSet().id;
+      state.elements.smartSetSelect.appendChild(option);
+    });
+
+    state.elements.smartSessionButtons.forEach((button) => {
+      button.classList.toggle("active", button.dataset.smartSession === getSmartSessionMode());
+    });
+
+    const info = getSmartQueueInfo(new Date());
+    let text = `${getSmartSessionSet().name} · due today ${info.overallDueCount} · new ${info.overallNewCount}. `;
+    if (info.sessionMode === "review") {
+      if (info.remainingCount > 0) text += `${info.remainingCount} due card${info.remainingCount === 1 ? "" : "s"} remaining in this review pass.`;
+      else if (info.excludedCount > 0) text += `Review pass complete. ${info.excludedCount} due card${info.excludedCount === 1 ? "" : "s"} already shown in this pass. Use Shuffle current mode to start a fresh pass.`;
+      else text += "No due cards are available in this set today.";
+    } else {
+      if (info.remainingCount > 0) text += `${info.remainingCount} new card${info.remainingCount === 1 ? "" : "s"} remaining in this introduction pass.`;
+      else if (info.excludedCount > 0) text += `Introduction pass complete. ${info.excludedCount} new card${info.excludedCount === 1 ? "" : "s"} already shown in this pass. Use Shuffle current mode to start a fresh pass.`;
+      else text += "No new Practice cards are available in this set.";
+    }
+    state.elements.smartSessionStatus.textContent = text;
   }
 
   function renderStats() {
@@ -696,7 +835,8 @@
 
   function renderOrderStatus() {
     if (isSmartPracticeActive()) {
-      state.elements.orderStatus.textContent = "Smart practice uses only Practice cards. Started cards follow today's FSRS due order; new cards enter FSRS after their first Smart review.";
+      const sessionLabel = getSmartSessionMode() === "new" ? "Start new" : "Review due";
+      state.elements.orderStatus.textContent = `Smart practice works on the selected set and selected session. ${sessionLabel} uses a shuffled pass, and cards already shown in the current pass do not re-enter until you reshuffle.`;
       return;
     }
     const type = getUi().orderType[getUi().mode];
@@ -853,7 +993,8 @@
   function renderCurrentCardStats(card) {
     clearNode(state.elements.cardStats);
     if (!card) return;
-    const summary = getPracticeCardSummaryText(card);
+    const smartSetId = isSmartPracticeActive() ? getSmartSessionSet().id : getActiveSet().id;
+    const summary = getPracticeCardSummaryText(card, smartSetId);
     [summary.translation, summary.pinyin, summary.smart].forEach((text) => {
       const chip = document.createElement("span");
       chip.className = "badge subtle";
@@ -878,8 +1019,16 @@
     state.elements.positionLabel.textContent = `${queueIndex + 1} / ${total}`;
   }
 
-  function setSmartPositionLabel(card, dueCount, activeCount) {
-    state.elements.positionLabel.textContent = `Due ${dueCount} / Started ${activeCount}`;
+  function setSmartPositionLabel(queueInfo, startedCount, newCount) {
+    if (queueInfo.type === "due") {
+      state.elements.positionLabel.textContent = `Review pass ${queueInfo.remainingCount}/${queueInfo.overallCount} · Started ${startedCount} · New ${newCount}`;
+      return;
+    }
+    if (queueInfo.type === "new") {
+      state.elements.positionLabel.textContent = `New pass ${queueInfo.remainingCount}/${queueInfo.overallCount} · Started ${startedCount} · New ${newCount}`;
+      return;
+    }
+    state.elements.positionLabel.textContent = `Review pass 0/0 · Started ${startedCount} · New ${newCount}`;
   }
 
   function buildTranslationOptionsForCard(card, mode = getUi().mode) {
@@ -1081,8 +1230,11 @@
     if (state.round.smartStage !== "feedback") return;
     const card = getCurrentCard();
     if (!card) return;
-    const bucket = getSmartBucketForActiveSet();
-    smart.reviewCard(bucket, card, state.round.smartSelectedRating, new Date());
+    const now = new Date();
+    const sessionMode = getSmartSessionMode();
+    const bucket = getSmartBucketForSet(getSmartSessionSet().id);
+    markSmartSessionCardHandled(card, sessionMode, now);
+    smart.reviewCard(bucket, card, state.round.smartSelectedRating, now);
     persist();
     nextSmartCard();
   }
@@ -1134,7 +1286,13 @@
   }
 
   function nextSmartCard() {
-    state.smartLastCardId = cardId(getCurrentCard() || "");
+    const card = getCurrentCard();
+    if (card) {
+      markSmartSessionCardHandled(card, getSmartSessionMode(), new Date());
+      state.smartLastCardId = cardId(card);
+    } else {
+      state.smartLastCardId = "";
+    }
     resetRoundState();
     persist();
     render();
@@ -1264,12 +1422,12 @@
     }
   }
 
-  function renderSmartPractice(card, dueCount, activeCount) {
+  function renderSmartPractice(card, queueInfo, summary) {
     const { reviewText } = getReviewPinyinText(card);
-    const smartEntry = getSmartBucketForActiveSet()[cardId(card)] || smart.createSmartEntry(new Date());
+    const smartEntry = getSmartBucketForSessionSet()[cardId(card)] || smart.createSmartEntry(new Date());
     const isNewSmartCard = !smart.isStarted(smartEntry);
     prepareRoundAppearance("practice", "smart", card);
-    setSmartPositionLabel(card, dueCount, activeCount);
+    setSmartPositionLabel(queueInfo, summary.startedCount, summary.newCount);
     renderCurrentCardStats(card);
 
     state.elements.cardHanzi.textContent = card.hanzi;
@@ -1277,10 +1435,10 @@
     state.elements.cardTranslation.textContent = state.round.smartStage === "feedback" ? card.translation : "";
 
     if (state.round.smartStage === "pinyin") {
-      state.elements.cardPrompt.textContent = isNewSmartCard ? "Smart practice · new card · 1 of 3 · type the pinyin" : "Smart practice · 1 of 3 · type the pinyin";
+      state.elements.cardPrompt.textContent = queueInfo.type === "due" ? "Smart practice · review session · 1 of 3 · type the pinyin" : "Smart practice · start-new session · 1 of 3 · type the pinyin";
       updateResult(
         state.elements.resultText,
-        state.round.pendingWrong ? state.round.resultText : (isNewSmartCard ? "First Smart review for this card. It will only enter the FSRS schedule after you finish this review. Use tone numbers. Example: ni3hao3, lv4, xie4xie." : "Step 1 of 3. Use tone numbers. Example: ni3hao3, lv4, xie4xie."),
+        state.round.pendingWrong ? state.round.resultText : (queueInfo.type === "new" ? "Introduction pass. This card is shown once in the current pass; after you finish it, the FSRS scheduler decides its next due day. Use tone numbers. Example: ni3hao3, lv4, xie4xie." : "Review pass. Each due card is shown once in the current pass. Use tone numbers. Example: ni3hao3, lv4, xie4xie."),
         state.round.pendingWrong ? state.round.resultClass : ""
       );
 
@@ -1322,7 +1480,7 @@
     }
 
     if (state.round.smartStage === "translation") {
-      state.elements.cardPrompt.textContent = "Smart practice · 2 of 3 · choose the translation";
+      state.elements.cardPrompt.textContent = queueInfo.type === "due" ? "Smart practice · review session · 2 of 3 · choose the translation" : "Smart practice · start-new session · 2 of 3 · choose the translation";
       if (!state.round.options.length) state.round.options = buildTranslationOptionsForCard(card, "practice");
       updateResult(state.elements.resultText, state.round.resultText || "Step 2 of 3. Choose the English translation.", state.round.resultClass || "");
       renderTranslationButtons(answerSmartTranslation);
@@ -1332,7 +1490,7 @@
     }
 
     if (state.round.smartStage === "feedback") {
-      state.elements.cardPrompt.textContent = "Smart practice · 3 of 3 · rate this review";
+      state.elements.cardPrompt.textContent = queueInfo.type === "due" ? "Smart practice · review session · 3 of 3 · rate this review" : "Smart practice · start-new session · 3 of 3 · rate this review";
       updateResult(state.elements.resultText, state.round.resultText || "Choose the FSRS rating for this review.", state.round.resultClass || "");
       clearNode(state.elements.answerArea);
       SMART_RATINGS.forEach((rating, index) => {
@@ -1350,27 +1508,62 @@
     }
   }
 
-  function renderSmartBlocked() {
-    const activeSet = getActiveSet();
-    const summary = getSmartScheduleForSet(activeSet.id);
-    const practiceCount = getPracticeScopedIdsForSet(activeSet.id).length;
-    state.elements.cardPrompt.textContent = "Smart practice blocked";
+  function renderSmartBlocked(queueInfo = getSmartQueueInfo(new Date())) {
+    const sessionSet = getSmartSessionSet();
+    const summary = getSmartScheduleForSet(sessionSet.id);
+    const practiceCount = getPracticeScopedIdsForSet(sessionSet.id).length;
+    const sessionMode = queueInfo.sessionMode || getSmartSessionMode();
+    const modeLabel = sessionMode === "new" ? "Start new" : "Review due";
+
+    state.elements.cardPrompt.textContent = `Smart practice · ${modeLabel}`;
     state.elements.cardHanzi.textContent = "—";
-    if (summary.nextDueDate) {
-      state.elements.cardPinyin.textContent = `Next due: ${formatReviewDateLabel(summary.nextDueDate)}`;
-    } else if (summary.newCount) {
-      state.elements.cardPinyin.textContent = `${summary.newCount} practice card${summary.newCount === 1 ? '' : 's'} not started in Smart yet.`;
-    } else {
-      state.elements.cardPinyin.textContent = "No cards scheduled yet.";
+
+    if (!practiceCount) {
+      state.elements.cardPinyin.textContent = "No Practice cards in the selected set.";
+      state.elements.cardTranslation.textContent = "Add cards to Practice inside this set before using Smart.";
+      updateResult(state.elements.resultText, "No Smart cards are available in the selected set.", "bad");
+      clearNode(state.elements.cardStats);
+      clearNode(state.elements.answerArea);
+      clearNode(state.elements.controls);
+      state.elements.positionLabel.textContent = `Review pass 0/0 · Started ${summary.startedCount} · New ${summary.newCount}`;
+      return;
     }
-    state.elements.cardTranslation.textContent = practiceCount ? "No started Practice cards are due today." : "No cards are currently marked for Practice in the active set.";
+
+    if (sessionMode === "review") {
+      if (queueInfo.excludedCount > 0) {
+        state.elements.cardPinyin.textContent = `${queueInfo.excludedCount} due card${queueInfo.excludedCount === 1 ? "" : "s"} already shown in this review pass.`;
+        state.elements.cardTranslation.textContent = "Use Shuffle current mode to start a fresh shuffled review pass, or switch to Start new.";
+        updateResult(state.elements.resultText, "This review pass is finished for now. Cards that became due again today stay out of the current pass.", "bad");
+      } else if (summary.nextDueDate) {
+        state.elements.cardPinyin.textContent = `Next due day: ${formatReviewDateLabel(summary.nextDueDate)}`;
+        state.elements.cardTranslation.textContent = queueInfo.overallNewCount ? `No due reviews today. ${queueInfo.overallNewCount} new Practice card${queueInfo.overallNewCount === 1 ? "" : "s"} are available in Start new.` : "No due reviews are available today in this set.";
+        updateResult(state.elements.resultText, "No due cards are available right now for the selected review session.", "bad");
+      } else {
+        state.elements.cardPinyin.textContent = "No due reviews are available today.";
+        state.elements.cardTranslation.textContent = queueInfo.overallNewCount ? `Use Start new to introduce ${queueInfo.overallNewCount} card${queueInfo.overallNewCount === 1 ? "" : "s"}.` : "No Smart cards are scheduled yet in this set.";
+        updateResult(state.elements.resultText, "No due cards are available right now for the selected review session.", "bad");
+      }
+    } else {
+      if (queueInfo.excludedCount > 0) {
+        state.elements.cardPinyin.textContent = `${queueInfo.excludedCount} new card${queueInfo.excludedCount === 1 ? "" : "s"} already shown in this introduction pass.`;
+        state.elements.cardTranslation.textContent = queueInfo.overallDueCount ? `Use Shuffle current mode to start another introduction pass, or switch to Review due (${queueInfo.overallDueCount} due today).` : "Use Shuffle current mode to start another shuffled introduction pass.";
+        updateResult(state.elements.resultText, "This introduction pass is finished for now. Cards already shown in this pass stay out until you reshuffle.", "bad");
+      } else {
+        state.elements.cardPinyin.textContent = "No new Practice cards are available in this set.";
+        state.elements.cardTranslation.textContent = queueInfo.overallDueCount ? `Use Review due to work on ${queueInfo.overallDueCount} due card${queueInfo.overallDueCount === 1 ? "" : "s"} today.` : "All Practice cards in this set have already been started in Smart.";
+        updateResult(state.elements.resultText, "No unstarted Smart cards are available for the selected introduction session.", "bad");
+      }
+    }
+
     clearNode(state.elements.cardStats);
-    updateResult(state.elements.resultText, practiceCount ? "No due reviews today. New cards stay outside the FSRS schedule until their first Smart review." : "Add cards to Practice to make them eligible for Smart.", "bad");
     clearNode(state.elements.answerArea);
     clearNode(state.elements.controls);
-    state.elements.controls.append(createButton("Next mode card", nextCard, "secondary", { disabled: true }));
-    state.elements.positionLabel.textContent = `Due 0 / ${summary.startedCount}`;
+    state.elements.controls.append(createButton("Shuffle current mode", shuffleCurrentMode, "secondary"));
+    state.elements.positionLabel.textContent = queueInfo.type === "new"
+      ? `New pass ${queueInfo.remainingCount}/${queueInfo.overallCount} · Started ${summary.startedCount} · New ${summary.newCount}`
+      : `Review pass ${queueInfo.remainingCount}/${queueInfo.overallCount} · Started ${summary.startedCount} · New ${summary.newCount}`;
   }
+
 
   function render() {
     renderPageShell();
@@ -1379,6 +1572,7 @@
     renderAuthPanel();
     renderStats();
     renderSetPanel();
+    renderSmartSessionControls();
     renderSelectionSummary();
     renderOrderStatus();
     renderSetupPanel();
@@ -1387,7 +1581,7 @@
     const card = getCurrentCard();
     if (!card) {
       if (isSmartPracticeActive()) {
-        renderSmartBlocked();
+        renderSmartBlocked(getSmartQueueInfo(new Date()));
         return;
       }
       const total = getOrderedIds().length;
@@ -1405,14 +1599,13 @@
     }
 
     if (isSmartPracticeActive()) {
-      const queue = getSmartQueue(new Date());
-      if (!queue.length) {
-        renderSmartBlocked();
+      const queueInfo = getSmartQueueInfo(new Date());
+      if (!queueInfo.cards.length) {
+        renderSmartBlocked(queueInfo);
         return;
       }
-      const dueQueue = getSmartDueQueue(new Date());
-      const summary = getSmartScheduleForSet(getActiveSet().id);
-      renderSmartPractice(card, dueQueue.length, summary.startedCount);
+      const summary = getSmartScheduleForSet(getSmartSessionSet().id);
+      renderSmartPractice(card, queueInfo, summary);
       return;
     }
 
@@ -1442,9 +1635,21 @@
     render();
   }
 
+  function setSmartSessionMode(sessionMode) {
+    if (!["review", "new"].includes(sessionMode)) return;
+    if (getSmartSessionMode() === sessionMode) return;
+    getUi().smartSessionMode = sessionMode;
+    clearSmartSession(getSmartSessionSet().id, sessionMode, new Date());
+    persist();
+    render();
+  }
+
   function shuffleCurrentMode() {
     if (isSmartPracticeActive()) {
-      state.elements.statusText.textContent = "Smart practice uses today's due queue.";
+      refreshSmartQueueOrder(getSmartSessionMode(), new Date());
+      state.elements.statusText.textContent = getSmartSessionMode() === "new" ? "Smart introduction pass reshuffled." : "Smart review pass reshuffled.";
+      render();
+      scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
       return;
     }
     const ids = getModeIds(getUi().mode);
@@ -1459,7 +1664,10 @@
 
   function resetCurrentModeOrder() {
     if (isSmartPracticeActive()) {
-      state.elements.statusText.textContent = "Smart practice uses today's due queue.";
+      refreshSmartQueueOrder(getSmartSessionMode(), new Date());
+      state.elements.statusText.textContent = getSmartSessionMode() === "new" ? "Smart introduction pass reset to a fresh shuffled order." : "Smart review pass reset to a fresh shuffled order.";
+      render();
+      scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
       return;
     }
     getUi().order[getUi().mode] = getModeIds(getUi().mode);
@@ -1476,6 +1684,7 @@
     card[mode] = checked;
     ensureOrder(mode);
     resetRoundState();
+    clearSmartSessionsForSet(getActiveSet().id);
     markManageListDirty();
     persist();
     render();
@@ -1496,6 +1705,7 @@
     if (!changed) return;
     ensureOrder(mode);
     resetRoundState();
+    if (mode === "practice") clearSmartSessionsForSet(getActiveSet().id);
     markManageListDirty();
     persist();
     render();
@@ -1512,6 +1722,7 @@
     if (!changed) return;
     ensureOrder(mode);
     resetRoundState();
+    if (mode === "practice") clearSmartSessionsForSet(getActiveSet().id);
     markManageListDirty();
     persist();
     render();
@@ -1532,6 +1743,8 @@
     await state.store.replaceVocabulary(cards, { preserveData: false });
     state.filterText = "";
     state.elements.filterInput.value = "";
+    state.smartSessionExclusions = {};
+    state.smartQueueShuffleSalts = {};
     resetRoundState();
     markManageListDirty();
     state.elements.statusText.textContent = `${cards.length} cards saved locally. Custom sets and progress were reset for the new vocabulary.`;
@@ -1543,6 +1756,8 @@
     state.elements.vocabInput.value = "";
     resetRoundState();
     markManageListDirty();
+    state.smartSessionExclusions = {};
+    state.smartQueueShuffleSalts = {};
     state.elements.statusText.textContent = "Built-in vocabulary restored. Existing sets and progress were kept where card IDs still matched.";
     render();
   }
@@ -1554,6 +1769,8 @@
     db.ui.indexes = { learn: 0, practice: 0, test: 0 };
     db.ui.order = { learn: [], practice: [], test: [] };
     db.ui.orderType = { learn: "default", practice: "default", test: "default" };
+    state.smartSessionExclusions = {};
+    state.smartQueueShuffleSalts = {};
     resetRoundState();
     markManageListDirty();
     await persist();
@@ -1591,6 +1808,8 @@
     reader.onload = async () => {
       try {
         await state.store.importJson(String(reader.result || ""));
+        state.smartSessionExclusions = {};
+        state.smartQueueShuffleSalts = {};
         resetRoundState();
         markManageListDirty();
         state.elements.statusText.textContent = `App data imported from ${file.name}.`;
@@ -1626,6 +1845,7 @@
   async function handleDeleteSelectedSet() {
     const activeSet = getActiveSet();
     if (!activeSet || activeSet.locked) return;
+    clearSmartSessionsForSet(activeSet.id);
     await state.store.deleteSet(activeSet.id);
     resetRoundState();
     markManageListDirty();
@@ -1637,6 +1857,12 @@
     await state.store.setActiveSet(event.target.value);
     resetRoundState();
     markManageListDirty();
+    render();
+  }
+
+  async function handleSmartSetChange(event) {
+    await state.store.setSmartSessionSet(event.target.value);
+    clearSmartSession(getSmartSessionSet().id, getSmartSessionMode(), new Date());
     render();
   }
 
@@ -1804,6 +2030,8 @@
     state.elements.saveSetBtn.addEventListener("click", handleSaveNamedSet);
     state.elements.deleteSetBtn.addEventListener("click", handleDeleteSelectedSet);
     state.elements.activeSetSelect.addEventListener("change", handleSetChange);
+    if (state.elements.smartSetSelect) state.elements.smartSetSelect.addEventListener("change", handleSmartSetChange);
+    state.elements.smartSessionButtons.forEach((button) => button.addEventListener("click", () => setSmartSessionMode(button.dataset.smartSession)));
     window.addEventListener("keydown", handleTranslationKeyboard);
     window.addEventListener("keydown", handlePinyinKeyboard);
   }

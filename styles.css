@@ -603,6 +603,19 @@ button:disabled {
     line-height: 1.25;
   }
 
+  .smart-session-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .smart-session-switch {
+    width: 100%;
+  }
+
+  .smart-session-switch .smart-session-btn {
+    flex: 1 1 160px;
+  }
+
   .result {
     margin-top: 10px;
   }
@@ -890,4 +903,41 @@ select {
     flex: 1 1 calc(33.333% - 8px);
     min-width: 100px;
   }
+}
+
+
+.smart-session-wrap {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.smart-session-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.smart-session-row select {
+  min-width: 220px;
+  flex: 1 1 220px;
+}
+
+.smart-session-switch {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.smart-session-btn {
+  background: #ffffff;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+.smart-session-btn.active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
 }

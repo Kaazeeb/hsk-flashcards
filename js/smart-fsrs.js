@@ -48,9 +48,9 @@
     return getLocalNoon(addLocalDays(normalizedNow, roundedDays));
   }
 
-  function roundFsrsCardToDueDay(card, now = new Date()) {
+  function roundFsrsCardToDueDay(card, now = new Date(), options = {}) {
     const normalized = normalizeFsrsCard(card, now);
-    const roundedDue = getFuzzyRoundedDueDate(normalized.due, now);
+    const roundedDue = options.forceSameDay ? getLocalNoon(now) : getFuzzyRoundedDueDate(normalized.due, now);
     const scheduledDays = Math.max(0, Math.round((getStartOfLocalDay(roundedDue).getTime() - getStartOfLocalDay(now).getTime()) / MS_PER_DAY));
     return {
       ...normalized,
@@ -96,15 +96,34 @@
     return getStartOfLocalDay(normalizeDate(entryCard.due, fallback));
   }
 
-  function isDueToday(entry, now = new Date()) {
-    const dueDay = getDueDay(entry, now);
-    return !!dueDay && dueDay.getTime() <= getLocalDayStamp(now);
+  function getLastReviewDay(entry, fallback = new Date()) {
+    const entryCard = entry?.card ? entry.card : entry;
+    if (!entryCard || !entryCard.last_review) return null;
+    return getStartOfLocalDay(normalizeDate(entryCard.last_review, fallback));
   }
 
-  function getDailyShuffleScore(cardLike, dueDay, now = new Date()) {
+  function wasReviewedOnLocalDay(entry, day = new Date(), fallback = new Date()) {
+    const reviewDay = getLastReviewDay(entry, fallback);
+    if (!reviewDay) return false;
+    return reviewDay.getTime() === getStartOfLocalDay(day).getTime();
+  }
+
+  function getReviewAvailableDay(entry, now = new Date()) {
+    const dueDay = getDueDay(entry, now);
+    if (!dueDay) return null;
+    return dueDay;
+  }
+
+  function isDueToday(entry, now = new Date()) {
+    const availableDay = getReviewAvailableDay(entry, now);
+    return !!availableDay && availableDay.getTime() <= getLocalDayStamp(now);
+  }
+
+  function getQueueShuffleScore(cardLike, queueDay, shuffleSalt = "", now = new Date()) {
     const id = cardId(cardLike);
-    const dayKey = formatLocalDayKey(dueDay || now);
-    return hashStringToUnitInterval(`${id}::${dayKey}`);
+    const dayKey = formatLocalDayKey(queueDay || now);
+    const saltPart = shuffleSalt ? `::${shuffleSalt}` : "";
+    return hashStringToUnitInterval(`${id}::${dayKey}${saltPart}`);
   }
 
   function reviewCard(bucket, cardOrId, rating, now = new Date()) {
@@ -114,7 +133,7 @@
     const currentCard = isStarted(current) ? current.card : createEmptyFsrsCard(now);
     const normalizedRating = SMART_RATINGS.includes(rating) ? rating : 3;
     const next = scheduler.next(currentCard, now, normalizedRating);
-    const rounded = roundFsrsCardToDueDay(next.card, now);
+    const rounded = roundFsrsCardToDueDay(next.card, now, { forceSameDay: normalizedRating === 1 });
     const correct = normalizedRating !== 1;
     bucket[id] = {
       shown: current.shown + 1,
@@ -126,9 +145,9 @@
     return bucket[id];
   }
 
-  function getDueQueue(cardIds, bucket, vocabById, now = new Date()) {
+  function getDueQueue(cardIds, bucket, vocabById, now = new Date(), shuffleSalt = "", excludeIds = null) {
     const todayStamp = getLocalDayStamp(now);
-    const candidates = (cardIds || [])
+    return (cardIds || [])
       .map((id) => ({
         id,
         card: vocabById[id],
@@ -136,26 +155,28 @@
       }))
       .filter((item) => item.card)
       .filter((item) => isStarted(item.entry))
-      .filter((item) => {
-        const dueDay = getDueDay(item.entry, now);
-        return !!dueDay && dueDay.getTime() <= todayStamp;
-      })
+      .filter((item) => !(excludeIds && excludeIds.has && excludeIds.has(item.id)))
+      .map((item) => ({
+        ...item,
+        availableDay: getReviewAvailableDay(item.entry, now)
+      }))
+      .filter((item) => !!item.availableDay && item.availableDay.getTime() <= todayStamp)
       .sort((a, b) => {
-        const aDay = getDueDay(a.entry, now).getTime();
-        const bDay = getDueDay(b.entry, now).getTime();
+        const aDay = a.availableDay.getTime();
+        const bDay = b.availableDay.getTime();
         if (aDay !== bDay) return aDay - bDay;
-        const aShuffle = getDailyShuffleScore(a.id, getDueDay(a.entry, now), now);
-        const bShuffle = getDailyShuffleScore(b.id, getDueDay(b.entry, now), now);
+        const aShuffle = getQueueShuffleScore(a.id, a.availableDay, shuffleSalt, now);
+        const bShuffle = getQueueShuffleScore(b.id, b.availableDay, shuffleSalt, now);
         if (aShuffle !== bShuffle) return aShuffle - bShuffle;
         const aLast = a.entry.card.last_review ? normalizeDate(a.entry.card.last_review, now).getTime() : 0;
         const bLast = b.entry.card.last_review ? normalizeDate(b.entry.card.last_review, now).getTime() : 0;
         if (aLast !== bLast) return aLast - bLast;
         return (a.card.index || 0) - (b.card.index || 0);
       });
-    return candidates;
   }
 
-  function getNewQueue(cardIds, bucket, vocabById, now = new Date()) {
+  function getNewQueue(cardIds, bucket, vocabById, now = new Date(), shuffleSalt = "", excludeIds = null) {
+    const queueDay = getStartOfLocalDay(now);
     return (cardIds || [])
       .map((id) => ({
         id,
@@ -164,10 +185,12 @@
       }))
       .filter((item) => item.card)
       .filter((item) => !isStarted(item.entry))
+      .filter((item) => !(excludeIds && excludeIds.has && excludeIds.has(item.id)))
       .sort((a, b) => {
-        const aIndex = Number(a.card.index) || 0;
-        const bIndex = Number(b.card.index) || 0;
-        return aIndex - bIndex;
+        const aShuffle = getQueueShuffleScore(a.id, queueDay, shuffleSalt, now);
+        const bShuffle = getQueueShuffleScore(b.id, queueDay, shuffleSalt, now);
+        if (aShuffle !== bShuffle) return aShuffle - bShuffle;
+        return (Number(a.card.index) || 0) - (Number(b.card.index) || 0);
       });
   }
 
@@ -184,7 +207,7 @@
         return;
       }
       startedCount += 1;
-      const day = getDueDay(entry, now);
+      const day = getReviewAvailableDay(entry, now);
       if (!day) return;
       const stamp = day.getTime();
       map.set(stamp, (map.get(stamp) || 0) + 1);
@@ -206,8 +229,9 @@
     };
   }
 
-  function canReviewToday(cardIds, bucket, now = new Date()) {
-    return getDueQueue(cardIds, bucket, {}, now).length > 0;
+  function canReviewToday(cardIds, bucket, vocabById, now = new Date(), dueShuffleSalt = "", newShuffleSalt = "") {
+    return getDueQueue(cardIds, bucket, vocabById || {}, now, dueShuffleSalt).length > 0
+      || getNewQueue(cardIds, bucket, vocabById || {}, now, newShuffleSalt).length > 0;
   }
 
   function ratingLabel(rating) {
@@ -222,6 +246,9 @@
     getDueQueue,
     getScheduleSummary,
     getDueDay,
+    getReviewAvailableDay,
+    getLastReviewDay,
+    wasReviewedOnLocalDay,
     isDueToday,
     isStarted,
     canReviewToday,

@@ -100,6 +100,18 @@ hanzi,pinyin,translation
         </div>
       </div>
 
+      <div id="smartSessionWrap" class="smart-session-wrap hidden">
+        <span class="label-inline">Smart session</span>
+        <div class="smart-session-row">
+          <select id="smartSetSelect"></select>
+          <div class="smart-session-switch">
+            <button class="smart-session-btn active" type="button" data-smart-session="review">Review due</button>
+            <button class="smart-session-btn" type="button" data-smart-session="new">Start new</button>
+          </div>
+        </div>
+        <p id="smartSessionStatus" class="status muted">Choose a set and a Smart session type.</p>
+      </div>
+
       <div class="button-row compact-row">
         <button id="shuffleBtn" class="secondary">Shuffle current mode</button>
         <button id="resetOrderBtn" class="ghost">Original order</button>

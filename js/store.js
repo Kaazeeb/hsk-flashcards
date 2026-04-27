@@ -57,7 +57,9 @@
         practice: "default",
         test: "default"
       },
-      activeSetId: ALL_SET_ID
+      activeSetId: ALL_SET_ID,
+      smartSessionSetId: ALL_SET_ID,
+      smartSessionMode: "review"
     };
   }
 
@@ -85,7 +87,9 @@
         practice: ui?.orderType?.practice === "shuffled" ? "shuffled" : "default",
         test: ui?.orderType?.test === "shuffled" ? "shuffled" : "default"
       },
-      activeSetId: typeof ui?.activeSetId === "string" ? ui.activeSetId : ALL_SET_ID
+      activeSetId: typeof ui?.activeSetId === "string" ? ui.activeSetId : ALL_SET_ID,
+      smartSessionSetId: typeof ui?.smartSessionSetId === "string" ? ui.smartSessionSetId : ALL_SET_ID,
+      smartSessionMode: ui?.smartSessionMode === "new" ? "new" : "review"
     };
   }
 
@@ -209,6 +213,7 @@
     };
 
     if (!db.sets.byId[db.ui.activeSetId]) db.ui.activeSetId = ALL_SET_ID;
+    if (!db.sets.byId[db.ui.smartSessionSetId]) db.ui.smartSessionSetId = ALL_SET_ID;
     pruneDbToValidIds(db);
     return db;
   }
@@ -262,6 +267,11 @@
         await this.persist();
       },
 
+      async setSmartSessionSet(setId) {
+        this.state.ui.smartSessionSetId = this.state.sets.byId[setId] ? setId : ALL_SET_ID;
+        await this.persist();
+      },
+
       async saveNamedSet(name, cardIds) {
         const trimmed = String(name || "").trim();
         if (!trimmed) return null;
@@ -297,6 +307,7 @@
         this.state.sets.order = this.state.sets.order.filter((id) => id !== setId);
         delete this.state.smartBySet[setId];
         if (this.state.ui.activeSetId === setId) this.state.ui.activeSetId = ALL_SET_ID;
+        if (this.state.ui.smartSessionSetId === setId) this.state.ui.smartSessionSetId = ALL_SET_ID;
         await this.persist();
         return true;
       },
