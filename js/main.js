@@ -2098,6 +2098,186 @@
     }
     const practiceIds = getScopedCards().filter((card) => card.practice !== false).map((card) => cardId(card));
     if (!practiceIds.length) {
+      state.elements.statusText.textContent = "No Practice cards are currently selected in this editing set.";
+      return;
+    }
+    const record = await state.store.saveNamedSet(name, practiceIds);
+    resetRoundState();
+    markManageListDirty();
+    state.elements.statusText.textContent = `Named set saved from Practice selection: ${record.name} (${record.cardIds.length} cards).`;
+    render();
+  }
+
+  function getCardsFromSetRangeInput() {
+    const ranges = parseRangeInput(state.elements.setRangeInput?.value || "");
+    if (!ranges.size) return [];
+    return getDb().vocab.filter((card) => ranges.has(card.index));
+  }
+
+  async function handleSetRangeAction(action) {
+    const activeSet = getActiveSet();
+    const cards = getCardsFromSetRangeInput();
+    if (!cards.length) {
+      state.elements.statusText.textContent = "Enter ranges that match at least one card, for example 301-330.";
+      return;
+    }
+    if (action === "add" || action === "replace") {
+      cards.forEach((card) => { card.practice = true; });
+    }
+    const ids = cards.map((card) => cardId(card));
+    let record = null;
+
+    if ((!activeSet || activeSet.locked) && action !== "replace") {
+      state.elements.statusText.textContent = "Choose a named set before adding or removing ranges.";
+      return;
+    }
+
+    if (action === "add") {
+      record = await state.store.addCardsToSet(activeSet.id, ids);
+      state.elements.statusText.textContent = `Added ${ids.length} card${ids.length === 1 ? "" : "s"} to ${activeSet.name}. Added cards are new until Smart introduction.`;
+    } else if (action === "remove") {
+      record = await state.store.removeCardsFromSet(activeSet.id, ids);
+      state.elements.statusText.textContent = `Removed matching range cards from ${activeSet.name}.`;
+    } else if (action === "replace") {
+      if (activeSet && !activeSet.locked) {
+        record = await state.store.updateSetCards(activeSet.id, ids);
+        state.elements.statusText.textContent = `Replaced ${activeSet.name} with ${record?.cardIds?.length || 0} cards from ranges.`;
+      } else {
+        const name = state.elements.setNameInput.value.trim();
+        if (!name) {
+          state.elements.statusText.textContent = "Enter a set name first to create a set from ranges.";
+          return;
+        }
+        record = await state.store.saveNamedSet(name, ids);
+        state.elements.statusText.textContent = `Named set saved from ranges: ${record.name} (${record.cardIds.length} cards).`;
+      }
+    }
+    if (!record) {
+      state.elements.statusText.textContent = "Could not update that set.";
+      return;
+    }
+    state.elements.setRangeInput.value = "";
+    resetRoundState();
+    markManageListDirty();
+    render();
+  }
+
+  async function handleDeleteSelectedSet() {
+    const activeSet = getActiveSet();
+    if (!activeSet || activeSet.locked) return;
+    await state.store.deleteSet(activeSet.id);
+    resetRoundState();
+    markManageListDirty();
+    state.elements.statusText.textContent = `Deleted set: ${activeSet.name}.`;
+    render();
+  }
+
+  async function handleSetChange(event) {
+    await state.store.setActiveSet(event.target.value);
+    resetRoundState();
+    markManageListDirty();
+    render();
+  }
+
+  async function handleReviewSetChange(event) {
+    if (typeof state.store.setReviewSet === "function") {
+      await state.store.setReviewSet(event.target.value);
+    } else {
+      getUi().reviewSetId = event.target.value;
+      await persist();
+    }
+    resetRoundState();
+    render();
+  }
+
+  function handleManageListChange(event) {
+    const input = event.target.closest('input[data-card-id][data-card-mode]');
+    if (!input || !state.elements.manageList.contains(input)) return;
+    updateCardMode(input.dataset.cardId, input.dataset.cardMode, input.checked);
+  }
+
+  function handleRangeButtonClick(event) {
+    const button = event.currentTarget;
+    const mode = button.dataset.rangeMode;
+    const action = button.dataset.rangeAction;
+    if (!MODES.includes(mode)) return;
+    if (action === "add") return applyRangeToMode(mode, true);
+    if (action === "remove") return applyRangeToMode(mode, false);
+    if (action === "all") return setAllForMode(mode, true);
+    if (action === "none") return setAllForMode(mode, false);
+  }
+
+  // Keyboard handler covers both translation MCQ and FSRS rating selection.
+  function handleTranslationKeyboard(event) {
+    if (state.currentPage !== "flashcards") return;
+    const active = document.activeElement;
+    const isTypingField = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
+    if (!getCurrentCard()) return;
+
+    if (isSmartPracticeActive() && state.round.smartStage === "feedback") {
+      if (/[1-4]/.test(event.key)) {
+        event.preventDefault();
+        setSmartRating(Number(event.key));
+        return;
+      }
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        event.preventDefault();
+        moveSmartRatingSelection(1);
+        return;
+      }
+      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        event.preventDefault();
+        moveSmartRatingSelection(-1);
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        acceptSmartFsrsFeedback();
+      }
+      return;
+    }
+
+    const translationStageActive = (getQuizType() === "translation") || (isSmartPracticeActive() && state.round.smartStage === "translation");
+    if (!translationStageActive) return;
+    if (isTypingField) return;
+
+    if (!state.round.answered && state.round.options.length) {
+      const upper = event.key.toUpperCase();
+      const letterIndex = ["A", "B", "C", "D"].indexOf(upper);
+      if (letterIndex >= 0 && letterIndex < state.round.options.length) {
+        event.preventDefault();
+        selectTranslationOption(letterIndex);
+        return;
+      }
+      const numberIndex = ["1", "2", "3", "4"].indexOf(event.key);
+      if (numberIndex >= 0 && numberIndex < state.round.options.length) {
+        event.preventDefault();
+        selectTranslationOption(numberIndex);
+        return;
+      }
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        event.preventDefault();
+        moveTranslationSelection(1);
+        return;
+      }
+      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        event.preventDefault();
+        moveTranslationSelection(-1);
+        return;
+      }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const index = state.round.keyboardChoiceIndex >= 0 ? state.round.keyboardChoiceIndex : 0;
+        const option = state.round.options[index];
+        if (!option) return;
+        if (isSmartPracticeActive() && state.round.smartStage === "translation") answerSmartTranslation(option);
+        else answerTranslation(option);
+        return;
+      }
+    }
+
+    if (state.round.answered && (event.key === "Enter" || event.key === "ArrowRight")) {
+      event.preventDefault();
       nextCard();
     }
   }
@@ -2107,6 +2287,12 @@
     const active = document.activeElement;
     const isTextInput = active && active.tagName === "INPUT" && active.type === "text";
     if (event.key !== "Enter" && event.key !== "ArrowRight") return;
+
+    if (isSmartPracticeActive() && state.round.smartForceNew && state.round.smartStage === "intro") {
+      event.preventDefault();
+      introduceCurrentSmartCard();
+      return;
+    }
 
     if (isSmartPracticeActive() && state.round.smartStage === "pinyin") {
       if (state.round.pendingWrong) {
@@ -2132,80 +2318,3 @@
         event.preventDefault();
         nextCard();
         return;
-      }
-      if (isTextInput) {
-        event.preventDefault();
-        const form = active.closest("form");
-        if (form) form.requestSubmit();
-      }
-    }
-  }
-
-  function toggleSetupPanel() {
-    getUi().setupCollapsed = !getUi().setupCollapsed;
-    if (!getUi().setupCollapsed) markManageListDirty();
-    persist();
-    render();
-  }
-
-  function bindEvents() {
-    if (state.elements.saveSupabaseConfigBtn) state.elements.saveSupabaseConfigBtn.addEventListener("click", handleSaveSupabaseConfig);
-    if (state.elements.authSignUpBtn) state.elements.authSignUpBtn.addEventListener("click", handleAuthSignUp);
-    if (state.elements.authSignInBtn) state.elements.authSignInBtn.addEventListener("click", handleAuthSignIn);
-    if (state.elements.authSignOutBtn) state.elements.authSignOutBtn.addEventListener("click", handleAuthSignOut);
-    state.elements.pageButtons.forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
-    state.elements.saveVocabBtn.addEventListener("click", handleSaveVocabulary);
-    state.elements.loadPlaceholderBtn.addEventListener("click", handleRestoreBuiltIn);
-    state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
-    state.elements.exportProgressBtn.addEventListener("click", handleExportApp);
-    state.elements.importProgressBtn.addEventListener("click", handleImportAppClick);
-    state.elements.importProgressInput.addEventListener("change", handleImportAppFile);
-    state.elements.shuffleBtn.addEventListener("click", shuffleCurrentMode);
-    state.elements.resetOrderBtn.addEventListener("click", resetCurrentModeOrder);
-    state.elements.setupToggleBtn.addEventListener("click", toggleSetupPanel);
-    state.elements.manageList.addEventListener("change", handleManageListChange);
-    state.elements.filterInput.addEventListener("input", (event) => {
-      state.filterText = event.target.value || "";
-      markManageListDirty();
-      renderManageListIfNeeded(true);
-    });
-    state.elements.modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
-    state.elements.quizTypeButtons.forEach((button) => button.addEventListener("click", () => setQuizTypeForCurrentMode(button.dataset.quiz)));
-    state.elements.rangeButtons.forEach((button) => button.addEventListener("click", handleRangeButtonClick));
-    state.elements.saveSetBtn.addEventListener("click", handleSaveNamedSet);
-    if (state.elements.saveSetRangeBtn) state.elements.saveSetRangeBtn.addEventListener("click", handleSaveSetFromRanges);
-    state.elements.deleteSetBtn.addEventListener("click", handleDeleteSelectedSet);
-    state.elements.activeSetSelect.addEventListener("change", handleSetChange);
-    if (state.elements.reviewSetSelect) state.elements.reviewSetSelect.addEventListener("change", handleReviewSetChange);
-    window.addEventListener("keydown", handleTranslationKeyboard);
-    window.addEventListener("keydown", handlePinyinKeyboard);
-    window.addEventListener("focus", () => { refreshRemoteState(false); });
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") refreshRemoteState(false);
-    });
-  }
-
-  // App startup order matters: auth first, then scoped store load, then render.
-  // Loading before auth would risk binding the UI to the wrong local cache scope.
-  async function bootstrap() {
-    state.elements = getElements();
-    if (ns.auth && typeof ns.auth.init === "function") {
-      await ns.auth.init();
-    }
-    const builtinCards = ns.getBuiltInCards();
-    const adapter = createPersistenceAdapter();
-    state.store = createAppStore(adapter, builtinCards);
-    state.authScope = ns.auth && typeof ns.auth.getCacheScope === "function" ? ns.auth.getCacheScope() : "anon";
-    await state.store.load();
-    state.filterText = state.elements.filterInput.value || "";
-    state.currentPage = getAuthStatus().signedIn ? "flashcards" : "login";
-    updateStorageModeBadge();
-    if (ns.auth && typeof ns.auth.subscribe === "function") {
-      ns.auth.subscribe(handleAuthStateChange);
-    }
-    bindEvents();
-    render();
-  }
-
-  ns.main = { bootstrap };
-})(window.HSKFlashcards);
