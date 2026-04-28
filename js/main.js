@@ -2318,3 +2318,18 @@
         event.preventDefault();
         nextCard();
         return;
+      }
+      if (isTextInput) {
+        event.preventDefault();
+        const form = active.closest("form");
+        if (form) form.requestSubmit();
+      }
+    }
+  }
+
+  function toggleSetupPanel() {
+    getUi().setupCollapsed = !getUi().setupCollapsed;
+    if (!getUi().setupCollapsed) markManageListDirty();
+    persist();
+    render();
+  }
