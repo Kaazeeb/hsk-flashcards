@@ -2344,3 +2344,4 @@
     state.elements.loadPlaceholderBtn.addEventListener("click", handleRestoreBuiltIn);
     state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
     state.elements.exportProgressBtn.addEventListener("click", handleExportApp);
+        });
