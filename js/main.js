@@ -2333,3 +2333,9 @@
     persist();
     render();
   }
+
+  function bindEvents() {
+    if (state.elements.saveSupabaseConfigBtn) state.elements.saveSupabaseConfigBtn.addEventListener("click", handleSaveSupabaseConfig);
+    if (state.elements.authSignUpBtn) state.elements.authSignUpBtn.addEventListener("click", handleAuthSignUp);
+    if (state.elements.authSignInBtn) state.elements.authSignInBtn.addEventListener("click", handleAuthSignIn);
+    if (state.elements.authSignOutBtn) state.elements.authSignOutBtn.addEventListener("click", handleAuthSignOut);
