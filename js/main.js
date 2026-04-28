@@ -2343,3 +2343,4 @@
     state.elements.saveVocabBtn.addEventListener("click", handleSaveVocabulary);
     state.elements.loadPlaceholderBtn.addEventListener("click", handleRestoreBuiltIn);
     state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
+    state.elements.exportProgressBtn.addEventListener("click", handleExportApp);
