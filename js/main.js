@@ -111,13 +111,22 @@
       reviewSetSelect: document.getElementById("reviewSetSelect"),
       reviewScopeMeta: document.getElementById("reviewScopeMeta"),
       reviewPlanCompact: document.getElementById("reviewPlanCompact"),
+      startDueReviewBtn: document.getElementById("startDueReviewBtn"),
+      startNewCardsBtn: document.getElementById("startNewCardsBtn"),
+      smartFlowStatus: document.getElementById("smartFlowStatus"),
       activeSetBadge: document.getElementById("activeSetBadge"),
       setNameInput: document.getElementById("setNameInput"),
       setRangeInput: document.getElementById("setRangeInput"),
-      saveSetRangeBtn: document.getElementById("saveSetRangeBtn"),
+      addSetRangeBtn: document.getElementById("addSetRangeBtn"),
+      removeSetRangeBtn: document.getElementById("removeSetRangeBtn"),
+      replaceSetRangeBtn: document.getElementById("replaceSetRangeBtn"),
       saveSetBtn: document.getElementById("saveSetBtn"),
       deleteSetBtn: document.getElementById("deleteSetBtn"),
       setCardCount: document.getElementById("setCardCount"),
+      setNewCount: document.getElementById("setNewCount"),
+      setStartedCount: document.getElementById("setStartedCount"),
+      setupIntroduceBtn: document.getElementById("setupIntroduceBtn"),
+      setupReviewBtn: document.getElementById("setupReviewBtn"),
       setDueToday: document.getElementById("setDueToday"),
       setNextDue: document.getElementById("setNextDue"),
       scheduleList: document.getElementById("scheduleList"),
@@ -989,15 +998,6 @@
         const smartSetId = getActiveSet().id;
         const smartEntry = getSmartBucketForSet(smartSetId)[cardId(card)] || smart.createSmartEntry(new Date());
         if (smart.isStarted(smartEntry)) {
-          const due = smart.getDueDay(smartEntry, new Date());
-          smartMeta = `smart due ${formatReviewDateLabel(due)}`;
-        } else {
-          smartMeta = "smart new";
-        }
-      }
-      stats.textContent = `${summary.translation} · ${summary.pinyin} · ${smartMeta}`;
-
-      meta.append(title, sub, stats);
 
       const flags = document.createElement("div");
       flags.className = "manage-flags";
