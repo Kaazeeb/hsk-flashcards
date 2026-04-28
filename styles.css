@@ -914,3 +914,119 @@ select {
 .set-range-row {
   margin-top: 10px;
 }
+
+.stats-grid-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.set-range-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.set-range-actions,
+.set-flow-actions,
+.saved-set-actions,
+.schedule-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.saved-set-row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.saved-set-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.saved-set-actions {
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.small-btn {
+  padding: 7px 10px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+.schedule-chip-row {
+  margin-top: 8px;
+}
+
+.schedule-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .stats-grid-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .set-range-editor,
+  .set-row {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-set-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .saved-set-actions button,
+  .set-range-actions button,
+  .set-flow-actions button {
+    flex: 1 1 160px;
+  }
+}
+
+/* Smart set/review menu refinements. Setup edits membership; Flash cards starts actual review flows. */
+.smart-review-menu {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+.compact-header {
+  margin-bottom: 10px;
+}
+
+.compact-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.smart-action-row button,
+.set-review-actions button {
+  flex: 1 1 180px;
+}
+
+.intro-note {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.set-range-actions {
+  flex: 1 1 auto;
+}
+
+.set-range-actions button {
+  flex: 1 1 120px;
+}

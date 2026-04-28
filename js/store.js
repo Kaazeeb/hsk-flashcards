@@ -330,6 +330,32 @@
         return record;
       },
 
+      async updateSetCards(setId, cardIds) {
+        const record = this.state.sets.byId[setId];
+        if (!record || record.locked) return null;
+        const validIds = new Set(this.state.vocab.map((card) => cardId(card)));
+        const normalizedIds = [...new Set((cardIds || []).map(String).filter((id) => validIds.has(id)))];
+        record.cardIds = normalizedIds;
+        record.updatedAt = new Date().toISOString();
+        this.state.sets.byId[setId] = record;
+        await this.persist();
+        return record;
+      },
+
+      async addCardsToSet(setId, cardIds) {
+        const record = this.state.sets.byId[setId];
+        if (!record || record.locked) return null;
+        const merged = [...new Set([...(record.cardIds || []), ...(cardIds || []).map(String)])];
+        return this.updateSetCards(setId, merged);
+      },
+
+      async removeCardsFromSet(setId, cardIds) {
+        const record = this.state.sets.byId[setId];
+        if (!record || record.locked) return null;
+        const remove = new Set((cardIds || []).map(String));
+        return this.updateSetCards(setId, (record.cardIds || []).filter((id) => !remove.has(String(id))));
+      },
+
       async deleteSet(setId) {
         const record = this.state.sets.byId[setId];
         if (!record || record.locked) return false;

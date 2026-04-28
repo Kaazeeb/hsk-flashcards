@@ -100,14 +100,24 @@ hanzi,pinyin,translation
         </div>
       </div>
 
-      <div class="review-scope-block">
-        <label for="reviewSetSelect" class="label">Review set</label>
-        <div class="set-row review-set-row">
-          <select id="reviewSetSelect"></select>
+      <div class="review-scope-block smart-review-menu">
+        <div class="panel-header compact-header">
+          <h3>Smart review menu</h3>
           <span id="reviewScopeMeta" class="badge subtle">0 cards</span>
         </div>
+        <label for="reviewSetSelect" class="label">Review source</label>
+        <div class="set-row review-set-row">
+          <select id="reviewSetSelect"></select>
+        </div>
         <div id="reviewPlanCompact" class="review-plan-compact"></div>
-        <p class="hint">This controls Flash cards only. Build or edit card sets in Setup.</p>
+        <div id="smartReviewActions" class="smart-review-actions">
+          <div class="button-row compact-row smart-action-row">
+            <button id="startDueReviewBtn" class="secondary" type="button">Review due cards</button>
+            <button id="startNewCardsBtn" class="ghost" type="button">First view new cards</button>
+          </div>
+          <p id="smartFlowStatus" class="status muted">Choose Smart · FSRS to review scheduled cards or introduce new cards.</p>
+        </div>
+        <p class="hint">Set membership is managed in Setup. Due reviews and first-view introductions are separate flows.</p>
       </div>
 
       <div class="button-row compact-row">
@@ -191,31 +201,50 @@ hanzi,pinyin,translation
 
     <section class="panel sets-panel page-panel" data-page="setup">
       <div class="panel-header">
-        <h2>Card sets & review plan</h2>
+        <h2>Card sets</h2>
         <span id="activeSetBadge" class="badge subtle">All cards</span>
       </div>
 
-      <label for="activeSetSelect" class="label">Editing set for Setup</label>
-      <div class="set-row">
-        <select id="activeSetSelect"></select>
-        <button id="deleteSetBtn" class="ghost">Delete selected set</button>
+      <div class="subpanel-block set-editor-block">
+        <div class="subpanel-title">Editing set</div>
+        <p class="hint">Sets define the deck you want to study. Adding cards to a set does not start FSRS; new cards enter the review schedule only after you introduce them from Flash cards.</p>
+
+        <label for="activeSetSelect" class="label">Set being edited</label>
+        <div class="set-row">
+          <select id="activeSetSelect"></select>
+          <button id="deleteSetBtn" class="ghost">Delete selected set</button>
+        </div>
+
+        <label for="setNameInput" class="label">Create or update a named set from the current Practice selection</label>
+        <div class="set-row">
+          <input id="setNameInput" type="text" placeholder="e.g. hsk-meu-baralho" />
+          <button id="saveSetBtn">Save / update set</button>
+        </div>
+
+        <label for="setRangeInput" class="label">Adjust this set by card indexes</label>
+        <div class="set-range-editor">
+          <input id="setRangeInput" type="text" placeholder="Example: 1-100, 125, 130-150" />
+          <div class="set-range-actions">
+            <button id="addSetRangeBtn" class="secondary" type="button">Add ranges</button>
+            <button id="removeSetRangeBtn" class="ghost" type="button">Remove ranges</button>
+            <button id="replaceSetRangeBtn" class="ghost" type="button">Replace set</button>
+          </div>
+        </div>
+        <p class="hint">Example: if a set already has 100 scheduled cards, add 30 more here. Those 30 remain <strong>New to introduce</strong> until you choose Smart introduction.</p>
       </div>
 
-      <label for="setNameInput" class="label">Create or update named set</label>
-      <div class="set-row">
-        <input id="setNameInput" type="text" placeholder="e.g. HSK 3 · week 1" />
-        <button id="saveSetBtn">Save current Practice selection</button>
-      </div>
-      <div class="set-row set-range-row">
-        <input id="setRangeInput" type="text" placeholder="Optional ranges for set membership: 1-50, 80, 101-140" />
-        <button id="saveSetRangeBtn" class="secondary">Save set from ranges</button>
-      </div>
-      <p class="hint">Use ranges to insert cards into a set without changing the current review queue. The Practice flag still decides whether a card is eligible for practice/FSRS.</p>
-
-      <div class="stats-grid stats-grid-3">
+      <div class="stats-grid stats-grid-5 set-status-grid">
         <article class="stat-card">
-          <span class="stat-label">Cards in active set</span>
+          <span class="stat-label">Practice cards</span>
           <strong id="setCardCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">New to introduce</span>
+          <strong id="setNewCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Started in FSRS</span>
+          <strong id="setStartedCount">0</strong>
         </article>
         <article class="stat-card">
           <span class="stat-label">Due today</span>
@@ -227,18 +256,14 @@ hanzi,pinyin,translation
         </article>
       </div>
 
-      <div class="subpanel-block">
-        <div class="subpanel-title">Upcoming review dates for editing set</div>
-        <div id="scheduleList" class="schedule-list"></div>
+      <div class="button-row compact-row set-flow-actions">
+        <button id="setupIntroduceBtn" class="secondary" type="button">Introduce new cards in this set</button>
+        <button id="setupReviewBtn" class="secondary" type="button">Review due cards in this set</button>
       </div>
 
       <div class="subpanel-block">
-        <div class="subpanel-title">All review schedules</div>
-        <div id="allScheduleList" class="schedule-list"></div>
-      </div>
-
-      <div class="subpanel-block">
-        <div class="subpanel-title">Saved sets</div>
+        <div class="subpanel-title">Review schedules by set</div>
+        <p class="hint">Single setup dashboard for review dates. Use Flash cards for daily review, or use row buttons to jump into one set.</p>
         <div id="setsOverview" class="sets-overview"></div>
       </div>
     </section>
