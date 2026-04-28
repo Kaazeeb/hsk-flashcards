@@ -998,6 +998,15 @@
         const smartSetId = getActiveSet().id;
         const smartEntry = getSmartBucketForSet(smartSetId)[cardId(card)] || smart.createSmartEntry(new Date());
         if (smart.isStarted(smartEntry)) {
+          const due = smart.getDueDay(smartEntry, new Date());
+          smartMeta = `smart due ${formatReviewDateLabel(due)}`;
+        } else {
+          smartMeta = "smart new";
+        }
+      }
+      stats.textContent = `${summary.translation} · ${summary.pinyin} · ${smartMeta}`;
+
+      meta.append(title, sub, stats);
 
       const flags = document.createElement("div");
       flags.className = "manage-flags";
@@ -1030,6 +1039,7 @@
   }
 
   function renderScheduleRows(container, items, emptyText, options = {}) {
+    if (!container) return;
     clearNode(container);
     const rows = (items || []).slice(0, options.limit || 24);
     if (!rows.length) {
@@ -1106,10 +1116,73 @@
       } else if (!summary.dueTodayCount) {
         const empty = document.createElement("div");
         empty.className = "schedule-empty muted";
-        empty.textContent = summary.newCount ? `${summary.newCount} new card${summary.newCount === 1 ? "" : "s"} can be started.` : "No reviews scheduled.";
+        empty.textContent = summary.newCount ? `${summary.newCount} new card${summary.newCount === 1 ? "" : "s"} can be first-viewed.` : "No reviews scheduled.";
         state.elements.reviewPlanCompact.appendChild(empty);
       }
     }
+
+    if (state.elements.startDueReviewBtn) state.elements.startDueReviewBtn.disabled = !summary.dueTodayCount;
+    if (state.elements.startNewCardsBtn) state.elements.startNewCardsBtn.disabled = !summary.newCount;
+    if (state.elements.smartFlowStatus) {
+      if (summary.dueTodayCount) {
+        state.elements.smartFlowStatus.textContent = `${summary.dueTodayCount} due card${summary.dueTodayCount === 1 ? "" : "s"} ready. New cards remain separate until you first-view them.`;
+        state.elements.smartFlowStatus.className = "status ok";
+      } else if (summary.newCount) {
+        state.elements.smartFlowStatus.textContent = `No due reviews today. ${summary.newCount} new card${summary.newCount === 1 ? "" : "s"} can be first-viewed.`;
+        state.elements.smartFlowStatus.className = "status muted";
+      } else {
+        state.elements.smartFlowStatus.textContent = "No due reviews and no new Smart cards in this review source.";
+        state.elements.smartFlowStatus.className = "status muted";
+      }
+    }
+  }
+
+  function appendScheduleChips(container, byDay, limit = 5) {
+    const upcoming = (byDay || []).slice(0, limit);
+    if (!upcoming.length) {
+      const chip = document.createElement("span");
+      chip.className = "schedule-chip muted";
+      chip.textContent = "No scheduled reviews";
+      container.appendChild(chip);
+      return;
+    }
+    upcoming.forEach((item) => {
+      const chip = document.createElement("span");
+      chip.className = "schedule-chip";
+      chip.textContent = `${formatReviewDateLabel(item.date)} · ${item.count}`;
+      container.appendChild(chip);
+    });
+  }
+
+  function makeSetScheduleRow(setRecord, summary, activeSetId) {
+    const row = document.createElement("div");
+    row.className = `saved-set-row${setRecord.id === activeSetId ? " active" : ""}`;
+
+    const main = document.createElement("div");
+    main.className = "saved-set-main";
+    const name = document.createElement("div");
+    name.className = "saved-set-name";
+    name.textContent = setRecord.name;
+    const meta = document.createElement("div");
+    meta.className = "saved-set-meta muted";
+    const practiceCount = getPracticeScopedIdsForSet(setRecord.id).length;
+    const nextDue = summary.nextDueDate ? formatLongDate(summary.nextDueDate) : (summary.newCount ? "not scheduled yet" : "—");
+    meta.textContent = `${practiceCount} practice · new ${summary.newCount || 0} · started ${summary.startedCount || 0} · due today ${summary.dueTodayCount || 0} · next ${nextDue}`;
+    const chips = document.createElement("div");
+    chips.className = "schedule-chip-row";
+    appendScheduleChips(chips, summary.byDay, 5);
+    main.append(name, meta, chips);
+
+    const actions = document.createElement("div");
+    actions.className = "saved-set-actions";
+    const introduceBtn = createButton("Introduce new", () => startSmartForSet(setRecord.id, "introduce"), "ghost small-btn");
+    introduceBtn.disabled = !(summary.newCount > 0);
+    const reviewBtn = createButton("Review due", () => startSmartForSet(setRecord.id, "review"), "secondary small-btn");
+    reviewBtn.disabled = !(summary.dueTodayCount > 0);
+    actions.append(introduceBtn, reviewBtn);
+
+    row.append(main, actions);
+    return row;
   }
 
   function renderSetPanel() {
@@ -1129,37 +1202,21 @@
     state.elements.activeSetBadge.textContent = activeSet.name;
     state.elements.deleteSetBtn.disabled = !!activeSet.locked;
     state.elements.setCardCount.textContent = String(getPracticeScopedIdsForSet(activeSet.id).length);
-    state.elements.setDueToday.textContent = String(summary.dueTodayCount);
-    state.elements.setNextDue.textContent = summary.nextDueDate ? formatReviewDateLabel(summary.nextDueDate) : (summary.newCount ? "No due cards yet" : "No pending future review");
+    if (state.elements.setNewCount) state.elements.setNewCount.textContent = String(summary.newCount || 0);
+    if (state.elements.setStartedCount) state.elements.setStartedCount.textContent = String(summary.startedCount || 0);
+    state.elements.setDueToday.textContent = String(summary.dueTodayCount || 0);
+    if (state.elements.setNextDue) state.elements.setNextDue.textContent = summary.nextDueDate ? formatReviewDateLabel(summary.nextDueDate) : (summary.newCount ? "not scheduled yet" : "—");
 
-    renderScheduleRows(
-      state.elements.scheduleList,
-      summary.byDay.map((item) => ({ date: item.date, count: item.count })),
-      "No review schedule yet."
-    );
-
-    const allRows = getAllSetsScheduleByDay().map((item) => ({
-      date: item.date,
-      count: item.count,
-      right: `${item.count} card${item.count === 1 ? "" : "s"}`,
-      label: `${formatReviewDateLabel(item.date)} · ${item.sets.slice(0, 3).map((set) => `${set.name}: ${set.count}`).join(" · ")}${item.sets.length > 3 ? " · …" : ""}`
-    }));
-    renderScheduleRows(state.elements.allScheduleList, allRows, "No scheduled reviews across sets.", { limit: 30 });
+    if (state.elements.addSetRangeBtn) state.elements.addSetRangeBtn.disabled = !!activeSet.locked;
+    if (state.elements.removeSetRangeBtn) state.elements.removeSetRangeBtn.disabled = !!activeSet.locked;
+    if (state.elements.replaceSetRangeBtn) state.elements.replaceSetRangeBtn.disabled = false;
+    if (state.elements.setupIntroduceBtn) state.elements.setupIntroduceBtn.disabled = !(summary.newCount > 0);
+    if (state.elements.setupReviewBtn) state.elements.setupReviewBtn.disabled = !(summary.dueTodayCount > 0);
 
     clearNode(state.elements.setsOverview);
     sets.forEach((setRecord) => {
       const setSummary = getSmartScheduleForSet(setRecord.id);
-      const row = document.createElement("div");
-      row.className = `saved-set-row${setRecord.id === activeSet.id ? " active" : ""}`;
-      const name = document.createElement("div");
-      name.className = "saved-set-name";
-      name.textContent = setRecord.name;
-      const meta = document.createElement("div");
-      meta.className = "saved-set-meta muted";
-      const nextDue = setSummary.nextDueDate ? formatLongDate(setSummary.nextDueDate) : (setSummary.newCount ? "No due yet" : "—");
-      meta.textContent = `${getPracticeScopedIdsForSet(setRecord.id).length} practice · due today ${setSummary.dueTodayCount} · new ${setSummary.newCount} · next ${nextDue}`;
-      row.append(name, meta);
-      state.elements.setsOverview.appendChild(row);
+      state.elements.setsOverview.appendChild(makeSetScheduleRow(setRecord, setSummary, activeSet.id));
     });
   }
 
@@ -1441,63 +1498,6 @@
     render();
     scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
   }
-
-  function nextCard() {
-    if (isSmartPracticeActive()) return nextSmartCard();
-    moveInOrderedMode(1);
-  }
-
-  function prevCard() {
-    if (isSmartPracticeActive()) return;
-    moveInOrderedMode(-1);
-  }
-
-  function startNextNewSmartCard() {
-    resetRoundState();
-    state.round.smartForceNew = true;
-    render();
-    scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
-  }
-
-  function nextSmartCard() {
-    state.smartLastCardId = cardId(getCurrentCard() || "");
-    state.smartLastSetId = state.round.smartSetId || "";
-    resetRoundState();
-    persist();
-    render();
-    scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
-  }
-
-  function renderLearn(card, queueIndex, total) {
-    state.elements.cardPrompt.textContent = "Vocabulary";
-    state.elements.cardHanzi.textContent = card.hanzi;
-    state.elements.cardPinyin.textContent = card.pinyin;
-    state.elements.cardTranslation.textContent = card.translation;
-    clearNode(state.elements.answerArea);
-    updateResult(state.elements.resultText, "", "");
-    setPositionLabel(card, queueIndex, total);
-    prepareRoundAppearance("learn", "", card);
-    renderCurrentCardStats(card);
-
-    clearNode(state.elements.controls);
-    state.elements.controls.append(
-      createButton("Previous", prevCard, "secondary"),
-      createButton("Next", nextCard)
-    );
-  }
-
-  function renderTranslationButtons(answerHandler) {
-    clearNode(state.elements.answerArea);
-    state.round.options.forEach((option, index) => {
-      const keyLabel = ["A", "B", "C", "D"][index] || String(index + 1);
-      const button = createButton(`${keyLabel}. ${option.label}`, () => answerHandler(option), "answer-btn", { dataset: { optionIndex: String(index) } });
-      if (!state.round.answered && state.round.keyboardChoiceIndex === index) button.classList.add("selected");
-      if (state.round.answered) {
-        if (option.correct) button.classList.add("correct");
-        if (!option.correct && option.label === state.round.selectedLabel && !state.round.selectedCorrect) button.classList.add("wrong");
-        button.disabled = true;
-      }
-      state.elements.answerArea.appendChild(button);
     });
   }
 
