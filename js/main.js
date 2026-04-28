@@ -2339,3 +2339,7 @@
     if (state.elements.authSignUpBtn) state.elements.authSignUpBtn.addEventListener("click", handleAuthSignUp);
     if (state.elements.authSignInBtn) state.elements.authSignInBtn.addEventListener("click", handleAuthSignIn);
     if (state.elements.authSignOutBtn) state.elements.authSignOutBtn.addEventListener("click", handleAuthSignOut);
+    state.elements.pageButtons.forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+    state.elements.saveVocabBtn.addEventListener("click", handleSaveVocabulary);
+    state.elements.loadPlaceholderBtn.addEventListener("click", handleRestoreBuiltIn);
+    state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
