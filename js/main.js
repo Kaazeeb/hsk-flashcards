@@ -1748,6 +1748,156 @@
       state.elements.cardPrompt.textContent = isNewSmartCard ? `Smart practice · ${getDb().sets.byId[smartSetId]?.name || smartSetId} · new card · 1 of 3 · type the pinyin` : `Smart practice · ${getDb().sets.byId[smartSetId]?.name || smartSetId} · 1 of 3 · type the pinyin`;
       updateResult(
         state.elements.resultText,
+         state.round.pendingWrong ? state.round.resultText : (isNewSmartCard ? "First Smart review for this card. It will only enter the FSRS schedule after you finish this review. Use tone numbers. Example: ni3hao3, lv4, xie4xie." : "Step 1 of 3. Use tone numbers. Example: ni3hao3, lv4, xie4xie."),
+        state.round.pendingWrong ? state.round.resultClass : ""
+      );
+
+      clearNode(state.elements.answerArea);
+      const form = document.createElement("form");
+      form.className = "answer-form";
+      form.addEventListener("submit", submitSmartPinyinAnswer);
+      const input = document.createElement("input");
+      input.type = "text";
+      input.placeholder = getPinyinInputPlaceholder();
+      input.value = state.round.answerText;
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.disabled = state.round.pendingWrong;
+      const submitBtn = createButton(state.round.pendingWrong ? "Pending" : "Submit", null, state.round.pendingWrong ? "secondary" : "", { type: "submit", disabled: state.round.pendingWrong });
+      form.append(input, submitBtn);
+      state.elements.answerArea.appendChild(form);
+      if (state.round.pendingWrong) {
+        const pendingRow = document.createElement("div");
+        pendingRow.className = "answer-pending-row";
+        pendingRow.appendChild(createButton("Retry without error", retrySmartPinyinWithoutPenalty, "secondary"));
+        state.elements.answerArea.appendChild(pendingRow);
+      }
+      if (!state.round.pendingWrong && shouldAutoFocusPinyinInput()) {
+        setTimeout(() => {
+          try { input.focus({ preventScroll: true }); } catch (error) { input.focus(); }
+        }, 0);
+      }
+      clearNode(state.elements.controls);
+      if (state.round.pendingWrong) {
+        state.elements.controls.append(
+          createButton("Skip", nextSmartCard, "secondary"),
+          createButton("Count wrong", acceptPendingSmartPinyinWrong)
+        );
+      } else {
+        state.elements.controls.append(createButton("Skip", nextSmartCard, "secondary"));
+      }
+      return;
+    }
+
+    if (state.round.smartStage === "translation") {
+      state.elements.cardPrompt.textContent = "Smart practice · 2 of 3 · choose the translation";
+      if (!state.round.options.length) state.round.options = buildTranslationOptionsForCard(card, "practice");
+      updateResult(state.elements.resultText, state.round.resultText || "Step 2 of 3. Choose the English translation.", state.round.resultClass || "");
+      renderTranslationButtons(answerSmartTranslation);
+      clearNode(state.elements.controls);
+      state.elements.controls.append(createButton("Skip", nextSmartCard, "secondary"));
+      return;
+    }
+
+    if (state.round.smartStage === "feedback") {
+      state.elements.cardPrompt.textContent = "Smart practice · 3 of 3 · rate this review";
+      updateResult(state.elements.resultText, state.round.resultText || "Choose the FSRS rating for this review.", state.round.resultClass || "");
+      clearNode(state.elements.answerArea);
+      SMART_RATINGS.forEach((rating, index) => {
+        const label = `${index + 1}. ${smart.ratingLabel(rating)}`;
+        const button = createButton(label, () => setSmartRating(rating), "answer-btn", { dataset: { smartRating: String(rating) } });
+        if (rating === state.round.smartSelectedRating) button.classList.add("selected");
+        state.elements.answerArea.appendChild(button);
+      });
+      clearNode(state.elements.controls);
+      state.elements.controls.append(
+        createButton("Accept rating", acceptSmartFsrsFeedback),
+        createButton("Skip", nextSmartCard, "secondary")
+      );
+      return;
+    }
+  }
+
+  // A blocked Smart review is a valid state: no due cards today and the user has
+  // not chosen the explicit new-card introduction flow.
+  function renderSmartBlocked() {
+    const summary = getReviewScheduleSummary();
+    const practiceCount = getReviewPracticeIds().length;
+    const inNewFlow = !!state.round.smartForceNew;
+    state.elements.cardPrompt.textContent = inNewFlow ? "No new Smart cards" : "No due Smart reviews";
+    state.elements.cardHanzi.textContent = "—";
+    clearNode(state.elements.cardStats);
+    clearNode(state.elements.answerArea);
+    clearNode(state.elements.controls);
+
+    if (inNewFlow) {
+      state.elements.cardPinyin.textContent = summary.newCount ? `${summary.newCount} new card${summary.newCount === 1 ? "" : "s"} waiting.` : "All new cards in this source have been introduced.";
+      state.elements.cardTranslation.textContent = "Introduced cards now belong to the FSRS schedule and will appear when due.";
+      updateResult(state.elements.resultText, summary.dueTodayCount ? "There are due reviews available." : "No due reviews today.", summary.dueTodayCount ? "ok" : "");
+      state.elements.controls.append(createButton("Review due cards", startDueReviewCards, summary.dueTodayCount ? "" : "secondary", { disabled: !summary.dueTodayCount }));
+      state.elements.positionLabel.textContent = `New ${summary.newCount} / ${practiceCount}`;
+      return;
+    }
+
+    if (summary.nextDueDate) {
+      state.elements.cardPinyin.textContent = `Next due: ${formatReviewDateLabel(summary.nextDueDate)}`;
+    } else if (summary.newCount) {
+      state.elements.cardPinyin.textContent = `${summary.newCount} practice card${summary.newCount === 1 ? "" : "s"} not started in Smart yet.`;
+    } else {
+      state.elements.cardPinyin.textContent = "No cards scheduled yet.";
+    }
+    state.elements.cardTranslation.textContent = practiceCount ? `No started Practice cards are due today in ${getReviewScopeName()}.` : "No cards are currently marked for Practice in this review set.";
+    updateResult(state.elements.resultText, practiceCount ? "Due review only shows already-introduced cards due today. First-view new cards to add them to FSRS." : "Add cards to Practice or choose a different review set.", practiceCount ? "bad" : "");
+    if (summary.newCount) {
+      state.elements.controls.append(createButton("First view new cards", startNewCardIntroduction, "secondary"));
+    } else {
+      state.elements.controls.append(createButton("Review due cards", startDueReviewCards, "secondary", { disabled: true }));
+    }
+    state.elements.positionLabel.textContent = `Due 0 / ${summary.startedCount}`;
+  }
+
+  function render() {
+    renderPageShell();
+    updateModeButtons();
+    updateStorageModeBadge();
+    renderAuthPanel();
+    renderStats();
+    renderSetPanel();
+    renderReviewScopePanel();
+    renderSelectionSummary();
+    renderOrderStatus();
+    renderSetupPanel();
+    renderManageListIfNeeded();
+
+    const card = getCurrentCard();
+    if (!card) {
+      if (isSmartPracticeActive()) {
+        renderSmartBlocked();
+        return;
+      }
+      const total = getOrderedIds().length;
+      if (!total) {
+        clearCard(`No cards selected for ${getUi().mode}`, "Use Card setup or switch card set.");
+        return;
+      }
+      clearCard();
+      return;
+    }
+
+    if (getUi().mode === "learn") {
+      renderLearn(card, getCurrentIndex(), getOrderedIds().length);
+      return;
+    }
+
+    if (isSmartPracticeActive()) {
+      const queue = getSmartQueue(new Date());
+      if (!queue.length) {
+        renderSmartBlocked();
+        return;
+      }
+      const activeSmartItems = getSmartItems(new Date());
+      const summary = getReviewScheduleSummary();
+      renderSmartPractice(card, activeSmartItems.length, summary.startedCount);
       return;
     }
 
@@ -1948,156 +2098,6 @@
     }
     const practiceIds = getScopedCards().filter((card) => card.practice !== false).map((card) => cardId(card));
     if (!practiceIds.length) {
-      state.elements.statusText.textContent = "No Practice cards are currently selected in this editing set.";
-      return;
-    }
-    const record = await state.store.saveNamedSet(name, practiceIds);
-    resetRoundState();
-    markManageListDirty();
-    state.elements.statusText.textContent = `Named set saved from Practice selection: ${record.name} (${record.cardIds.length} cards).`;
-    render();
-  }
-
-  async function handleSaveSetFromRanges() {
-    const name = state.elements.setNameInput.value.trim();
-    const ranges = parseRangeInput(state.elements.setRangeInput?.value || "");
-    if (!name) {
-      state.elements.statusText.textContent = "Enter a set name first.";
-      return;
-    }
-    if (!ranges.size) {
-      state.elements.statusText.textContent = "Enter card ranges for this set first.";
-      return;
-    }
-    const ids = getDb().vocab.filter((card) => ranges.has(card.index)).map((card) => cardId(card));
-    if (!ids.length) {
-      state.elements.statusText.textContent = "No cards matched those ranges.";
-      return;
-    }
-    const record = await state.store.saveNamedSet(name, ids);
-    state.elements.setRangeInput.value = "";
-    resetRoundState();
-    markManageListDirty();
-    state.elements.statusText.textContent = `Named set saved from ranges: ${record.name} (${record.cardIds.length} cards).`;
-    render();
-  }
-
-  async function handleDeleteSelectedSet() {
-    const activeSet = getActiveSet();
-    if (!activeSet || activeSet.locked) return;
-    await state.store.deleteSet(activeSet.id);
-    resetRoundState();
-    markManageListDirty();
-    state.elements.statusText.textContent = `Deleted set: ${activeSet.name}.`;
-    render();
-  }
-
-  async function handleSetChange(event) {
-    await state.store.setActiveSet(event.target.value);
-    resetRoundState();
-    markManageListDirty();
-    render();
-  }
-
-  async function handleReviewSetChange(event) {
-    if (typeof state.store.setReviewSet === "function") {
-      await state.store.setReviewSet(event.target.value);
-    } else {
-      getUi().reviewSetId = event.target.value;
-      await persist();
-    }
-    resetRoundState();
-    render();
-  }
-
-  function handleManageListChange(event) {
-    const input = event.target.closest('input[data-card-id][data-card-mode]');
-    if (!input || !state.elements.manageList.contains(input)) return;
-    updateCardMode(input.dataset.cardId, input.dataset.cardMode, input.checked);
-  }
-
-  function handleRangeButtonClick(event) {
-    const button = event.currentTarget;
-    const mode = button.dataset.rangeMode;
-    const action = button.dataset.rangeAction;
-    if (!MODES.includes(mode)) return;
-    if (action === "add") return applyRangeToMode(mode, true);
-    if (action === "remove") return applyRangeToMode(mode, false);
-    if (action === "all") return setAllForMode(mode, true);
-    if (action === "none") return setAllForMode(mode, false);
-  }
-
-  // Keyboard handler covers both translation MCQ and FSRS rating selection.
-  function handleTranslationKeyboard(event) {
-    if (state.currentPage !== "flashcards") return;
-    const active = document.activeElement;
-    const isTypingField = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
-    if (!getCurrentCard()) return;
-
-    if (isSmartPracticeActive() && state.round.smartStage === "feedback") {
-      if (/[1-4]/.test(event.key)) {
-        event.preventDefault();
-        setSmartRating(Number(event.key));
-        return;
-      }
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-        event.preventDefault();
-        moveSmartRatingSelection(1);
-        return;
-      }
-      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-        event.preventDefault();
-        moveSmartRatingSelection(-1);
-        return;
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        acceptSmartFsrsFeedback();
-      }
-      return;
-    }
-
-    const translationStageActive = (getQuizType() === "translation") || (isSmartPracticeActive() && state.round.smartStage === "translation");
-    if (!translationStageActive) return;
-    if (isTypingField) return;
-
-    if (!state.round.answered && state.round.options.length) {
-      const upper = event.key.toUpperCase();
-      const letterIndex = ["A", "B", "C", "D"].indexOf(upper);
-      if (letterIndex >= 0 && letterIndex < state.round.options.length) {
-        event.preventDefault();
-        selectTranslationOption(letterIndex);
-        return;
-      }
-      const numberIndex = ["1", "2", "3", "4"].indexOf(event.key);
-      if (numberIndex >= 0 && numberIndex < state.round.options.length) {
-        event.preventDefault();
-        selectTranslationOption(numberIndex);
-        return;
-      }
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-        event.preventDefault();
-        moveTranslationSelection(1);
-        return;
-      }
-      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-        event.preventDefault();
-        moveTranslationSelection(-1);
-        return;
-      }
-      if (event.key === "Enter") {
-        event.preventDefault();
-        const index = state.round.keyboardChoiceIndex >= 0 ? state.round.keyboardChoiceIndex : 0;
-        const option = state.round.options[index];
-        if (!option) return;
-        if (isSmartPracticeActive() && state.round.smartStage === "translation") answerSmartTranslation(option);
-        else answerTranslation(option);
-        return;
-      }
-    }
-
-    if (state.round.answered && (event.key === "Enter" || event.key === "ArrowRight")) {
-      event.preventDefault();
       nextCard();
     }
   }
