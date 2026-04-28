@@ -100,6 +100,16 @@ hanzi,pinyin,translation
         </div>
       </div>
 
+      <div class="review-scope-block">
+        <label for="reviewSetSelect" class="label">Review set</label>
+        <div class="set-row review-set-row">
+          <select id="reviewSetSelect"></select>
+          <span id="reviewScopeMeta" class="badge subtle">0 cards</span>
+        </div>
+        <div id="reviewPlanCompact" class="review-plan-compact"></div>
+        <p class="hint">This controls Flash cards only. Build or edit card sets in Setup.</p>
+      </div>
+
       <div class="button-row compact-row">
         <button id="shuffleBtn" class="secondary">Shuffle current mode</button>
         <button id="resetOrderBtn" class="ghost">Original order</button>
@@ -185,18 +195,22 @@ hanzi,pinyin,translation
         <span id="activeSetBadge" class="badge subtle">All cards</span>
       </div>
 
-      <label for="activeSetSelect" class="label">Active set</label>
+      <label for="activeSetSelect" class="label">Editing set for Setup</label>
       <div class="set-row">
         <select id="activeSetSelect"></select>
         <button id="deleteSetBtn" class="ghost">Delete selected set</button>
       </div>
 
-      <label for="setNameInput" class="label">Save current Practice cards as a named set</label>
+      <label for="setNameInput" class="label">Create or update named set</label>
       <div class="set-row">
         <input id="setNameInput" type="text" placeholder="e.g. HSK 3 · week 1" />
-        <button id="saveSetBtn">Save named set</button>
+        <button id="saveSetBtn">Save current Practice selection</button>
       </div>
-      <p class="hint">The saved set includes the cards currently marked in Practice inside the active scope.</p>
+      <div class="set-row set-range-row">
+        <input id="setRangeInput" type="text" placeholder="Optional ranges for set membership: 1-50, 80, 101-140" />
+        <button id="saveSetRangeBtn" class="secondary">Save set from ranges</button>
+      </div>
+      <p class="hint">Use ranges to insert cards into a set without changing the current review queue. The Practice flag still decides whether a card is eligible for practice/FSRS.</p>
 
       <div class="stats-grid stats-grid-3">
         <article class="stat-card">
@@ -214,8 +228,13 @@ hanzi,pinyin,translation
       </div>
 
       <div class="subpanel-block">
-        <div class="subpanel-title">Upcoming review dates</div>
+        <div class="subpanel-title">Upcoming review dates for editing set</div>
         <div id="scheduleList" class="schedule-list"></div>
+      </div>
+
+      <div class="subpanel-block">
+        <div class="subpanel-title">All review schedules</div>
+        <div id="allScheduleList" class="schedule-list"></div>
       </div>
 
       <div class="subpanel-block">

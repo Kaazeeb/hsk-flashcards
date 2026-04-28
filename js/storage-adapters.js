@@ -1,7 +1,10 @@
 /*
 Persistence adapter layer.
-- Local cache is namespaced by current auth scope (anon or user id).
-- Remote sync is granular when Supabase auth is active and signed in.
+
+The store depends on this adapter interface instead of directly knowing about
+localStorage or Supabase. Local cache is scoped by auth state (anon or user id).
+When the user is signed in, the remote adapter is the preferred source; local
+storage remains an offline/fallback cache, not the authoritative sync model.
 */
 (function (ns) {
   function deepClone(value) {
@@ -50,6 +53,9 @@ Persistence adapter layer.
       return this.loadByScope();
     }
 
+    // Save remote first so the local cache records the same state that the app
+    // attempted to sync. If remote fails, local storage preserves work, but
+    // another device will not see it until a later successful sync.
     async saveAppData(payload) {
       return this.saveByScope(undefined, payload);
     }
@@ -70,6 +76,11 @@ Persistence adapter layer.
     };
   }
 
+  /*
+  SwitchableAdapter is the boundary between local-only and cloud-synced modes.
+  lastSnapshot is only a diff baseline for the next save; loading from remote
+  should rebuild state from docs/events again.
+  */
   class SwitchableAdapter {
     constructor(localAdapter, remoteProvider) {
       this.local = localAdapter;

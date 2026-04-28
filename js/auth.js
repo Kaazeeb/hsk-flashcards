@@ -1,6 +1,14 @@
 window.HSKFlashcards = window.HSKFlashcards || {};
 
+/**
+ * Supabase auth and remote persistence adapter.
+ *
+ * Security model: auth identifies the user; Supabase RLS must enforce user_id = auth.uid().
+ * Sync model: settings are granular documents, while review/progress changes are append-only
+ * events so an old device cannot overwrite weeks of progress with a stale snapshot.
+ */
 (function (ns) {
+  // Browser clients may contain the public anon/publishable key, never a service-role key.
   const HARDCODED_SUPABASE_URL = "https://vfivrshzlhmocjoozawx.supabase.co";
   const HARDCODED_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmaXZyc2h6bGhtb2Nqb296YXd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTQwMDMsImV4cCI6MjA5Mjc5MDAwM30.DHTy3vI2aQBUSygvIhALMxdslAPItzwV7Dspv0ElE8A";
 
@@ -239,6 +247,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     bucket[id] = current;
   }
 
+  // Normal practice/test progress is synced as positive deltas. Negative deltas
+  // indicate reset/import and are handled via snapshots rather than destructive event edits.
   function buildProgressDiffEvents(current, previous) {
     const events = [];
     const next = cloneProgress(current);
@@ -292,6 +302,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return bucket && typeof bucket === "object" ? bucket[String(cardId)] || null : null;
   }
 
+  // Smart FSRS sync is driven by locally-generated reviewEvents. The fallback
+  // exists only for old local states that predate explicit events.
   function buildSmartDiffEvents(current, previous) {
     const events = [];
     const next = cloneSmartState(current);
@@ -391,6 +403,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return { byId: rawById, order };
   }
 
+  // Remote state is rebuilt by layering granular documents with chronologically
+  // replayed append-only events. This avoids trusting any single stale device snapshot.
   function buildRemoteRawState(docRows, eventRows) {
     const docGroups = groupDocs(docRows);
     const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
@@ -457,6 +471,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     if (error) throw error;
   }
 
+  // Destructive event deletion should only be used for explicit reset/import flows.
+  // Normal multi-device sync must append events and never rewrite history.
   async function deleteEventsByKinds(client, userId, kinds) {
     if (!kinds.length) return;
     const { error } = await client.from(EVENT_TABLE)
@@ -466,6 +482,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     if (error) throw error;
   }
 
+  // event_id is idempotency protection: retries or duplicate devices should not
+  // create duplicate review records for the same local review.
   async function insertEvents(client, rows) {
     if (!rows.length) return;
     const { error } = await client
@@ -663,6 +681,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return state.user?.id || "anon";
   }
 
+  // The store talks to this adapter, not to Supabase directly. loadAppData pulls
+  // remote docs/events; saveAppData writes granular diffs based on lastSnapshot.
   function getRemoteAdapter() {
     if (!state.client || !state.user) return null;
     const userId = state.user.id;

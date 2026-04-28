@@ -891,3 +891,26 @@ select {
     min-width: 100px;
   }
 }
+
+.review-scope-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.review-plan-compact {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.compact-schedule-row {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.set-range-row {
+  margin-top: 10px;
+}

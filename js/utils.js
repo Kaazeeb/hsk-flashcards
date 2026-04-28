@@ -144,6 +144,8 @@
     return Number.isNaN(parsed.getTime()) ? new Date(fallback) : parsed;
   }
 
+  // Local-day boundaries are product behavior: a card due today remains
+  // reviewable for the whole local day, regardless of exact due hour.
   function getStartOfLocalDay(value = new Date()) {
     const date = normalizeDate(value);
     return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -194,6 +196,8 @@
     return formatLongDate(value);
   }
 
+  // Deterministic pseudo-random score in [0, 1). Used for stable shuffles
+  // where Math.random() would make render-to-render ordering unstable.
   function hashStringToUnitInterval(value) {
     let hash = 2166136261;
     const input = String(value || "");

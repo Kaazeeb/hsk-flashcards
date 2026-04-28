@@ -1,5 +1,11 @@
+/**
+ * App store and schema normalization.
+ *
+ * The in-memory state is still a single normalized object for UI simplicity, but
+ * the persistence adapter can decompose it into granular remote documents/events.
+ */
 (function (ns) {
-  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, SCHEMA_VERSION } = ns.constants;
+  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, SCHEMA_VERSION } = ns.constants;
   const { normalizeCard, cardId, createAllCardsSet, createSetRecord } = ns.utils;
 
   function createEmptyScoreBucket() {
@@ -57,7 +63,8 @@
         practice: "default",
         test: "default"
       },
-      activeSetId: ALL_SET_ID
+      activeSetId: ALL_SET_ID,
+      reviewSetId: ALL_SET_ID
     };
   }
 
@@ -85,7 +92,8 @@
         practice: ui?.orderType?.practice === "shuffled" ? "shuffled" : "default",
         test: ui?.orderType?.test === "shuffled" ? "shuffled" : "default"
       },
-      activeSetId: typeof ui?.activeSetId === "string" ? ui.activeSetId : ALL_SET_ID
+      activeSetId: typeof ui?.activeSetId === "string" ? ui.activeSetId : ALL_SET_ID,
+      reviewSetId: typeof ui?.reviewSetId === "string" ? ui.reviewSetId : base.reviewSetId
     };
   }
 
@@ -198,6 +206,8 @@
     });
   }
 
+  // All inbound data, whether local cache, imported JSON, or Supabase rebuild,
+  // passes through this gate. It prunes invalid card ids and restores locked sets.
   function normalizeDb(raw, builtinCards) {
     const vocab = normalizeVocab(raw?.vocab?.length ? raw.vocab : builtinCards);
     const sets = normalizeSets(raw?.sets, vocab);
@@ -215,6 +225,7 @@
     };
 
     if (!db.sets.byId[db.ui.activeSetId]) db.ui.activeSetId = ALL_SET_ID;
+    if (db.ui.reviewSetId !== REVIEW_ALL_SETS_ID && !db.sets.byId[db.ui.reviewSetId]) db.ui.reviewSetId = ALL_SET_ID;
     pruneDbToValidIds(db);
     return db;
   }
@@ -234,12 +245,16 @@
         return this.state;
       },
 
+      // Pull remote state while optionally keeping current UI choices. This is
+      // used when returning to an open tab so another device's progress appears
+      // without resetting the user's current page/mode.
       async refreshRemote({ preserveUi = true } = {}) {
         const currentUi = preserveUi ? cloneDb({ ui: this.state?.ui || createDefaultUiState() }).ui : null;
         const raw = await adapter.loadAppData();
         const next = normalizeDb(raw, builtinCards);
         if (currentUi) next.ui = normalizeUiState(currentUi);
         if (!next.sets.byId[next.ui.activeSetId]) next.ui.activeSetId = ALL_SET_ID;
+        if (next.ui.reviewSetId !== REVIEW_ALL_SETS_ID && !next.sets.byId[next.ui.reviewSetId]) next.ui.reviewSetId = ALL_SET_ID;
         this.state = next;
         return this.state;
       },
@@ -252,6 +267,8 @@
         return this.state;
       },
 
+      // CSV import may be an unrelated deck, so it resets dependent data unless
+      // explicitly told to preserve/prune. Built-in restore has its own safer path.
       async replaceVocabulary(cards, { preserveData = false } = {}) {
         const nextVocab = normalizeVocab(cards);
         if (!preserveData) {
@@ -277,6 +294,14 @@
         await this.persist();
       },
 
+      async setReviewSet(setId) {
+        const value = setId === REVIEW_ALL_SETS_ID || this.state.sets.byId[setId] ? setId : ALL_SET_ID;
+        this.state.ui.reviewSetId = value;
+        await this.persist();
+      },
+
+      // Sets define review scope only. Smart FSRS state is per set and card, and
+      // a card enters that set's FSRS bucket only after its first Smart review.
       async saveNamedSet(name, cardIds) {
         const trimmed = String(name || "").trim();
         if (!trimmed) return null;
@@ -312,6 +337,7 @@
         this.state.sets.order = this.state.sets.order.filter((id) => id !== setId);
         delete this.state.smartBySet[setId];
         if (this.state.ui.activeSetId === setId) this.state.ui.activeSetId = ALL_SET_ID;
+        if (this.state.ui.reviewSetId === setId) this.state.ui.reviewSetId = ALL_SET_ID;
         await this.persist();
         return true;
       },

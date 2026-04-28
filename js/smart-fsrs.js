@@ -1,3 +1,12 @@
+/**
+ * Smart FSRS scheduling.
+ *
+ * Important invariants:
+ * - Only cards explicitly available to the selected Practice/review scope are considered.
+ * - A card enters FSRS only after its first Smart review; unstarted cards are new, not due.
+ * - Due dates are bucketed by local day so reviews are daily, not hour-precise.
+ * - Review history is stored as append-only events for safer multi-device sync.
+ */
 (function (ns) {
   const FSRS_API = typeof window !== "undefined" ? window.FSRS : null;
   const { normalizeDate, getStartOfLocalDay, getLocalNoon, addLocalDays, getLocalDayStamp, formatLocalDayKey, hashStringToUnitInterval, MS_PER_DAY, cardId } = ns.utils;
@@ -38,6 +47,9 @@
     };
   }
 
+  // FSRS returns exact timestamps. The app reviews by day, so we convert the
+  // interval to a local-day bucket. The fractional part is rounded with a
+  // deterministic fuzz seed to avoid placing every card on the same boundary.
   function getFuzzyRoundedDueDate(rawDue, now = new Date(), seed = "") {
     const normalizedNow = normalizeDate(now);
     const normalizedDue = normalizeDate(rawDue, normalizedNow);
@@ -72,6 +84,8 @@
     };
   }
 
+  // Local Smart entries may hold unsynced review events. Normalization keeps
+  // them replayable and idempotent when sent to Supabase.
   function normalizeReviewEvents(events) {
     return (Array.isArray(events) ? events : [])
       .map((event) => ({
@@ -131,6 +145,9 @@
     return hashStringToUnitInterval(`${seed}::${id}::${dayKey}`);
   }
 
+  // Applies one FSRS rating and appends a local review event unless replaying
+  // remote history. This function is used both for real reviews and for rebuilding
+  // state from append-only events; keep side effects controlled by options.trackEvent.
   function reviewCard(bucket, cardOrId, rating, now = new Date(), options = {}) {
     if (!scheduler) throw new Error("FSRS scheduler not available.");
     const id = cardId(cardOrId);
@@ -164,6 +181,9 @@
     return bucket[id];
   }
 
+  // Returns only already-started cards whose due day is today or earlier.
+  // Cards due on the same day are shuffled with the current session seed, so the
+  // order is randomized per session but stable while the page remains open.
   function getDueQueue(cardIds, bucket, vocabById, now = new Date(), options = {}) {
     const todayStamp = getLocalDayStamp(now);
     const sessionSeed = options.sessionSeed || "";
@@ -191,6 +211,8 @@
     return candidates;
   }
 
+  // New queue is deliberately separate from due reviews: choosing to introduce
+  // cards is a user action, not an automatic fallback when no reviews are due.
   function getNewQueue(cardIds, bucket, vocabById, now = new Date(), options = {}) {
     const sessionSeed = options.sessionSeed || "";
     return (cardIds || [])
@@ -211,6 +233,8 @@
       });
   }
 
+  // Builds the review-plan numbers shown in the UI: due today, next due date,
+  // future dates, started cards, and new/unstarted cards.
   function getScheduleSummary(cardIds, bucket, now = new Date()) {
     const map = new Map();
     let dueTodayCount = 0;

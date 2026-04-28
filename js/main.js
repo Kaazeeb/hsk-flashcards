@@ -1,22 +1,33 @@
+/**
+ * Main UI controller.
+ *
+ * This module binds the normalized store to the three page views: Login, Setup,
+ * and Flash cards. It intentionally keeps rendering and user-event orchestration
+ * here while delegating pinyin, FSRS, auth, and persistence to smaller modules.
+ */
 (function (ns) {
-  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, SMART_RATINGS } = ns.constants;
-  const { normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate } = ns.utils;
+  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, SMART_RATINGS } = ns.constants;
+  const { normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate, hashStringToUnitInterval, getLocalDayStamp } = ns.utils;
   const { checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, getPinyinDisplay } = ns.pinyin;
   const { createPersistenceAdapter } = ns.adapters;
   const { createAppStore } = ns.store;
   const { createButton, clearNode, setBar, updateResult, scheduleStudyAreaFocus } = ns.ui;
   const smart = ns.smart;
 
+  // Randomizes Smart queue order per browser session while keeping order stable across renders.
   function createSmartSessionSeed() {
     return ["smart-session", Date.now().toString(36), Math.random().toString(36).slice(2, 10)].join("::");
   }
 
+  // Runtime-only state. Durable data belongs in store.state; this object tracks
+  // transient UI/session details such as the current round and Smart queue seed.
   const state = {
     filterText: "",
     manageListDirty: true,
     elements: null,
     store: null,
     smartLastCardId: "",
+    smartLastSetId: "",
     smartSessionSeed: createSmartSessionSeed(),
     authScope: "anon",
     authMessage: "",
@@ -42,11 +53,13 @@
       appearanceCardId: "",
       appearanceCounted: false,
       smartCardId: "",
+      smartSetId: "",
       smartStage: "pinyin",
       smartPinyinCorrect: null,
       smartTranslationCorrect: null,
       smartOutcomeCorrect: null,
       smartSelectedRating: 3,
+      smartForceNew: false,
       keyboardChoiceIndex: -1
     };
   }
@@ -95,14 +108,20 @@
       barPracticeLabel: document.getElementById("barPracticeLabel"),
       barTestLabel: document.getElementById("barTestLabel"),
       activeSetSelect: document.getElementById("activeSetSelect"),
+      reviewSetSelect: document.getElementById("reviewSetSelect"),
+      reviewScopeMeta: document.getElementById("reviewScopeMeta"),
+      reviewPlanCompact: document.getElementById("reviewPlanCompact"),
       activeSetBadge: document.getElementById("activeSetBadge"),
       setNameInput: document.getElementById("setNameInput"),
+      setRangeInput: document.getElementById("setRangeInput"),
+      saveSetRangeBtn: document.getElementById("saveSetRangeBtn"),
       saveSetBtn: document.getElementById("saveSetBtn"),
       deleteSetBtn: document.getElementById("deleteSetBtn"),
       setCardCount: document.getElementById("setCardCount"),
       setDueToday: document.getElementById("setDueToday"),
       setNextDue: document.getElementById("setNextDue"),
       scheduleList: document.getElementById("scheduleList"),
+      allScheduleList: document.getElementById("allScheduleList"),
       setsOverview: document.getElementById("setsOverview"),
       selectionSummary: document.getElementById("selectionSummary"),
       setupToggleBtn: document.getElementById("setupToggleBtn"),
@@ -180,6 +199,8 @@
     state.elements.storageModeBadge.textContent = "built in · local data layer";
   }
 
+  // Auth scope controls local cache namespace. Switching users must reload state
+  // so one user/device cache cannot bleed into another.
   async function syncStoreToAuthScope(force = false) {
     const nextScope = ns.auth && typeof ns.auth.getCacheScope === "function"
       ? ns.auth.getCacheScope()
@@ -195,6 +216,8 @@
   let remoteRefreshInFlight = false;
   let lastRemoteRefreshAt = 0;
 
+  // Pull remote state opportunistically when the tab regains focus. This is not
+  // realtime sync, but it prevents long-open devices from staying stale forever.
   async function refreshRemoteState(force = false) {
     const info = getAuthStatus();
     if (!info.signedIn || !state.store || typeof state.store.refreshRemote !== "function") return false;
@@ -391,14 +414,66 @@
     return db.sets.byId[db.ui.activeSetId] || db.sets.byId[ALL_SET_ID];
   }
 
-  function getScopedCards() {
-    const activeSet = getActiveSet();
-    const allowed = new Set((activeSet?.cardIds || []).map(String));
+  function getNamedSets() {
+    const db = getDb();
+    return db.sets.order
+      .map((id) => db.sets.byId[id])
+      .filter((setRecord) => setRecord && !setRecord.locked);
+  }
+
+  function getReviewScopeId() {
+    const db = getDb();
+    const id = db.ui.reviewSetId || ALL_SET_ID;
+    if (id === REVIEW_ALL_SETS_ID && getNamedSets().length) return id;
+    return db.sets.byId[id] ? id : ALL_SET_ID;
+  }
+
+  // Review scope can be one selected set or all saved sets together. Each Smart
+  // review still writes back to the originating set so FSRS histories stay separate.
+  function getReviewScopeSets() {
+    const db = getDb();
+    const id = getReviewScopeId();
+    if (id === REVIEW_ALL_SETS_ID) return getNamedSets();
+    return [db.sets.byId[id] || db.sets.byId[ALL_SET_ID]].filter(Boolean);
+  }
+
+  function getPrimaryReviewSet() {
+    return getReviewScopeSets()[0] || getActiveSet();
+  }
+
+  function getReviewScopeName() {
+    const id = getReviewScopeId();
+    if (id === REVIEW_ALL_SETS_ID) return "All saved sets";
+    return getPrimaryReviewSet().name;
+  }
+
+  function getCardsForSet(setId = getActiveSet().id) {
+    const setRecord = getDb().sets.byId[setId] || getActiveSet();
+    const allowed = new Set((setRecord?.cardIds || []).map(String));
     return getDb().vocab.filter((card) => allowed.has(cardId(card)));
   }
 
+  function getScopedCards() {
+    return getCardsForSet(getActiveSet().id);
+  }
+
+  function getReviewScopedCards() {
+    const seen = new Set();
+    const cards = [];
+    getReviewScopeSets().forEach((setRecord) => {
+      getCardsForSet(setRecord.id).forEach((card) => {
+        const id = cardId(card);
+        if (!seen.has(id)) {
+          seen.add(id);
+          cards.push(card);
+        }
+      });
+    });
+    return cards.sort((a, b) => (a.index || 0) - (b.index || 0));
+  }
+
   function getScopedCardMap() {
-    return Object.fromEntries(getScopedCards().map((card) => [cardId(card), card]));
+    return Object.fromEntries(getReviewScopedCards().map((card) => [cardId(card), card]));
   }
 
   function getAllCardMap() {
@@ -419,8 +494,22 @@
     return getPracticeScopedIdsForSet(setId).map((id) => map[id]).filter(Boolean);
   }
 
+  function getReviewPracticeIds() {
+    const ids = [];
+    const seen = new Set();
+    getReviewScopeSets().forEach((setRecord) => {
+      getPracticeScopedIdsForSet(setRecord.id).forEach((id) => {
+        if (!seen.has(id)) {
+          seen.add(id);
+          ids.push(id);
+        }
+      });
+    });
+    return ids;
+  }
+
   function getModeCards(mode = getUi().mode) {
-    return getScopedCards().filter((card) => card[mode] !== false);
+    return getReviewScopedCards().filter((card) => card[mode] !== false);
   }
 
   function getModeIds(mode = getUi().mode) {
@@ -450,28 +539,119 @@
     return getSmartBucketForSet(getActiveSet().id);
   }
 
+  function decorateSmartItems(setId, items, now = new Date()) {
+    return (items || []).map((item) => ({
+      ...item,
+      setId,
+      sortKey: hashStringToUnitInterval(`${state.smartSessionSeed}::${setId}::${item.id || cardId(item.card)}::${getLocalDayStamp(now)}`)
+    }));
+  }
+
+  function sortSmartReviewItems(items) {
+    return [...items].sort((a, b) => {
+      const aDue = smart.getDueDay(a.entry, new Date());
+      const bDue = smart.getDueDay(b.entry, new Date());
+      const aStamp = aDue ? aDue.getTime() : 0;
+      const bStamp = bDue ? bDue.getTime() : 0;
+      if (aStamp !== bStamp) return aStamp - bStamp;
+      if (a.sortKey !== b.sortKey) return a.sortKey - b.sortKey;
+      if (a.setId !== b.setId) return String(a.setId).localeCompare(String(b.setId));
+      return (a.card?.index || 0) - (b.card?.index || 0);
+    });
+  }
+
+  // Due reviews and new-card introduction are separate flows. This function only
+  // returns already-started FSRS cards that are due for the current review scope.
+  function getSmartDueItems(now = new Date()) {
+    const allMap = getAllCardMap();
+    const items = [];
+    getReviewScopeSets().forEach((setRecord) => {
+      const bucket = getSmartBucketForSet(setRecord.id);
+      const due = smart.getDueQueue(getPracticeScopedIdsForSet(setRecord.id), bucket, allMap, now, { sessionSeed: `${state.smartSessionSeed}::${setRecord.id}` });
+      items.push(...decorateSmartItems(setRecord.id, due, now));
+    });
+    return sortSmartReviewItems(items);
+  }
+
+  // New cards are Practice cards not yet started in FSRS. They appear only when
+  // the user explicitly chooses to introduce new Smart cards.
+  function getSmartNewItems(now = new Date()) {
+    const allMap = getAllCardMap();
+    const items = [];
+    getReviewScopeSets().forEach((setRecord) => {
+      const bucket = getSmartBucketForSet(setRecord.id);
+      const fresh = smart.getNewQueue(getPracticeScopedIdsForSet(setRecord.id), bucket, allMap, now, { sessionSeed: `${state.smartSessionSeed}::${setRecord.id}` });
+      items.push(...decorateSmartItems(setRecord.id, fresh, now));
+    });
+    return sortSmartReviewItems(items);
+  }
+
   function getSmartDueQueue(now = new Date()) {
-    const activeSet = getActiveSet();
-    const bucket = getSmartBucketForSet(activeSet.id);
-    return smart.getDueQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now, { sessionSeed: state.smartSessionSeed }).map((item) => item.card);
+    return getSmartDueItems(now).map((item) => item.card);
   }
 
   function getSmartNewQueue(now = new Date()) {
-    const activeSet = getActiveSet();
-    const bucket = getSmartBucketForSet(activeSet.id);
-    return smart.getNewQueue(getPracticeScopedIdsForSet(activeSet.id), bucket, getScopedCardMap(), now, { sessionSeed: state.smartSessionSeed }).map((item) => item.card);
+    return getSmartNewItems(now).map((item) => item.card);
+  }
+
+  function getSmartItems(now = new Date()) {
+    return state.round.smartForceNew ? getSmartNewItems(now) : getSmartDueItems(now);
   }
 
   function getSmartQueue(now = new Date()) {
-    const dueQueue = getSmartDueQueue(now);
-    if (dueQueue.length) return dueQueue;
-    return getSmartNewQueue(now);
+    return getSmartItems(now).map((item) => item.card);
   }
 
   function getSmartScheduleForSet(setId, now = new Date()) {
     const setRecord = getDb().sets.byId[setId];
     if (!setRecord) return { dueTodayCount: 0, nextDueDate: null, byDay: [], startedCount: 0, newCount: 0 };
     return smart.getScheduleSummary(getPracticeScopedIdsForSet(setId), getSmartBucketForSet(setId), now);
+  }
+
+  function mergeScheduleSummaries(summaries) {
+    const byStamp = new Map();
+    let dueTodayCount = 0;
+    let startedCount = 0;
+    let newCount = 0;
+    let nextDueDate = null;
+    summaries.forEach((summary) => {
+      dueTodayCount += summary.dueTodayCount || 0;
+      startedCount += summary.startedCount || 0;
+      newCount += summary.newCount || 0;
+      if (summary.nextDueDate && (!nextDueDate || summary.nextDueDate.getTime() < nextDueDate.getTime())) {
+        nextDueDate = summary.nextDueDate;
+      }
+      (summary.byDay || []).forEach((item) => {
+        const stamp = item.date.getTime();
+        byStamp.set(stamp, (byStamp.get(stamp) || 0) + item.count);
+      });
+    });
+    return {
+      dueTodayCount,
+      nextDueDate,
+      byDay: [...byStamp.entries()].sort((a, b) => a[0] - b[0]).map(([stamp, count]) => ({ date: new Date(Number(stamp)), count })),
+      startedCount,
+      newCount
+    };
+  }
+
+  function getReviewScheduleSummary(now = new Date()) {
+    return mergeScheduleSummaries(getReviewScopeSets().map((setRecord) => getSmartScheduleForSet(setRecord.id, now)));
+  }
+
+  function getAllSetsScheduleByDay(now = new Date()) {
+    const groups = new Map();
+    getDb().sets.order.map((id) => getDb().sets.byId[id]).filter(Boolean).forEach((setRecord) => {
+      const summary = getSmartScheduleForSet(setRecord.id, now);
+      summary.byDay.forEach((item) => {
+        const stamp = item.date.getTime();
+        const current = groups.get(stamp) || { date: item.date, count: 0, sets: [] };
+        current.count += item.count;
+        current.sets.push({ setId: setRecord.id, name: setRecord.name, count: item.count });
+        groups.set(stamp, current);
+      });
+    });
+    return [...groups.values()].sort((a, b) => a.date.getTime() - b.date.getTime());
   }
 
   function getSmartStatsForSet(setId) {
@@ -489,6 +669,16 @@
       wrong += entry.wrong || 0;
     });
     return { shown, correct, wrong };
+  }
+
+  function getReviewSmartStats() {
+    return getReviewScopeSets().reduce((total, setRecord) => {
+      const stats = getSmartStatsForSet(setRecord.id);
+      total.shown += stats.shown;
+      total.correct += stats.correct;
+      total.wrong += stats.wrong;
+      return total;
+    }, { shown: 0, correct: 0, wrong: 0 });
   }
 
   function buildOrderedIds(mode = getUi().mode) {
@@ -527,21 +717,31 @@
     return clamp(getUi().indexes[mode] || 0, 0, total - 1);
   }
 
-  function getSmartCurrentCard() {
+  function getSmartCurrentItem() {
     if (!isSmartPracticeActive()) return null;
-    const activeIds = new Set(getPracticeScopedIdsForSet(getActiveSet().id));
-    if (state.round.smartCardId && activeIds.has(state.round.smartCardId)) {
-      const map = getScopedCardMap();
-      if (map[state.round.smartCardId]) return map[state.round.smartCardId];
+    if (state.round.smartCardId && state.round.smartSetId) {
+      const setIds = new Set(getPracticeScopedIdsForSet(state.round.smartSetId));
+      const map = getAllCardMap();
+      if (setIds.has(state.round.smartCardId) && map[state.round.smartCardId]) {
+        return { setId: state.round.smartSetId, id: state.round.smartCardId, card: map[state.round.smartCardId] };
+      }
     }
-    const queue = getSmartQueue(new Date());
+    const queue = getSmartItems(new Date());
     let picked = queue[0] || null;
     if (picked && queue.length > 1 && state.smartLastCardId) {
-      const alternative = queue.find((item) => cardId(item) !== state.smartLastCardId);
+      const alternative = queue.find((item) => `${item.setId}:${item.id || cardId(item.card)}` !== `${state.smartLastSetId}:${state.smartLastCardId}`);
       if (alternative) picked = alternative;
     }
-    if (picked) state.round.smartCardId = cardId(picked);
+    if (picked) {
+      state.round.smartCardId = picked.id || cardId(picked.card);
+      state.round.smartSetId = picked.setId;
+    }
     return picked;
+  }
+
+  function getSmartCurrentCard() {
+    const item = getSmartCurrentItem();
+    return item?.card || null;
   }
 
   function getCurrentCard() {
@@ -585,7 +785,7 @@
 
   function prepareRoundAppearance(mode, quizType, card) {
     if (!card) return;
-    const key = `${getActiveSet().id}:${mode}:${quizType || "study"}:${cardId(card)}`;
+    const key = `${getReviewScopeId()}:${mode}:${quizType || "study"}:${cardId(card)}`;
     if (state.round.appearanceKey === key) return;
     state.round.appearanceKey = key;
     state.round.appearanceMode = mode;
@@ -636,12 +836,12 @@
     if (mode === "practice") {
       getTouchedIds("practice", "translation").forEach((id) => ids.add(id));
       getTouchedIds("practice", "pinyin").forEach((id) => ids.add(id));
-      if (getActiveSet()) {
-        const smartStatsIds = new Set(getPracticeScopedIdsForSet(getActiveSet().id));
-        Object.entries(getSmartBucketForActiveSet()).forEach(([id, entry]) => {
+      getReviewScopeSets().forEach((setRecord) => {
+        const smartStatsIds = new Set(getPracticeScopedIdsForSet(setRecord.id));
+        Object.entries(getSmartBucketForSet(setRecord.id)).forEach(([id, entry]) => {
           if (smartStatsIds.has(id) && ((entry.shown || 0) > 0 || (entry.correct || 0) > 0 || (entry.wrong || 0) > 0)) ids.add(id);
         });
-      }
+      });
       return ids.size;
     }
     getTouchedIds(mode, "translation").forEach((id) => ids.add(id));
@@ -652,7 +852,8 @@
   function getPracticeCardStats(card) {
     const id = cardId(card);
     const progress = getDb().progress;
-    const smartBucket = getSmartBucketForActiveSet();
+    const smartSetId = isSmartPracticeActive() && state.round.smartSetId ? state.round.smartSetId : getPrimaryReviewSet().id;
+    const smartBucket = getSmartBucketForSet(smartSetId);
     return {
       translation: progress.practice.translation[id] || { shown: 0, correct: 0, wrong: 0 },
       pinyin: progress.practice.pinyin[id] || { shown: 0, correct: 0, wrong: 0 },
@@ -675,7 +876,7 @@
       button.classList.toggle("active", button.dataset.mode === ui.mode);
     });
     state.elements.modeLabel.textContent = ui.mode.charAt(0).toUpperCase() + ui.mode.slice(1);
-    state.elements.cardSetLabel.textContent = getActiveSet().name;
+    state.elements.cardSetLabel.textContent = getReviewScopeName();
 
     if (ui.mode === "learn") {
       state.elements.quizTypeWrap.classList.add("hidden");
@@ -695,11 +896,11 @@
   }
 
   function renderStats() {
-    const scopedCards = getScopedCards();
+    const scopedCards = getReviewScopedCards();
     const totalCards = scopedCards.length;
     const practiceTranslation = getModeTotals("practice", "translation");
     const practicePinyin = getModeTotals("practice", "pinyin");
-    const smartStats = getSmartStatsForSet(getActiveSet().id);
+    const smartStats = getReviewSmartStats();
     const learnTotal = getModeIds("learn").length;
     const practiceTotal = getModeIds("practice").length;
     const testTotal = getModeIds("test").length;
@@ -718,13 +919,17 @@
     setBar(state.elements.barTest, state.elements.barTestLabel, getModeTouchedAcrossTypes("test"), testTotal);
   }
 
+  function getEditModeIds(mode) {
+    return getScopedCards().filter((card) => card[mode] !== false).map((card) => cardId(card));
+  }
+
   function renderSelectionSummary() {
-    state.elements.selectionSummary.textContent = `Learn ${getModeIds("learn").length} · Practice ${getModeIds("practice").length} · Test ${getModeIds("test").length}`;
+    state.elements.selectionSummary.textContent = `Learn ${getEditModeIds("learn").length} · Practice ${getEditModeIds("practice").length} · Test ${getEditModeIds("test").length}`;
   }
 
   function renderOrderStatus() {
     if (isSmartPracticeActive()) {
-      state.elements.orderStatus.textContent = "Smart practice uses only Practice cards. Started cards follow today's FSRS due order; new cards enter FSRS after their first Smart review.";
+      state.elements.orderStatus.textContent = `Smart FSRS uses review set: ${getReviewScopeName()}. Started cards due today are reviewed first; new cards enter FSRS after their first Smart review.`;
       return;
     }
     const type = getUi().orderType[getUi().mode];
@@ -781,7 +986,8 @@
       const summary = getPracticeCardSummaryText(card);
       let smartMeta = "smart inactive";
       if (card.practice !== false) {
-        const smartEntry = getSmartBucketForActiveSet()[cardId(card)] || smart.createSmartEntry(new Date());
+        const smartSetId = getActiveSet().id;
+        const smartEntry = getSmartBucketForSet(smartSetId)[cardId(card)] || smart.createSmartEntry(new Date());
         if (smart.isStarted(smartEntry)) {
           const due = smart.getDueDay(smartEntry, new Date());
           smartMeta = `smart due ${formatReviewDateLabel(due)}`;
@@ -814,11 +1020,96 @@
     });
   }
 
+  // The manage list can contain 1000+ rows, so it is rendered lazily. Do not call
+  // renderManageList from ordinary quiz progress updates.
   function renderManageListIfNeeded(force = false) {
     if (getUi().setupCollapsed) return;
     if (!force && !state.manageListDirty) return;
     renderManageList();
     state.manageListDirty = false;
+  }
+
+  function renderScheduleRows(container, items, emptyText, options = {}) {
+    clearNode(container);
+    const rows = (items || []).slice(0, options.limit || 24);
+    if (!rows.length) {
+      const empty = document.createElement("div");
+      empty.className = "schedule-empty muted";
+      empty.textContent = emptyText || "No review schedule yet.";
+      container.appendChild(empty);
+      return;
+    }
+    rows.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "schedule-row";
+      const left = document.createElement("span");
+      left.textContent = item.label || formatReviewDateLabel(item.date);
+      const right = document.createElement("strong");
+      right.textContent = item.right || `${item.count} card${item.count === 1 ? "" : "s"}`;
+      row.append(left, right);
+      container.appendChild(row);
+    });
+  }
+
+  function renderReviewScopePanel() {
+    const sets = getDb().sets.order.map((id) => getDb().sets.byId[id]).filter(Boolean);
+    const named = getNamedSets();
+    const reviewScopeId = getReviewScopeId();
+    const summary = getReviewScheduleSummary();
+    const practiceCount = getReviewPracticeIds().length;
+
+    if (state.elements.reviewSetSelect) {
+      clearNode(state.elements.reviewSetSelect);
+      sets.forEach((setRecord) => {
+        const option = document.createElement("option");
+        option.value = setRecord.id;
+        option.textContent = `${setRecord.name} (${getPracticeScopedIdsForSet(setRecord.id).length} practice)`;
+        option.selected = setRecord.id === reviewScopeId;
+        state.elements.reviewSetSelect.appendChild(option);
+      });
+      if (named.length) {
+        const option = document.createElement("option");
+        option.value = REVIEW_ALL_SETS_ID;
+        option.textContent = `All saved sets combined (${named.length} sets)`;
+        option.selected = reviewScopeId === REVIEW_ALL_SETS_ID;
+        state.elements.reviewSetSelect.appendChild(option);
+      }
+    }
+
+    if (state.elements.reviewScopeMeta) {
+      state.elements.reviewScopeMeta.textContent = `${practiceCount} cards · due ${summary.dueTodayCount} · new ${summary.newCount}`;
+    }
+
+    if (state.elements.reviewPlanCompact) {
+      clearNode(state.elements.reviewPlanCompact);
+      const today = document.createElement("div");
+      today.className = "schedule-row compact-schedule-row";
+      const left = document.createElement("span");
+      left.textContent = `${getReviewScopeName()} · today`;
+      const right = document.createElement("strong");
+      right.textContent = `${summary.dueTodayCount} due`;
+      today.append(left, right);
+      state.elements.reviewPlanCompact.appendChild(today);
+
+      const upcoming = summary.byDay.filter((item) => item.date.getTime() > getLocalDayStamp(new Date())).slice(0, 5);
+      if (upcoming.length) {
+        upcoming.forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "schedule-row compact-schedule-row";
+          const itemLeft = document.createElement("span");
+          itemLeft.textContent = formatReviewDateLabel(item.date);
+          const itemRight = document.createElement("strong");
+          itemRight.textContent = `${item.count} card${item.count === 1 ? "" : "s"}`;
+          row.append(itemLeft, itemRight);
+          state.elements.reviewPlanCompact.appendChild(row);
+        });
+      } else if (!summary.dueTodayCount) {
+        const empty = document.createElement("div");
+        empty.className = "schedule-empty muted";
+        empty.textContent = summary.newCount ? `${summary.newCount} new card${summary.newCount === 1 ? "" : "s"} can be started.` : "No reviews scheduled.";
+        state.elements.reviewPlanCompact.appendChild(empty);
+      }
+    }
   }
 
   function renderSetPanel() {
@@ -841,25 +1132,19 @@
     state.elements.setDueToday.textContent = String(summary.dueTodayCount);
     state.elements.setNextDue.textContent = summary.nextDueDate ? formatReviewDateLabel(summary.nextDueDate) : (summary.newCount ? "No due cards yet" : "No pending future review");
 
-    clearNode(state.elements.scheduleList);
-    const upcoming = summary.byDay.slice(0, 24);
-    if (!upcoming.length) {
-      const empty = document.createElement("div");
-      empty.className = "schedule-empty muted";
-      empty.textContent = "No review schedule yet.";
-      state.elements.scheduleList.appendChild(empty);
-    } else {
-      upcoming.forEach((item) => {
-        const row = document.createElement("div");
-        row.className = "schedule-row";
-        const left = document.createElement("span");
-        left.textContent = formatReviewDateLabel(item.date);
-        const right = document.createElement("strong");
-        right.textContent = `${item.count} card${item.count === 1 ? "" : "s"}`;
-        row.append(left, right);
-        state.elements.scheduleList.appendChild(row);
-      });
-    }
+    renderScheduleRows(
+      state.elements.scheduleList,
+      summary.byDay.map((item) => ({ date: item.date, count: item.count })),
+      "No review schedule yet."
+    );
+
+    const allRows = getAllSetsScheduleByDay().map((item) => ({
+      date: item.date,
+      count: item.count,
+      right: `${item.count} card${item.count === 1 ? "" : "s"}`,
+      label: `${formatReviewDateLabel(item.date)} · ${item.sets.slice(0, 3).map((set) => `${set.name}: ${set.count}`).join(" · ")}${item.sets.length > 3 ? " · …" : ""}`
+    }));
+    renderScheduleRows(state.elements.allScheduleList, allRows, "No scheduled reviews across sets.", { limit: 30 });
 
     clearNode(state.elements.setsOverview);
     sets.forEach((setRecord) => {
@@ -910,6 +1195,8 @@
     state.elements.positionLabel.textContent = `Due ${dueCount} / Started ${activeCount}`;
   }
 
+  // MCQ distractors are sampled from the active mode pool and avoid exact
+  // duplicate translation strings; semantic duplicates are not detected here.
   function buildTranslationOptionsForCard(card, mode = getUi().mode) {
     const modeCards = getModeCards(mode);
     const uniqueDistractors = [];
@@ -1105,16 +1392,20 @@
     setSmartRating(SMART_RATINGS[nextIndex]);
   }
 
+  // This is the moment a Smart review becomes durable: the selected FSRS rating
+  // updates local scheduling state and produces an append-only sync event.
   function acceptSmartFsrsFeedback() {
     if (state.round.smartStage !== "feedback") return;
     const card = getCurrentCard();
     if (!card) return;
-    const bucket = getSmartBucketForActiveSet();
+    const bucket = getSmartBucketForSet(state.round.smartSetId || getPrimaryReviewSet().id);
     smart.reviewCard(bucket, card, state.round.smartSelectedRating, new Date());
     persist();
     nextSmartCard();
   }
 
+  // Smart review result is determined by both stages, but scheduling is delayed
+  // until the user gives the FSRS rating in the next feedback step.
   function answerSmartTranslation(option) {
     if (state.round.smartStage !== "translation") return;
     const card = getCurrentCard();
@@ -1161,8 +1452,16 @@
     moveInOrderedMode(-1);
   }
 
+  function startNextNewSmartCard() {
+    resetRoundState();
+    state.round.smartForceNew = true;
+    render();
+    scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
+  }
+
   function nextSmartCard() {
     state.smartLastCardId = cardId(getCurrentCard() || "");
+    state.smartLastSetId = state.round.smartSetId || "";
     resetRoundState();
     persist();
     render();
@@ -1292,9 +1591,11 @@
     }
   }
 
+  // Smart review is a three-stage UI: pinyin -> translation -> FSRS rating.
   function renderSmartPractice(card, dueCount, activeCount) {
     const { reviewText } = getReviewPinyinText(card);
-    const smartEntry = getSmartBucketForActiveSet()[cardId(card)] || smart.createSmartEntry(new Date());
+    const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
+    const smartEntry = getSmartBucketForSet(smartSetId)[cardId(card)] || smart.createSmartEntry(new Date());
     const isNewSmartCard = !smart.isStarted(smartEntry);
     prepareRoundAppearance("practice", "smart", card);
     setSmartPositionLabel(card, dueCount, activeCount);
@@ -1305,7 +1606,7 @@
     state.elements.cardTranslation.textContent = state.round.smartStage === "feedback" ? card.translation : "";
 
     if (state.round.smartStage === "pinyin") {
-      state.elements.cardPrompt.textContent = isNewSmartCard ? "Smart practice · new card · 1 of 3 · type the pinyin" : "Smart practice · 1 of 3 · type the pinyin";
+      state.elements.cardPrompt.textContent = isNewSmartCard ? `Smart practice · ${getDb().sets.byId[smartSetId]?.name || smartSetId} · new card · 1 of 3 · type the pinyin` : `Smart practice · ${getDb().sets.byId[smartSetId]?.name || smartSetId} · 1 of 3 · type the pinyin`;
       updateResult(
         state.elements.resultText,
         state.round.pendingWrong ? state.round.resultText : (isNewSmartCard ? "First Smart review for this card. It will only enter the FSRS schedule after you finish this review. Use tone numbers. Example: ni3hao3, lv4, xie4xie." : "Step 1 of 3. Use tone numbers. Example: ni3hao3, lv4, xie4xie."),
@@ -1378,10 +1679,11 @@
     }
   }
 
+  // A blocked Smart review is a valid state: no due cards today and the user has
+  // not chosen the explicit new-card introduction flow.
   function renderSmartBlocked() {
-    const activeSet = getActiveSet();
-    const summary = getSmartScheduleForSet(activeSet.id);
-    const practiceCount = getPracticeScopedIdsForSet(activeSet.id).length;
+    const summary = getReviewScheduleSummary();
+    const practiceCount = getReviewPracticeIds().length;
     state.elements.cardPrompt.textContent = "Smart practice blocked";
     state.elements.cardHanzi.textContent = "—";
     if (summary.nextDueDate) {
@@ -1391,12 +1693,16 @@
     } else {
       state.elements.cardPinyin.textContent = "No cards scheduled yet.";
     }
-    state.elements.cardTranslation.textContent = practiceCount ? "No started Practice cards are due today." : "No cards are currently marked for Practice in the active set.";
+    state.elements.cardTranslation.textContent = practiceCount ? `No started Practice cards are due today in ${getReviewScopeName()}.` : "No cards are currently marked for Practice in this review set.";
     clearNode(state.elements.cardStats);
-    updateResult(state.elements.resultText, practiceCount ? "No due reviews today. New cards stay outside the FSRS schedule until their first Smart review." : "Add cards to Practice to make them eligible for Smart.", "bad");
+    updateResult(state.elements.resultText, practiceCount ? "No due reviews today. New cards stay outside the FSRS schedule until their first Smart review." : "Add cards to Practice or choose a different review set.", "bad");
     clearNode(state.elements.answerArea);
     clearNode(state.elements.controls);
-    state.elements.controls.append(createButton("Next mode card", nextCard, "secondary", { disabled: true }));
+    if (summary.newCount) {
+      state.elements.controls.append(createButton("Start one new Smart card", startNextNewSmartCard, "secondary"));
+    } else {
+      state.elements.controls.append(createButton("Next mode card", nextCard, "secondary", { disabled: true }));
+    }
     state.elements.positionLabel.textContent = `Due 0 / ${summary.startedCount}`;
   }
 
@@ -1407,6 +1713,7 @@
     renderAuthPanel();
     renderStats();
     renderSetPanel();
+    renderReviewScopePanel();
     renderSelectionSummary();
     renderOrderStatus();
     renderSetupPanel();
@@ -1438,8 +1745,8 @@
         renderSmartBlocked();
         return;
       }
-      const dueQueue = getSmartDueQueue(new Date());
-      const summary = getSmartScheduleForSet(getActiveSet().id);
+      const dueQueue = getSmartDueItems(new Date());
+      const summary = getReviewScheduleSummary();
       renderSmartPractice(card, dueQueue.length, summary.startedCount);
       return;
     }
@@ -1641,13 +1948,37 @@
     }
     const practiceIds = getScopedCards().filter((card) => card.practice !== false).map((card) => cardId(card));
     if (!practiceIds.length) {
-      state.elements.statusText.textContent = "No Practice cards are currently selected in this scope.";
+      state.elements.statusText.textContent = "No Practice cards are currently selected in this editing set.";
       return;
     }
     const record = await state.store.saveNamedSet(name, practiceIds);
     resetRoundState();
     markManageListDirty();
-    state.elements.statusText.textContent = `Named set saved: ${record.name} (${record.cardIds.length} cards).`;
+    state.elements.statusText.textContent = `Named set saved from Practice selection: ${record.name} (${record.cardIds.length} cards).`;
+    render();
+  }
+
+  async function handleSaveSetFromRanges() {
+    const name = state.elements.setNameInput.value.trim();
+    const ranges = parseRangeInput(state.elements.setRangeInput?.value || "");
+    if (!name) {
+      state.elements.statusText.textContent = "Enter a set name first.";
+      return;
+    }
+    if (!ranges.size) {
+      state.elements.statusText.textContent = "Enter card ranges for this set first.";
+      return;
+    }
+    const ids = getDb().vocab.filter((card) => ranges.has(card.index)).map((card) => cardId(card));
+    if (!ids.length) {
+      state.elements.statusText.textContent = "No cards matched those ranges.";
+      return;
+    }
+    const record = await state.store.saveNamedSet(name, ids);
+    state.elements.setRangeInput.value = "";
+    resetRoundState();
+    markManageListDirty();
+    state.elements.statusText.textContent = `Named set saved from ranges: ${record.name} (${record.cardIds.length} cards).`;
     render();
   }
 
@@ -1668,6 +1999,17 @@
     render();
   }
 
+  async function handleReviewSetChange(event) {
+    if (typeof state.store.setReviewSet === "function") {
+      await state.store.setReviewSet(event.target.value);
+    } else {
+      getUi().reviewSetId = event.target.value;
+      await persist();
+    }
+    resetRoundState();
+    render();
+  }
+
   function handleManageListChange(event) {
     const input = event.target.closest('input[data-card-id][data-card-mode]');
     if (!input || !state.elements.manageList.contains(input)) return;
@@ -1685,6 +2027,7 @@
     if (action === "none") return setAllForMode(mode, false);
   }
 
+  // Keyboard handler covers both translation MCQ and FSRS rating selection.
   function handleTranslationKeyboard(event) {
     if (state.currentPage !== "flashcards") return;
     const active = document.activeElement;
@@ -1830,8 +2173,10 @@
     state.elements.quizTypeButtons.forEach((button) => button.addEventListener("click", () => setQuizTypeForCurrentMode(button.dataset.quiz)));
     state.elements.rangeButtons.forEach((button) => button.addEventListener("click", handleRangeButtonClick));
     state.elements.saveSetBtn.addEventListener("click", handleSaveNamedSet);
+    if (state.elements.saveSetRangeBtn) state.elements.saveSetRangeBtn.addEventListener("click", handleSaveSetFromRanges);
     state.elements.deleteSetBtn.addEventListener("click", handleDeleteSelectedSet);
     state.elements.activeSetSelect.addEventListener("change", handleSetChange);
+    if (state.elements.reviewSetSelect) state.elements.reviewSetSelect.addEventListener("change", handleReviewSetChange);
     window.addEventListener("keydown", handleTranslationKeyboard);
     window.addEventListener("keydown", handlePinyinKeyboard);
     window.addEventListener("focus", () => { refreshRemoteState(false); });
@@ -1840,6 +2185,8 @@
     });
   }
 
+  // App startup order matters: auth first, then scoped store load, then render.
+  // Loading before auth would risk binding the UI to the wrong local cache scope.
   async function bootstrap() {
     state.elements = getElements();
     if (ns.auth && typeof ns.auth.init === "function") {

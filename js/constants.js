@@ -1,5 +1,7 @@
 window.HSKFlashcards = window.HSKFlashcards || {};
 
+// Shared constants only. Keep business rules in the modules that own them
+// so changes to scheduling, persistence, or pinyin do not hide in this file.
 (function (ns) {
   ns.constants = {
     STORAGE_KEY: "hsk_flashcards_db_v21",
@@ -8,6 +10,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     TEST_QUIZ_TYPES: ["translation", "pinyin"],
     QUIZ_TYPES: ["translation", "pinyin", "smart"],
     ALL_SET_ID: "all_cards",
+    REVIEW_ALL_SETS_ID: "__all_saved_sets__",
     SCHEMA_VERSION: 1,
     SMART_RATINGS: [1, 2, 3, 4],
     SMART_RATING_LABELS: {

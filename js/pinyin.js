@@ -1,3 +1,10 @@
+/**
+ * Pinyin normalization and validation.
+ *
+ * Card data stores tone-mark pinyin, while user answers are typed as numeric
+ * pinyin. This module converts both sides to a canonical numeric form and then
+ * compares strings. It is not a separate answer database.
+ */
 (function (ns) {
   const PINYIN_SYLLABLES = [
     "a", "ai", "an", "ang", "ao",
@@ -166,6 +173,8 @@
     return variants.length ? variants.join(" / ") : String(answer || "").trim();
   }
 
+  // Normalizes typed answers to the canonical comparison form. Neutral-tone
+  // syllables may omit 5, but non-neutral tones must still be present.
   function normalizeUserPinyinInput(value) {
     const raw = String(value || "").trim().toLowerCase();
     if (!raw) return { raw: "", annotated: "", parts: null, canonical: "" };
@@ -193,6 +202,8 @@
     });
   }
 
+  // The app compares canonicalized strings, not raw pinyin text. This keeps
+  // validation strict enough for tones while tolerating spaces/apostrophes and v/ü.
   function checkPinyinAnswer(input, answer) {
     const guess = normalizeUserPinyinInput(input);
     const accepted = getPinyinVariants(answer);
