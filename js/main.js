@@ -2344,4 +2344,60 @@
     state.elements.loadPlaceholderBtn.addEventListener("click", handleRestoreBuiltIn);
     state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
     state.elements.exportProgressBtn.addEventListener("click", handleExportApp);
-        });
+    state.elements.importProgressBtn.addEventListener("click", handleImportAppClick);
+    state.elements.importProgressInput.addEventListener("change", handleImportAppFile);
+    state.elements.shuffleBtn.addEventListener("click", shuffleCurrentMode);
+    state.elements.resetOrderBtn.addEventListener("click", resetCurrentModeOrder);
+    state.elements.setupToggleBtn.addEventListener("click", toggleSetupPanel);
+    state.elements.manageList.addEventListener("change", handleManageListChange);
+    state.elements.filterInput.addEventListener("input", (event) => {
+      state.filterText = event.target.value || "";
+      markManageListDirty();
+      renderManageListIfNeeded(true);
+    });
+    state.elements.modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
+    state.elements.quizTypeButtons.forEach((button) => button.addEventListener("click", () => setQuizTypeForCurrentMode(button.dataset.quiz)));
+    state.elements.rangeButtons.forEach((button) => button.addEventListener("click", handleRangeButtonClick));
+    state.elements.saveSetBtn.addEventListener("click", handleSaveNamedSet);
+    if (state.elements.addSetRangeBtn) state.elements.addSetRangeBtn.addEventListener("click", () => handleSetRangeAction("add"));
+    if (state.elements.removeSetRangeBtn) state.elements.removeSetRangeBtn.addEventListener("click", () => handleSetRangeAction("remove"));
+    if (state.elements.replaceSetRangeBtn) state.elements.replaceSetRangeBtn.addEventListener("click", () => handleSetRangeAction("replace"));
+    state.elements.deleteSetBtn.addEventListener("click", handleDeleteSelectedSet);
+    if (state.elements.setupIntroduceBtn) state.elements.setupIntroduceBtn.addEventListener("click", () => startSmartForSet(getActiveSet().id, "introduce"));
+    if (state.elements.setupReviewBtn) state.elements.setupReviewBtn.addEventListener("click", () => startSmartForSet(getActiveSet().id, "review"));
+    state.elements.activeSetSelect.addEventListener("change", handleSetChange);
+    if (state.elements.reviewSetSelect) state.elements.reviewSetSelect.addEventListener("change", handleReviewSetChange);
+    if (state.elements.startDueReviewBtn) state.elements.startDueReviewBtn.addEventListener("click", startDueReviewCards);
+    if (state.elements.startNewCardsBtn) state.elements.startNewCardsBtn.addEventListener("click", startNewCardIntroduction);
+    window.addEventListener("keydown", handleTranslationKeyboard);
+    window.addEventListener("keydown", handlePinyinKeyboard);
+    window.addEventListener("focus", () => { refreshRemoteState(false); });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") refreshRemoteState(false);
+    });
+  }
+
+  // App startup order matters: auth first, then scoped store load, then render.
+  // Loading before auth would risk binding the UI to the wrong local cache scope.
+  async function bootstrap() {
+    state.elements = getElements();
+    if (ns.auth && typeof ns.auth.init === "function") {
+      await ns.auth.init();
+    }
+    const builtinCards = ns.getBuiltInCards();
+    const adapter = createPersistenceAdapter();
+    state.store = createAppStore(adapter, builtinCards);
+    state.authScope = ns.auth && typeof ns.auth.getCacheScope === "function" ? ns.auth.getCacheScope() : "anon";
+    await state.store.load();
+    state.filterText = state.elements.filterInput.value || "";
+    state.currentPage = getAuthStatus().signedIn ? "flashcards" : "login";
+    updateStorageModeBadge();
+    if (ns.auth && typeof ns.auth.subscribe === "function") {
+      ns.auth.subscribe(handleAuthStateChange);
+    }
+    bindEvents();
+    render();
+  }
+
+  ns.main = { bootstrap };
+})(window.HSKFlashcards);
