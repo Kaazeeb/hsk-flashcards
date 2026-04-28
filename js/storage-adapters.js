@@ -1,10 +1,9 @@
 /*
 Persistence adapter layer.
 
-The store depends on this adapter interface instead of directly knowing about
-localStorage or Supabase. Local cache is scoped by auth state (anon or user id).
-When the user is signed in, the remote adapter is the preferred source; local
-storage remains an offline/fallback cache, not the authoritative sync model.
+The UI works with one normalized state object. This module decides whether that
+state is loaded/saved from localStorage only or from Supabase plus a local cache.
+Remote writes are serialized so quick UI actions cannot race each other.
 */
 (function (ns) {
   function deepClone(value) {
@@ -26,20 +25,26 @@ storage remains an offline/fallback cache, not the authoritative sync model.
       return `${this.baseKey}::${this.getScope(scopeOverride)}`;
     }
 
+    getMetaKey(scopeOverride) {
+      return `${this.getKey(scopeOverride)}::sync_meta`;
+    }
+
+    async loadMeta(scopeOverride) {
+      try {
+        return JSON.parse(localStorage.getItem(this.getMetaKey(scopeOverride)) || "{}");
+      } catch (error) {
+        return {};
+      }
+    }
+
+    async saveMeta(scopeOverride, meta) {
+      localStorage.setItem(this.getMetaKey(scopeOverride), JSON.stringify(meta || {}));
+    }
+
     async loadByScope(scopeOverride) {
       try {
-        const scopedKey = this.getKey(scopeOverride);
-        const raw = localStorage.getItem(scopedKey);
-        if (raw) return JSON.parse(raw);
-        const scope = this.getScope(scopeOverride);
-        if (scope === "anon") {
-          const legacyRaw = localStorage.getItem(this.baseKey);
-          if (legacyRaw) {
-            localStorage.setItem(scopedKey, legacyRaw);
-            return JSON.parse(legacyRaw);
-          }
-        }
-        return null;
+        const raw = localStorage.getItem(this.getKey(scopeOverride));
+        return raw ? JSON.parse(raw) : null;
       } catch (error) {
         return null;
       }
@@ -53,39 +58,18 @@ storage remains an offline/fallback cache, not the authoritative sync model.
       return this.loadByScope();
     }
 
-    // Save remote first so the local cache records the same state that the app
-    // attempted to sync. If remote fails, local storage preserves work, but
-    // another device will not see it until a later successful sync.
     async saveAppData(payload) {
       return this.saveByScope(undefined, payload);
     }
   }
 
-  function buildSettingsFragment(db) {
-    return {
-      vocab: deepClone(db?.vocab || []),
-      sets: deepClone(db?.sets || {}),
-      ui: deepClone(db?.ui || {})
-    };
-  }
-
-  function buildProgressBaseFragment(db) {
-    return {
-      progress: deepClone(db?.progress || {}),
-      smartBySet: deepClone(db?.smartBySet || {})
-    };
-  }
-
-  /*
-  SwitchableAdapter is the boundary between local-only and cloud-synced modes.
-  lastSnapshot is only a diff baseline for the next save; loading from remote
-  should rebuild state from docs/events again.
-  */
   class SwitchableAdapter {
     constructor(localAdapter, remoteProvider) {
       this.local = localAdapter;
       this.remoteProvider = typeof remoteProvider === "function" ? remoteProvider : () => null;
       this.lastSnapshot = null;
+      this.pendingSavePayload = null;
+      this.saveInFlight = null;
     }
 
     getRemote() {
@@ -102,37 +86,82 @@ storage remains an offline/fallback cache, not the authoritative sync model.
 
     async loadAppData() {
       const remote = this.getRemote();
-      if (remote && typeof remote.loadAppData === "function") {
-        try {
-          const remoteData = await remote.loadAppData();
-          if (remoteData) {
-            await this.local.saveAppData(remoteData);
-            this.lastSnapshot = deepClone(remoteData);
-            return remoteData;
-          }
-        } catch (error) {
-          console.warn("Remote adapter load failed, falling back to local cache.", error);
-        }
-      }
       const localData = await this.local.loadAppData();
+      const meta = await this.local.loadMeta();
+
+      if (!remote || typeof remote.loadAppData !== "function") {
+        this.lastSnapshot = deepClone(localData);
+        return localData;
+      }
+
+      try {
+        const remoteData = await remote.loadAppData();
+
+        if (meta.unsynced && localData && typeof remote.saveAppData === "function") {
+          this.lastSnapshot = deepClone(remoteData || {});
+          await remote.saveAppData(localData, remoteData || {});
+          await this.local.saveMeta(undefined, { unsynced: false, lastRemoteSaveAt: new Date().toISOString() });
+          this.lastSnapshot = deepClone(localData);
+          return localData;
+        }
+
+        if (remoteData) {
+          await this.local.saveAppData(remoteData);
+          await this.local.saveMeta(undefined, { unsynced: false, lastRemoteLoadAt: new Date().toISOString() });
+          this.lastSnapshot = deepClone(remoteData);
+          return remoteData;
+        }
+      } catch (error) {
+        console.warn("Remote adapter load failed, falling back to local cache.", error);
+      }
+
       this.lastSnapshot = deepClone(localData);
       return localData;
     }
 
-    async saveAppData(payload) {
+    async saveSinglePayload(payload) {
       const remote = this.getRemote();
       const previousSnapshot = deepClone(this.lastSnapshot);
       let remoteSaved = !remote || typeof remote.saveAppData !== "function";
+      let remoteError = null;
+
       if (remote && typeof remote.saveAppData === "function") {
         try {
           await remote.saveAppData(payload, previousSnapshot || {});
           remoteSaved = true;
         } catch (error) {
+          remoteError = error;
           console.warn("Remote adapter save failed, keeping local cache.", error);
         }
       }
+
       await this.local.saveAppData(payload);
+      await this.local.saveMeta(undefined, {
+        unsynced: !remoteSaved,
+        lastRemoteSaveAt: remoteSaved ? new Date().toISOString() : undefined,
+        lastError: remoteError ? String(remoteError.message || remoteError) : ""
+      });
+
       if (remoteSaved) this.lastSnapshot = deepClone(payload);
+    }
+
+    async saveAppData(payload) {
+      this.pendingSavePayload = deepClone(payload);
+      if (this.saveInFlight) return this.saveInFlight;
+
+      this.saveInFlight = (async () => {
+        try {
+          while (this.pendingSavePayload) {
+            const nextPayload = this.pendingSavePayload;
+            this.pendingSavePayload = null;
+            await this.saveSinglePayload(nextPayload);
+          }
+        } finally {
+          this.saveInFlight = null;
+        }
+      })();
+
+      return this.saveInFlight;
     }
   }
 
@@ -148,11 +177,5 @@ storage remains an offline/fallback cache, not the authoritative sync model.
     );
   }
 
-  ns.adapters = {
-    createPersistenceAdapter,
-    LocalJsonAdapter,
-    SwitchableAdapter,
-    buildSettingsFragment,
-    buildProgressBaseFragment
-  };
+  ns.adapters = { createPersistenceAdapter, LocalJsonAdapter, SwitchableAdapter };
 })(window.HSKFlashcards);

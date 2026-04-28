@@ -3,40 +3,25 @@ window.HSKFlashcards = window.HSKFlashcards || {};
 /**
  * Supabase auth and remote persistence adapter.
  *
- * Security model: auth identifies the user; Supabase RLS must enforce user_id = auth.uid().
- * Sync model: settings are granular documents, while review/progress changes are append-only
- * events so an old device cannot overwrite weeks of progress with a stale snapshot.
+ * The browser may expose the public anon key. Actual data isolation must come
+ * from Supabase Auth plus RLS policies that enforce user_id = auth.uid().
  */
 (function (ns) {
-  // Browser clients may contain the public anon/publishable key, never a service-role key.
   const HARDCODED_SUPABASE_URL = "https://vfivrshzlhmocjoozawx.supabase.co";
   const HARDCODED_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmaXZyc2h6bGhtb2Nqb296YXd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTQwMDMsImV4cCI6MjA5Mjc5MDAwM30.DHTy3vI2aQBUSygvIhALMxdslAPItzwV7Dspv0ElE8A";
 
   const DOC_TABLE = "app_sync_documents";
   const EVENT_TABLE = "app_review_events";
-  const LEGACY_TABLE = "app_state_documents";
-  const DOC_NS = {
-    SNAPSHOTS: "snapshots",
-    VOCAB: "vocab",
-    CARD_FLAGS: "card_flags",
-    SET: "set",
-    META: "meta"
-  };
-  const DOC_IDS = {
-    PROGRESS: "progress",
-    SMART: "smart",
-    CURRENT: "current",
-    SET_ORDER: "set_order"
-  };
-  const PROGRESS_EVENT_KINDS = [
-    "learn_seen",
-    "practice_translation",
-    "practice_pinyin",
-    "test_translation",
-    "test_pinyin"
-  ];
   const SMART_EVENT_KIND = "smart_fsrs";
   const CLIENT_ID_STORAGE_KEY = "hsk_flashcards_client_id";
+  const MAX_WRITE_JSON_BYTES = 60000;
+  const MAX_DOC_WRITE_ROWS = 100;
+  const MAX_EVENT_WRITE_ROWS = 100;
+  const MAX_FILTER_URL_CHARS = 1200;
+  const SELECT_PAGE_SIZE = 1000;
+
+  const DOC_NS = { VOCAB: "vocab", CARD_FLAGS_BUNDLE: "card_flags_bundle", SET: "set", META: "meta" };
+  const DOC_ID = { CURRENT: "current", SET_ORDER: "set_order", CARD_FLAGS: "current" };
 
   const state = {
     config: { url: HARDCODED_SUPABASE_URL, key: HARDCODED_SUPABASE_KEY },
@@ -51,14 +36,13 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     clientId: ""
   };
 
-  function getCreateClient() {
-    return window.supabase && typeof window.supabase.createClient === "function"
-      ? window.supabase.createClient
-      : null;
+  function codec() {
+    if (!ns.syncCodec) throw new Error("Sync codec module is not loaded.");
+    return ns.syncCodec;
   }
 
-  function loadConfig() {
-    return { url: HARDCODED_SUPABASE_URL, key: HARDCODED_SUPABASE_KEY };
+  function getCreateClient() {
+    return window.supabase && typeof window.supabase.createClient === "function" ? window.supabase.createClient : null;
   }
 
   function clearSubscription() {
@@ -67,9 +51,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     if (!sub) return;
     try {
       if (typeof sub.unsubscribe === "function") sub.unsubscribe();
-      if (sub.subscription && typeof sub.subscription.unsubscribe === "function") {
-        sub.subscription.unsubscribe();
-      }
+      if (sub.subscription && typeof sub.subscription.unsubscribe === "function") sub.subscription.unsubscribe();
     } catch (error) {
       console.warn("Failed to unsubscribe Supabase auth listener.", error);
     }
@@ -92,11 +74,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     state.lastEvent = event || state.lastEvent;
     const snapshot = getStatus();
     state.listeners.forEach((listener) => {
-      try {
-        listener({ event: state.lastEvent, ...snapshot });
-      } catch (error) {
-        console.error("Auth listener failed.", error);
-      }
+      try { listener({ event: state.lastEvent, ...snapshot }); }
+      catch (error) { console.error("Auth listener failed.", error); }
     });
   }
 
@@ -106,18 +85,18 @@ window.HSKFlashcards = window.HSKFlashcards || {};
 
   function getClientId() {
     if (state.clientId) return state.clientId;
+    const fallback = () => `client_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
     try {
       const existing = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
       if (existing) {
         state.clientId = existing;
-        return state.clientId;
+        return existing;
       }
-      const next = `client_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-      localStorage.setItem(CLIENT_ID_STORAGE_KEY, next);
-      state.clientId = next;
+      state.clientId = fallback();
+      localStorage.setItem(CLIENT_ID_STORAGE_KEY, state.clientId);
       return state.clientId;
     } catch (error) {
-      state.clientId = `client_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+      state.clientId = fallback();
       return state.clientId;
     }
   }
@@ -127,86 +106,100 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
   }
 
-  function normalizeCardFlags(card) {
-    return {
-      learn: card?.learn !== false,
-      practice: card?.practice !== false,
-      test: card?.test !== false
-    };
+  function stableStringify(value) {
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
   }
 
-  function isDefaultFlags(flags) {
-    return flags.learn !== false && flags.practice !== false && flags.test !== false;
-  }
-
-  function sameFlags(a, b) {
-    const left = normalizeCardFlags(a);
-    const right = normalizeCardFlags(b);
-    return left.learn === right.learn && left.practice === right.practice && left.test === right.test;
-  }
-
-  function stripCards(cards) {
-    return (Array.isArray(cards) ? cards : []).map((card) => ({
-      hanzi: String(card?.hanzi || "").trim(),
-      pinyin: String(card?.pinyin || "").trim(),
-      translation: String(card?.translation || "").trim()
-    })).filter((card) => card.hanzi && card.pinyin && card.translation);
-  }
-
-  function sameCardList(a, b) {
-    const left = stripCards(a);
-    const right = stripCards(b);
-    if (left.length !== right.length) return false;
-    for (let i = 0; i < left.length; i += 1) {
-      if (left[i].hanzi !== right[i].hanzi || left[i].pinyin !== right[i].pinyin || left[i].translation !== right[i].translation) {
-        return false;
+  function chunkRowsByJsonBytes(rows, maxBytes = MAX_WRITE_JSON_BYTES, maxRows = MAX_DOC_WRITE_ROWS) {
+    const chunks = [];
+    let current = [];
+    let bytes = 2;
+    (rows || []).forEach((row) => {
+      const rowBytes = JSON.stringify(row).length + 1;
+      if (current.length && (current.length >= maxRows || bytes + rowBytes > maxBytes)) {
+        chunks.push(current);
+        current = [];
+        bytes = 2;
       }
-    }
-    return true;
-  }
-
-  function buildFlagsMap(vocab) {
-    const map = {};
-    (Array.isArray(vocab) ? vocab : []).forEach((card) => {
-      if (!card?.id) return;
-      map[String(card.id)] = normalizeCardFlags(card);
+      current.push(row);
+      bytes += rowBytes;
     });
-    return map;
+    if (current.length) chunks.push(current);
+    return chunks;
   }
 
-  function getNamedSetsMap(sets) {
-    const byId = sets?.byId && typeof sets.byId === "object" ? sets.byId : {};
-    const map = {};
-    Object.values(byId).forEach((setRecord) => {
-      if (!setRecord || setRecord.locked) return;
-      map[String(setRecord.id)] = {
-        id: String(setRecord.id),
-        name: String(setRecord.name || setRecord.id).trim() || String(setRecord.id),
-        cardIds: Array.isArray(setRecord.cardIds) ? [...setRecord.cardIds].map(String) : [],
-        createdAt: setRecord.createdAt || new Date().toISOString(),
-        updatedAt: setRecord.updatedAt || setRecord.createdAt || new Date().toISOString()
-      };
+  function chunkFilterValuesByUrl(values, maxEncodedChars = MAX_FILTER_URL_CHARS) {
+    const chunks = [];
+    let current = [];
+    let chars = 0;
+    (values || []).map(String).filter(Boolean).forEach((value) => {
+      const encoded = encodeURIComponent(value).length + 1;
+      if (current.length && chars + encoded > maxEncodedChars) {
+        chunks.push(current);
+        current = [];
+        chars = 0;
+      }
+      current.push(value);
+      chars += encoded;
     });
-    return map;
+    if (current.length) chunks.push(current);
+    return chunks;
   }
 
-  function sameSetDoc(a, b) {
-    if (!a && !b) return true;
-    if (!a || !b) return false;
-    if (a.name !== b.name) return false;
-    if (a.cardIds.length !== b.cardIds.length) return false;
-    for (let i = 0; i < a.cardIds.length; i += 1) {
-      if (a.cardIds[i] !== b.cardIds[i]) return false;
+  async function selectAll(builderFactory) {
+    const rows = [];
+    for (let from = 0; ; from += SELECT_PAGE_SIZE) {
+      const result = await builderFactory().range(from, from + SELECT_PAGE_SIZE - 1);
+      if (result.error) throw result.error;
+      rows.push(...(result.data || []));
+      if (!result.data || result.data.length < SELECT_PAGE_SIZE) break;
     }
-    return true;
+    return rows;
+  }
+
+  async function upsertDocs(client, rows) {
+    for (const chunk of chunkRowsByJsonBytes(rows || [])) {
+      const { error } = await client.from(DOC_TABLE).upsert(chunk, { onConflict: "user_id,namespace,doc_id" });
+      if (error) throw error;
+    }
+  }
+
+  async function deleteDocs(client, userId, namespace, docIds) {
+    for (const chunk of chunkFilterValuesByUrl(docIds || [])) {
+      const { error } = await client.from(DOC_TABLE)
+        .delete()
+        .eq("user_id", userId)
+        .eq("namespace", namespace)
+        .in("doc_id", chunk);
+      if (error) throw error;
+    }
+  }
+
+  async function insertEvents(client, rows) {
+    for (const chunk of chunkRowsByJsonBytes(rows || [], MAX_WRITE_JSON_BYTES, MAX_EVENT_WRITE_ROWS)) {
+      const { error } = await client.from(EVENT_TABLE).upsert(chunk, { onConflict: "user_id,event_id", ignoreDuplicates: true });
+      if (error) throw error;
+    }
+  }
+
+  function groupDocs(rows) {
+    const namespaces = {};
+    (rows || []).forEach((row) => {
+      if (!row || !row.namespace || row.doc_id == null) return;
+      if (!namespaces[row.namespace]) namespaces[row.namespace] = {};
+      namespaces[row.namespace][String(row.doc_id)] = row.payload || {};
+    });
+    return namespaces;
   }
 
   function createEmptyProgress() {
-    return {
-      seen: {},
-      practice: { translation: {}, pinyin: {} },
-      test: { translation: {}, pinyin: {} }
-    };
+    return ns.store && typeof ns.store.createEmptyProgress === "function"
+      ? ns.store.createEmptyProgress()
+      : { seen: {}, practice: { translation: {}, pinyin: {} }, test: { translation: {}, pinyin: {} } };
   }
 
   function normalizeScore(entry) {
@@ -230,9 +223,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   function applyProgressEvent(progress, event) {
-    if (!event || !event.kind) return;
-    const id = String(event.card_id || "");
-    if (!id) return;
+    const id = String(event?.card_id || "");
+    if (!id || !event.kind) return;
     if (event.kind === "learn_seen") {
       progress.seen[id] = true;
       return;
@@ -247,20 +239,14 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     bucket[id] = current;
   }
 
-  // Normal practice/test progress is synced as positive deltas. Negative deltas
-  // indicate reset/import and are handled via snapshots rather than destructive event edits.
   function buildProgressDiffEvents(current, previous) {
     const events = [];
     const next = cloneProgress(current);
     const prev = cloneProgress(previous);
-
     Object.keys(next.seen || {}).forEach((cardId) => {
-      if (next.seen[cardId] && !prev.seen?.[cardId]) {
-        events.push({ kind: "learn_seen", card_id: cardId, payload: {} });
-      }
+      if (next.seen[cardId] && !prev.seen?.[cardId]) events.push({ kind: "learn_seen", card_id: cardId, payload: {} });
     });
-
-    function collect(kind) {
+    ["practice_translation", "practice_pinyin", "test_translation", "test_pinyin"].forEach((kind) => {
       const nextBucket = getBucketByKind(next, kind) || {};
       const prevBucket = getBucketByKind(prev, kind) || {};
       const ids = new Set([...Object.keys(nextBucket), ...Object.keys(prevBucket)]);
@@ -270,61 +256,25 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         const deltaShown = a.shown - b.shown;
         const deltaCorrect = a.correct - b.correct;
         const deltaWrong = a.wrong - b.wrong;
-        if (deltaShown < 0 || deltaCorrect < 0 || deltaWrong < 0) {
-          throw new Error("NON_MONOTONIC_PROGRESS");
-        }
+        if (deltaShown < 0 || deltaCorrect < 0 || deltaWrong < 0) throw new Error("NON_MONOTONIC_PROGRESS");
         if (deltaShown > 0 || deltaCorrect > 0 || deltaWrong > 0) {
-          events.push({
-            kind,
-            card_id: cardId,
-            payload: {
-              shown_delta: deltaShown,
-              correct_delta: deltaCorrect,
-              wrong_delta: deltaWrong
-            }
-          });
+          events.push({ kind, card_id: cardId, payload: { shown_delta: deltaShown, correct_delta: deltaCorrect, wrong_delta: deltaWrong } });
         }
       });
-    }
-
-    collect("practice_translation");
-    collect("practice_pinyin");
-    collect("test_translation");
-    collect("test_pinyin");
+    });
     return events;
   }
 
-  function cloneSmartState(smartBySet) {
-    return deepClone(smartBySet || {}) || {};
-  }
-
-  function getSmartEntryRaw(bucket, cardId) {
-    return bucket && typeof bucket === "object" ? bucket[String(cardId)] || null : null;
-  }
-
-  // Smart FSRS sync is driven by locally-generated reviewEvents. The fallback
-  // exists only for old local states that predate explicit events.
-  function buildSmartDiffEvents(current, previous) {
+  function buildSmartEvents(currentSmartBySet, previousSmartBySet) {
     const events = [];
-    const next = cloneSmartState(current);
-    const prev = cloneSmartState(previous);
-    const setIds = new Set([...Object.keys(next), ...Object.keys(prev)]);
-
-    setIds.forEach((setId) => {
+    const next = deepClone(currentSmartBySet || {}) || {};
+    const prev = deepClone(previousSmartBySet || {}) || {};
+    Object.keys(next).forEach((setId) => {
       const nextBucket = next[setId] || {};
       const prevBucket = prev[setId] || {};
-      const cardIds = new Set([...Object.keys(nextBucket), ...Object.keys(prevBucket)]);
-      cardIds.forEach((cardId) => {
-        const a = getSmartEntryRaw(nextBucket, cardId);
-        const b = getSmartEntryRaw(prevBucket, cardId);
-        if (!a || !a.started) return;
-
-        const currentEvents = ns.smart && typeof ns.smart.normalizeReviewEvents === "function"
-          ? ns.smart.normalizeReviewEvents(a.reviewEvents)
-          : (Array.isArray(a.reviewEvents) ? a.reviewEvents : []);
-        const previousEvents = ns.smart && typeof ns.smart.normalizeReviewEvents === "function"
-          ? ns.smart.normalizeReviewEvents(b?.reviewEvents)
-          : (Array.isArray(b?.reviewEvents) ? b.reviewEvents : []);
+      Object.keys(nextBucket).forEach((cardId) => {
+        const currentEvents = ns.smart?.normalizeReviewEvents(nextBucket[cardId]?.reviewEvents) || [];
+        const previousEvents = ns.smart?.normalizeReviewEvents(prevBucket[cardId]?.reviewEvents) || [];
         const previousIds = new Set(previousEvents.map((event) => String(event.id)));
         currentEvents.forEach((event) => {
           if (!event.id || previousIds.has(event.id)) return;
@@ -337,241 +287,143 @@ window.HSKFlashcards = window.HSKFlashcards || {};
             payload: { rating: event.rating }
           });
         });
-
-        if (currentEvents.length) return;
-
-        // Backward-compatible fallback for old local states that only have counters.
-        const nextShown = Math.max(0, Math.floor(Number(a.shown) || 0));
-        const prevShown = Math.max(0, Math.floor(Number(b?.shown) || 0));
-        const deltaShown = nextShown - prevShown;
-        if (deltaShown !== 1) return;
-        const rating = Number(a.lastRating);
-        const occurredAt = a.lastReviewedAt || a.card?.last_review || null;
-        if (![1, 2, 3, 4].includes(rating) || !occurredAt) return;
-        events.push({
-          kind: SMART_EVENT_KIND,
-          set_id: String(setId),
-          card_id: String(cardId),
-          occurred_at: toIso(occurredAt),
-          payload: { rating }
-        });
       });
     });
-
     return events;
   }
 
-  function groupDocs(rows) {
-    const namespaces = {};
-    (rows || []).forEach((row) => {
-      if (!row || !row.namespace || row.doc_id === undefined || row.doc_id === null) return;
-      if (!namespaces[row.namespace]) namespaces[row.namespace] = {};
-      namespaces[row.namespace][String(row.doc_id)] = row.payload || {};
-    });
-    return namespaces;
+  function getProgressScore(progress, kind, cardId) {
+    if (kind === "learn_seen") return { shown: 1, correct: 0, wrong: 0 };
+    const bucket = getBucketByKind(progress || createEmptyProgress(), kind) || {};
+    return normalizeScore(bucket[String(cardId)]);
   }
 
-  function applyFlagsToVocab(vocab, flagDocs) {
-    const byId = {};
-    vocab.forEach((card) => {
-      byId[String(card.id)] = card;
-    });
-    Object.entries(flagDocs || {}).forEach(([cardId, flags]) => {
-      if (!byId[cardId]) return;
-      byId[cardId].learn = flags?.learn !== false;
-      byId[cardId].practice = flags?.practice !== false;
-      byId[cardId].test = flags?.test !== false;
-    });
-    return Object.values(byId).sort((a, b) => (a.index || 0) - (b.index || 0));
-  }
-
-  function buildSetsRaw(docGroups) {
-    const rawById = {};
-    Object.values(docGroups[DOC_NS.SET] || {}).forEach((payload) => {
-      if (!payload?.id) return;
-      rawById[String(payload.id)] = {
-        id: String(payload.id),
-        name: String(payload.name || payload.id).trim() || String(payload.id),
-        cardIds: Array.isArray(payload.cardIds) ? payload.cardIds.map(String) : [],
-        createdAt: payload.createdAt || new Date().toISOString(),
-        updatedAt: payload.updatedAt || payload.createdAt || new Date().toISOString(),
-        locked: false
-      };
-    });
-    const orderDoc = docGroups[DOC_NS.META]?.[DOC_IDS.SET_ORDER];
-    const order = Array.isArray(orderDoc?.order) ? orderDoc.order.map(String) : Object.keys(rawById);
-    return { byId: rawById, order };
-  }
-
-  // Remote state is rebuilt by layering granular documents with chronologically
-  // replayed append-only events. This avoids trusting any single stale device snapshot.
-  function buildRemoteRawState(docRows, eventRows) {
-    const docGroups = groupDocs(docRows);
-    const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
-    const vocabDoc = docGroups[DOC_NS.VOCAB]?.[DOC_IDS.CURRENT];
-    const baseCards = Array.isArray(vocabDoc?.cards) && vocabDoc.cards.length ? vocabDoc.cards : builtinCards;
-    const baseDb = typeof ns.store?.normalizeDb === "function"
-      ? ns.store.normalizeDb({ vocab: baseCards }, builtinCards)
-      : { vocab: baseCards.map((card, index) => ({ ...card, id: `${card.hanzi}__${card.pinyin}__${card.translation}`, index: index + 1 })) };
-    const vocab = applyFlagsToVocab(baseDb.vocab || [], docGroups[DOC_NS.CARD_FLAGS] || {});
-    const progressSnapshot = docGroups[DOC_NS.SNAPSHOTS]?.[DOC_IDS.PROGRESS]?.progress || null;
-    const progress = cloneProgress(progressSnapshot || createEmptyProgress());
-    const smartSnapshot = docGroups[DOC_NS.SNAPSHOTS]?.[DOC_IDS.SMART]?.smartBySet || {};
-    const smartBySet = cloneSmartState(smartSnapshot);
-    const sortedEvents = [...(eventRows || [])].sort((a, b) => {
-      const aTime = new Date(a.occurred_at || a.created_at || 0).getTime();
-      const bTime = new Date(b.occurred_at || b.created_at || 0).getTime();
-      if (aTime !== bTime) return aTime - bTime;
-      return String(a.event_id || "").localeCompare(String(b.event_id || ""));
-    });
-    sortedEvents.forEach((event) => {
-      if (event.kind === SMART_EVENT_KIND) {
-        const setId = String(event.set_id || "");
-        const cardIdValue = String(event.card_id || "");
-        if (!setId || !cardIdValue || !ns.smart || typeof ns.smart.reviewCard !== "function") return;
-        if (!smartBySet[setId]) smartBySet[setId] = {};
-        ns.smart.reviewCard(smartBySet[setId], cardIdValue, Number(event.payload?.rating) || 3, new Date(event.occurred_at || Date.now()), { trackEvent: false });
-      } else {
-        applyProgressEvent(progress, event);
-      }
-    });
-    return {
-      vocab,
-      sets: buildSetsRaw(docGroups),
-      progress,
-      smartBySet
-    };
-  }
-
-  function makeEventId(kind, cardIdValue, setId, occurredAt, suffix) {
+  function makeProgressEventId(kind, remoteCardId, payload, scoreAfter) {
+    if (kind === "learn_seen") return [getClientId(), "progress", kind, remoteCardId].join("::");
     return [
-      getClientId(),
-      kind,
-      cardIdValue || "",
-      setId || "",
-      String(occurredAt || ""),
-      String(suffix || 0),
-      Math.random().toString(36).slice(2, 8)
+      getClientId(), "progress", kind, remoteCardId,
+      `after:${scoreAfter.shown}:${scoreAfter.correct}:${scoreAfter.wrong}`,
+      `delta:${payload.shown_delta || 0}:${payload.correct_delta || 0}:${payload.wrong_delta || 0}`
     ].join("::");
   }
 
-  async function upsertDocs(client, rows) {
-    if (!rows.length) return;
-    const { error } = await client.from(DOC_TABLE).upsert(rows, { onConflict: "user_id,namespace,doc_id" });
-    if (error) throw error;
+  function buildRemoteRawState(docRows, eventRows) {
+    const docs = groupDocs(docRows);
+    const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
+    const vocabDoc = docs[DOC_NS.VOCAB]?.[DOC_ID.CURRENT];
+    const baseCards = Array.isArray(vocabDoc?.cards) && vocabDoc.cards.length ? vocabDoc.cards : builtinCards;
+    const baseDb = ns.store.normalizeDb({ vocab: baseCards }, builtinCards);
+    const flagsBundle = docs[DOC_NS.CARD_FLAGS_BUNDLE]?.[DOC_ID.CARD_FLAGS];
+    const vocab = codec().applyFlagsBundleToVocab(baseDb.vocab || [], flagsBundle);
+    const cardCodec = codec().createCardRefCodec(vocab);
+    const progress = createEmptyProgress();
+    const smartBySet = {};
+
+    [...(eventRows || [])]
+      .sort((a, b) => {
+        const aTime = new Date(a.occurred_at || a.created_at || 0).getTime();
+        const bTime = new Date(b.occurred_at || b.created_at || 0).getTime();
+        if (aTime !== bTime) return aTime - bTime;
+        return String(a.event_id || "").localeCompare(String(b.event_id || ""));
+      })
+      .forEach((event) => {
+        const localCardId = cardCodec.toId(event.card_id);
+        if (!localCardId) return;
+        if (event.kind === SMART_EVENT_KIND) {
+          const setId = String(event.set_id || "");
+          if (!setId || !ns.smart || typeof ns.smart.reviewCard !== "function") return;
+          if (!smartBySet[setId]) smartBySet[setId] = {};
+          ns.smart.reviewCard(smartBySet[setId], localCardId, Number(event.payload?.rating) || 3, new Date(event.occurred_at || Date.now()), { trackEvent: false });
+        } else {
+          applyProgressEvent(progress, { ...event, card_id: localCardId });
+        }
+      });
+
+    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet };
   }
 
-  async function deleteDocs(client, userId, namespace, docIds) {
-    if (!docIds.length) return;
-    const { error } = await client.from(DOC_TABLE)
-      .delete()
+  async function loadRemoteDocs(client, userId) {
+    return selectAll(() => client.from(DOC_TABLE)
+      .select("namespace, doc_id, payload, updated_at")
       .eq("user_id", userId)
-      .eq("namespace", namespace)
-      .in("doc_id", docIds);
-    if (error) throw error;
+      .order("namespace", { ascending: true })
+      .order("doc_id", { ascending: true }));
   }
 
-  // Destructive event deletion should only be used for explicit reset/import flows.
-  // Normal multi-device sync must append events and never rewrite history.
-  async function deleteEventsByKinds(client, userId, kinds) {
-    if (!kinds.length) return;
-    const { error } = await client.from(EVENT_TABLE)
-      .delete()
+  async function loadRemoteEvents(client, userId) {
+    return selectAll(() => client.from(EVENT_TABLE)
+      .select("event_id, kind, card_id, set_id, payload, occurred_at, created_at")
       .eq("user_id", userId)
-      .in("kind", kinds);
-    if (error) throw error;
-  }
-
-  // event_id is idempotency protection: retries or duplicate devices should not
-  // create duplicate review records for the same local review.
-  async function insertEvents(client, rows) {
-    if (!rows.length) return;
-    const { error } = await client
-      .from(EVENT_TABLE)
-      .upsert(rows, { onConflict: "user_id,event_id", ignoreDuplicates: true });
-    if (error) throw error;
+      .order("occurred_at", { ascending: true })
+      .order("created_at", { ascending: true }));
   }
 
   async function syncVocabDoc(client, userId, currentState, previousState) {
     const currentCards = currentState?.vocab || [];
     const previousCards = previousState?.vocab || [];
-    if (sameCardList(currentCards, previousCards)) return;
+    if (codec().sameCardList(currentCards, previousCards)) return;
     const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
-    if (sameCardList(currentCards, builtinCards)) {
-      await deleteDocs(client, userId, DOC_NS.VOCAB, [DOC_IDS.CURRENT]);
+    if (codec().sameCardList(currentCards, builtinCards)) {
+      await deleteDocs(client, userId, DOC_NS.VOCAB, [DOC_ID.CURRENT]);
       return;
     }
     await upsertDocs(client, [{
       user_id: userId,
       namespace: DOC_NS.VOCAB,
-      doc_id: DOC_IDS.CURRENT,
-      payload: { cards: stripCards(currentCards), updatedAt: new Date().toISOString() },
+      doc_id: DOC_ID.CURRENT,
+      payload: { cards: codec().stripCards(currentCards), updatedAt: new Date().toISOString() },
       updated_at: new Date().toISOString()
     }]);
   }
 
   async function syncCardFlags(client, userId, currentState, previousState) {
-    const currentFlags = buildFlagsMap(currentState?.vocab || []);
-    const previousFlags = buildFlagsMap(previousState?.vocab || []);
-    const ids = new Set([...Object.keys(currentFlags), ...Object.keys(previousFlags)]);
-    const upserts = [];
-    const deletes = [];
-    ids.forEach((id) => {
-      const current = currentFlags[id] || { learn: true, practice: true, test: true };
-      const previous = previousFlags[id] || { learn: true, practice: true, test: true };
-      if (sameFlags(current, previous)) return;
-      if (isDefaultFlags(current)) {
-        deletes.push(id);
-      } else {
-        upserts.push({
-          user_id: userId,
-          namespace: DOC_NS.CARD_FLAGS,
-          doc_id: id,
-          payload: current,
-          updated_at: new Date().toISOString()
-        });
-      }
-    });
-    await upsertDocs(client, upserts);
-    await deleteDocs(client, userId, DOC_NS.CARD_FLAGS, deletes);
+    const currentBundle = codec().buildFlagsBundlePayload(currentState?.vocab || []);
+    const previousBundle = codec().buildFlagsBundlePayload(previousState?.vocab || []);
+    if (stableStringify(currentBundle) === stableStringify(previousBundle)) return;
+    await upsertDocs(client, [{
+      user_id: userId,
+      namespace: DOC_NS.CARD_FLAGS_BUNDLE,
+      doc_id: DOC_ID.CARD_FLAGS,
+      payload: { ...currentBundle, updatedAt: new Date().toISOString() },
+      updated_at: new Date().toISOString()
+    }]);
   }
 
   async function syncSets(client, userId, currentState, previousState) {
-    const currentSets = getNamedSetsMap(currentState?.sets);
-    const previousSets = getNamedSetsMap(previousState?.sets);
+    const currentSets = codec().getNamedSetsMap(currentState?.sets);
+    const previousSets = codec().getNamedSetsMap(previousState?.sets);
     const ids = new Set([...Object.keys(currentSets), ...Object.keys(previousSets)]);
     const upserts = [];
     const deletes = [];
     ids.forEach((id) => {
       const current = currentSets[id] || null;
       const previous = previousSets[id] || null;
-      if (sameSetDoc(current, previous)) return;
+      if (codec().sameSetDoc(current, previous)) return;
       if (!current) {
         deletes.push(id);
-      } else {
-        upserts.push({
-          user_id: userId,
-          namespace: DOC_NS.SET,
-          doc_id: id,
-          payload: current,
-          updated_at: new Date().toISOString()
-        });
+        return;
       }
-    });
-    const currentOrder = Array.isArray(currentState?.sets?.order)
-      ? currentState.sets.order.filter((id) => id && id !== ns.constants.ALL_SET_ID)
-      : [];
-    const previousOrder = Array.isArray(previousState?.sets?.order)
-      ? previousState.sets.order.filter((id) => id && id !== ns.constants.ALL_SET_ID)
-      : [];
-    if (JSON.stringify(currentOrder) !== JSON.stringify(previousOrder)) {
       upserts.push({
         user_id: userId,
-        namespace: DOC_NS.META,
-        doc_id: DOC_IDS.SET_ORDER,
-        payload: { order: currentOrder },
+        namespace: DOC_NS.SET,
+        doc_id: id,
+        payload: {
+          id: current.id,
+          name: current.name,
+          cardRefs: codec().compactCardIdList(current.cardIds || [], currentState?.vocab || []),
+          createdAt: current.createdAt,
+          updatedAt: current.updatedAt,
+          version: 1,
+          idEncoding: "idx-v1"
+        },
         updated_at: new Date().toISOString()
       });
+    });
+
+    const currentOrder = Array.isArray(currentState?.sets?.order) ? currentState.sets.order.filter((id) => id && id !== ns.constants.ALL_SET_ID) : [];
+    const previousOrder = Array.isArray(previousState?.sets?.order) ? previousState.sets.order.filter((id) => id && id !== ns.constants.ALL_SET_ID) : [];
+    if (JSON.stringify(currentOrder) !== JSON.stringify(previousOrder)) {
+      upserts.push({ user_id: userId, namespace: DOC_NS.META, doc_id: DOC_ID.SET_ORDER, payload: { order: currentOrder }, updated_at: new Date().toISOString() });
     }
     await upsertDocs(client, upserts);
     await deleteDocs(client, userId, DOC_NS.SET, deletes);
@@ -583,42 +435,47 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       events = buildProgressDiffEvents(currentState?.progress, previousState?.progress);
     } catch (error) {
       if (error?.message !== "NON_MONOTONIC_PROGRESS") throw error;
-      console.warn("Refusing to destructively overwrite remote progress from a non-monotonic local state.");
+      console.warn("Remote progress reset/import is not applied automatically. Export first if you need a destructive remote reset.");
       return;
     }
     if (!events.length) return;
     const nowIso = new Date().toISOString();
-    const rows = events.map((event, index) => ({
-      user_id: userId,
-      event_id: makeEventId(event.kind, event.card_id, event.set_id, nowIso, index),
-      kind: event.kind,
-      card_id: event.card_id,
-      set_id: event.set_id || null,
-      payload: event.payload || {},
-      occurred_at: nowIso
-    }));
+    const cardCodec = codec().createCardRefCodec(currentState?.vocab || []);
+    const rows = events.map((event) => {
+      const remoteCardId = cardCodec.toRef(event.card_id);
+      if (!remoteCardId) return null;
+      const scoreAfter = getProgressScore(currentState?.progress, event.kind, event.card_id);
+      const payload = event.payload || {};
+      return {
+        user_id: userId,
+        event_id: makeProgressEventId(event.kind, remoteCardId, payload, scoreAfter),
+        kind: event.kind,
+        card_id: remoteCardId,
+        set_id: event.set_id || null,
+        payload,
+        occurred_at: nowIso
+      };
+    }).filter(Boolean);
     await insertEvents(client, rows);
   }
 
   async function syncSmart(client, userId, currentState, previousState) {
-    let events = [];
-    try {
-      events = buildSmartDiffEvents(currentState?.smartBySet, previousState?.smartBySet);
-    } catch (error) {
-      if (error?.message !== "NON_MONOTONIC_SMART") throw error;
-      console.warn("Refusing to destructively overwrite remote Smart FSRS history from a non-monotonic local state.");
-      return;
-    }
+    const events = buildSmartEvents(currentState?.smartBySet, previousState?.smartBySet);
     if (!events.length) return;
-    const rows = events.map((event, index) => ({
-      user_id: userId,
-      event_id: event.event_id || makeEventId(event.kind, event.card_id, event.set_id, event.occurred_at, index),
-      kind: event.kind,
-      card_id: event.card_id,
-      set_id: event.set_id || null,
-      payload: event.payload || {},
-      occurred_at: event.occurred_at || new Date().toISOString()
-    }));
+    const cardCodec = codec().createCardRefCodec(currentState?.vocab || []);
+    const rows = events.map((event) => {
+      const remoteCardId = cardCodec.toRef(event.card_id);
+      if (!remoteCardId) return null;
+      return {
+        user_id: userId,
+        event_id: event.event_id,
+        kind: event.kind,
+        card_id: remoteCardId,
+        set_id: event.set_id || null,
+        payload: event.payload || {},
+        occurred_at: event.occurred_at || new Date().toISOString()
+      };
+    }).filter(Boolean);
     await insertEvents(client, rows);
   }
 
@@ -636,11 +493,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     }
 
     state.client = createClient(state.config.url, state.config.key, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      }
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
     });
 
     const { data, error } = await state.client.auth.getSession();
@@ -653,83 +506,28 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       state.user = state.session?.user || null;
       notify(event || "AUTH_STATE_CHANGE");
     });
-
     state.subscription = subscriptionResult?.data?.subscription || subscriptionResult?.data || subscriptionResult;
     state.ready = true;
   }
 
   async function init() {
-    state.config = loadConfig();
     getClientId();
     await initializeClient();
     notify("READY");
     return getStatus();
   }
+  function getClient() { return state.client; }
+  function getCacheScope() { return state.user?.id || "anon"; }
 
-  async function setConfig(url, key) {
-    state.config = loadConfig();
-    await initializeClient();
-    notify("CONFIG_UPDATED");
-    return getStatus();
-  }
-
-  function getClient() {
-    return state.client;
-  }
-
-  function getCacheScope() {
-    return state.user?.id || "anon";
-  }
-
-  // The store talks to this adapter, not to Supabase directly. loadAppData pulls
-  // remote docs/events; saveAppData writes granular diffs based on lastSnapshot.
   function getRemoteAdapter() {
     if (!state.client || !state.user) return null;
     const userId = state.user.id;
     return {
       kind: "supabase",
       async loadAppData() {
-        let docs = [];
-        let events = [];
-        let docsError = null;
-        let eventsError = null;
-        try {
-          const docsResult = await state.client
-            .from(DOC_TABLE)
-            .select("namespace, doc_id, payload, updated_at")
-            .eq("user_id", userId);
-          docsError = docsResult.error;
-          docs = docsResult.data || [];
-        } catch (error) {
-          docsError = error;
-        }
-        try {
-          const eventsResult = await state.client
-            .from(EVENT_TABLE)
-            .select("event_id, kind, card_id, set_id, payload, occurred_at, created_at")
-            .eq("user_id", userId)
-            .order("occurred_at", { ascending: true })
-            .order("created_at", { ascending: true });
-          eventsError = eventsResult.error;
-          events = eventsResult.data || [];
-        } catch (error) {
-          eventsError = error;
-        }
-        if (docs.length || events.length) {
-          return buildRemoteRawState(docs, events);
-        }
-        if (docsError || eventsError) {
-          const relationMissing = `${docsError?.message || ""} ${eventsError?.message || ""}`.toLowerCase().includes("relation")
-            || `${docsError?.details || ""} ${eventsError?.details || ""}`.toLowerCase().includes("does not exist");
-          if (!relationMissing) throw docsError || eventsError;
-        }
-        const { data, error } = await state.client
-          .from(LEGACY_TABLE)
-          .select("payload")
-          .eq("user_id", userId)
-          .maybeSingle();
-        if (error) throw error;
-        return data?.payload || null;
+        const [docs, events] = await Promise.all([loadRemoteDocs(state.client, userId), loadRemoteEvents(state.client, userId)]);
+        if (!docs.length && !events.length) return null;
+        return buildRemoteRawState(docs, events);
       },
       async saveAppData(payload, previousPayload) {
         try {
@@ -741,7 +539,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         } catch (error) {
           const text = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
           if (text.includes("relation") || text.includes("does not exist")) {
-            throw new Error("Supabase sync tables are missing. Run the updated supabase_starter.sql migration first.");
+            throw new Error("Supabase sync tables are missing. Run the current supabase_starter.sql first.");
           }
           throw error;
         }
@@ -754,9 +552,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const { data, error } = await state.client.auth.signUp({
       email: String(email || "").trim(),
       password: String(password || ""),
-      options: {
-        emailRedirectTo: window.location.href.split("#")[0]
-      }
+      options: { emailRedirectTo: window.location.href.split("#")[0] }
     });
     if (error) throw error;
     return data;
@@ -764,10 +560,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
 
   async function signIn(email, password) {
     if (!state.client) throw new Error("Supabase is not configured yet.");
-    const { data, error } = await state.client.auth.signInWithPassword({
-      email: String(email || "").trim(),
-      password: String(password || "")
-    });
+    const { data, error } = await state.client.auth.signInWithPassword({ email: String(email || "").trim(), password: String(password || "") });
     if (error) throw error;
     return data;
   }
@@ -784,16 +577,5 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return () => state.listeners.delete(listener);
   }
 
-  ns.auth = {
-    init,
-    setConfig,
-    getStatus,
-    getClient,
-    getRemoteAdapter,
-    getCacheScope,
-    signUp,
-    signIn,
-    signOut,
-    subscribe
-  };
+  ns.auth = { init, getStatus, getClient, getRemoteAdapter, getCacheScope, signUp, signIn, signOut, subscribe };
 })(window.HSKFlashcards);
