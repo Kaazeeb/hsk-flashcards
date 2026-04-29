@@ -330,9 +330,10 @@
   // This is the moment a Smart review becomes durable: the selected FSRS rating
   // updates local scheduling state and produces an append-only sync event.
   function acceptSmartFsrsFeedback() {
-    if (state.round.smartStage !== "feedback") return;
+    if (state.round.smartStage !== "feedback" || state.round.smartFeedbackCommitted) return;
     const card = getCurrentCard();
     if (!card) return;
+    state.round.smartFeedbackCommitted = true;
     const bucket = getSmartBucketForSet(state.round.smartSetId || getPrimaryReviewSet().id);
     smart.reviewCard(bucket, card, state.round.smartSelectedRating, new Date());
     persist();
@@ -566,7 +567,8 @@
   function introduceCurrentSmartCard() {
     const card = getCurrentCard();
     const setId = state.round.smartSetId || getPrimaryReviewSet().id;
-    if (!card || !state.round.smartForceNew || !setId) return;
+    if (!card || !state.round.smartForceNew || !setId || state.round.smartIntroCommitted) return;
+    state.round.smartIntroCommitted = true;
     const bucket = getSmartBucketForSet(setId);
     smart.reviewCard(bucket, card, 3, new Date());
     persist();

@@ -11,7 +11,16 @@
   const FSRS_API = typeof window !== "undefined" ? window.FSRS : null;
   const { normalizeDate, getStartOfLocalDay, getLocalNoon, addLocalDays, getLocalDayStamp, formatLocalDayKey, hashStringToUnitInterval, MS_PER_DAY, cardId } = ns.utils;
   const { SMART_RATINGS, SMART_RATING_LABELS } = ns.constants;
-  const scheduler = FSRS_API && typeof FSRS_API.fsrs === "function" ? FSRS_API.fsrs({ enable_fuzz: true }) : null;
+  function createScheduler() {
+    if (!FSRS_API || typeof FSRS_API.fsrs !== "function") return null;
+    const instance = FSRS_API.fsrs({ enable_fuzz: true });
+    if (typeof instance.useStrategy === "function" && FSRS_API.StrategyMode?.SEED && typeof FSRS_API.GenSeedStrategyWithCardId === "function") {
+      instance.useStrategy(FSRS_API.StrategyMode.SEED, FSRS_API.GenSeedStrategyWithCardId("fsrsCardId"));
+    }
+    return instance;
+  }
+
+  const scheduler = createScheduler();
 
   function createEmptyFsrsCard(now = new Date()) {
     if (FSRS_API && typeof FSRS_API.createEmptyCard === "function") {
@@ -47,27 +56,18 @@
     };
   }
 
-  // FSRS returns exact timestamps. The app reviews by day, so we convert the
-  // interval to a local-day bucket. The fractional part is rounded with a
-  // deterministic fuzz seed to avoid placing every card on the same boundary.
-  function getFuzzyRoundedDueDate(rawDue, now = new Date(), seed = "") {
-    const normalizedNow = normalizeDate(now);
-    const normalizedDue = normalizeDate(rawDue, normalizedNow);
-    const exactDays = Math.max(0, (normalizedDue.getTime() - normalizedNow.getTime()) / MS_PER_DAY);
-    const lowerDays = Math.floor(exactDays);
-    const fraction = exactDays - lowerDays;
-    const fuzz = hashStringToUnitInterval(`${seed}::${normalizedNow.toISOString()}::${normalizedDue.toISOString()}`);
-    const roundedDays = lowerDays + (fraction > 0 && fuzz < fraction ? 1 : 0);
-    return getLocalNoon(addLocalDays(normalizedNow, roundedDays));
-  }
-
-  function roundFsrsCardToDueDay(card, now = new Date(), seed = "") {
+  // FSRS already has native fuzz for long intervals. This app only groups the
+  // resulting raw due timestamp into its actual local calendar day for UI/queue
+  // behavior. Do not add a second probabilistic rounding layer here: that turns
+  // short learning steps such as 10 minutes into occasional "tomorrow" cards.
+  function bucketFsrsCardToDueDay(card, now = new Date()) {
     const normalized = normalizeFsrsCard(card, now);
-    const roundedDue = getFuzzyRoundedDueDate(normalized.due, now, seed);
-    const scheduledDays = Math.max(0, Math.round((getStartOfLocalDay(roundedDue).getTime() - getStartOfLocalDay(now).getTime()) / MS_PER_DAY));
+    const dueDay = getStartOfLocalDay(normalized.due);
+    const bucketedDue = getLocalNoon(dueDay);
+    const scheduledDays = Math.max(0, Math.round((dueDay.getTime() - getStartOfLocalDay(now).getTime()) / MS_PER_DAY));
     return {
       ...normalized,
-      due: roundedDue,
+      due: bucketedDue,
       scheduled_days: scheduledDays
     };
   }
@@ -155,9 +155,8 @@
     const current = getEntry(bucket, id, normalizedNow);
     const currentCard = isStarted(current) ? current.card : createEmptyFsrsCard(normalizedNow);
     const normalizedRating = SMART_RATINGS.includes(rating) ? rating : 3;
-    const next = scheduler.next(currentCard, normalizedNow, normalizedRating);
-    const fuzzSeed = `${id}::${normalizedRating}::${normalizedNow.toISOString()}::${currentCard.reps || 0}::${currentCard.lapses || 0}::${currentCard.state || 0}`;
-    const rounded = roundFsrsCardToDueDay(next.card, normalizedNow, fuzzSeed);
+    const next = scheduler.next({ ...currentCard, fsrsCardId: id }, normalizedNow, normalizedRating);
+    const rounded = bucketFsrsCardToDueDay(next.card, normalizedNow);
     const correct = normalizedRating !== 1;
     const occurredAt = normalizedNow.toISOString();
     const reviewEvents = [...(current.reviewEvents || [])];
@@ -291,7 +290,7 @@
     canReviewToday,
     getNewQueue,
     ratingLabel,
-    roundFsrsCardToDueDay,
+    bucketFsrsCardToDueDay,
     normalizeReviewEvents
   };
 })(window.HSKFlashcards);

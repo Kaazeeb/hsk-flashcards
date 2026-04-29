@@ -197,6 +197,8 @@
       smartOutcomeCorrect: null,
       smartSelectedRating: 3,
       smartForceNew: false,
+      smartFeedbackCommitted: false,
+      smartIntroCommitted: false,
       keyboardChoiceIndex: -1
     };
   }
