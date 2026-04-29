@@ -10,6 +10,18 @@ Remote writes are serialized so quick UI actions cannot race each other.
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
 
+  function getReviewEpochTime(payload) {
+    const value = payload?.meta?.reviewEpochAt;
+    const time = value ? new Date(value).getTime() : 0;
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function remoteEpochIsNewer(localData, remoteData) {
+    const localTime = getReviewEpochTime(localData);
+    const remoteTime = getReviewEpochTime(remoteData);
+    return remoteTime > localTime;
+  }
+
   class LocalJsonAdapter {
     constructor(baseKey, scopeProvider) {
       this.baseKey = baseKey;
@@ -98,6 +110,16 @@ Remote writes are serialized so quick UI actions cannot race each other.
         const remoteData = await remote.loadAppData();
 
         if (meta.unsynced && localData && typeof remote.saveAppData === "function") {
+          if (remoteData && remoteEpochIsNewer(localData, remoteData)) {
+            await this.local.saveAppData(remoteData);
+            await this.local.saveMeta(undefined, {
+              unsynced: false,
+              lastRemoteLoadAt: new Date().toISOString(),
+              conflict: "remote_review_epoch_won"
+            });
+            this.lastSnapshot = deepClone(remoteData);
+            return remoteData;
+          }
           this.lastSnapshot = deepClone(remoteData || {});
           await remote.saveAppData(localData, remoteData || {});
           await this.local.saveMeta(undefined, { unsynced: false, lastRemoteSaveAt: new Date().toISOString() });

@@ -23,7 +23,7 @@
   }
 
   function clearNode(node) {
-    if (node) node.innerHTML = "";
+    if (node) node.replaceChildren();
   }
 
   function setBar(fillEl, labelEl, numerator, denominator) {

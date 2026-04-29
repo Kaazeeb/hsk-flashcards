@@ -13,6 +13,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   const DOC_TABLE = "app_sync_documents";
   const EVENT_TABLE = "app_review_events";
   const SMART_EVENT_KIND = "smart_fsrs";
+  const REVIEW_RESET_EVENT_KIND = "review_reset";
   const CLIENT_ID_STORAGE_KEY = "hsk_flashcards_client_id";
   const MAX_WRITE_JSON_BYTES = 60000;
   const MAX_DOC_WRITE_ROWS = 100;
@@ -104,6 +105,70 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   function toIso(value) {
     const date = value instanceof Date ? value : new Date(value || Date.now());
     return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+  }
+
+  function normalizeMeta(meta) {
+    return ns.store && typeof ns.store.normalizeMeta === "function"
+      ? ns.store.normalizeMeta(meta)
+      : {
+          reviewEpochId: String(meta?.reviewEpochId || "").trim(),
+          reviewEpochAt: meta?.reviewEpochAt ? toIso(meta.reviewEpochAt) : null,
+          reviewEpochReason: String(meta?.reviewEpochReason || "").trim()
+        };
+  }
+
+  function getReviewMeta(rawState) {
+    return normalizeMeta(rawState?.meta || {});
+  }
+
+  function getReviewEpochId(rawState) {
+    return getReviewMeta(rawState).reviewEpochId || "";
+  }
+
+  function reviewEpochChanged(currentState, previousState) {
+    return getReviewEpochId(currentState) !== getReviewEpochId(previousState);
+  }
+
+  function payloadWithEpoch(payload, epochId) {
+    return epochId ? { ...(payload || {}), epochId } : { ...(payload || {}) };
+  }
+
+  function eventBelongsToEpoch(event, activeEpochId) {
+    if (!activeEpochId) return event?.kind !== REVIEW_RESET_EVENT_KIND;
+    return event?.kind !== REVIEW_RESET_EVENT_KIND && String(event?.payload?.epochId || "") === activeEpochId;
+  }
+
+  function compareEventOrder(a, b) {
+    const aTime = new Date(a?.occurred_at || a?.created_at || 0).getTime();
+    const bTime = new Date(b?.occurred_at || b?.created_at || 0).getTime();
+    if (aTime !== bTime) return aTime - bTime;
+    const aCreated = new Date(a?.created_at || 0).getTime();
+    const bCreated = new Date(b?.created_at || 0).getTime();
+    if (aCreated !== bCreated) return aCreated - bCreated;
+    return String(a?.event_id || "").localeCompare(String(b?.event_id || ""));
+  }
+
+  function getLatestReviewResetMeta(eventRows) {
+    let latest = null;
+    [...(eventRows || [])].filter((event) => event?.kind === REVIEW_RESET_EVENT_KIND && event?.payload?.epochId)
+      .sort(compareEventOrder)
+      .forEach((event) => {
+        latest = normalizeMeta({
+          reviewEpochId: event.payload.epochId,
+          reviewEpochAt: event.occurred_at || event.created_at || new Date().toISOString(),
+          reviewEpochReason: event.payload.reason || "remote_reset"
+        });
+      });
+    return latest || normalizeMeta({});
+  }
+
+  function makeReviewResetEventId(epochId) {
+    return [getClientId(), "review_reset", String(epochId || "")].join("::");
+  }
+
+  function makeEpochScopedEventId(eventId, epochId) {
+    const base = String(eventId || "");
+    return epochId ? ["epoch", epochId, base].join("::") : base;
   }
 
   function stableStringify(value) {
@@ -298,10 +363,12 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return normalizeScore(bucket[String(cardId)]);
   }
 
-  function makeProgressEventId(kind, remoteCardId, payload, scoreAfter) {
-    if (kind === "learn_seen") return [getClientId(), "progress", kind, remoteCardId].join("::");
+  function makeProgressEventId(kind, remoteCardId, payload, scoreAfter, epochId = "") {
+    const prefix = [getClientId(), "progress", kind, remoteCardId];
+    if (epochId) prefix.push(`epoch:${epochId}`);
+    if (kind === "learn_seen") return prefix.join("::");
     return [
-      getClientId(), "progress", kind, remoteCardId,
+      ...prefix,
       `after:${scoreAfter.shown}:${scoreAfter.correct}:${scoreAfter.wrong}`,
       `delta:${payload.shown_delta || 0}:${payload.correct_delta || 0}:${payload.wrong_delta || 0}`
     ].join("::");
@@ -318,14 +385,12 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const cardCodec = codec().createCardRefCodec(vocab);
     const progress = createEmptyProgress();
     const smartBySet = {};
+    const meta = getLatestReviewResetMeta(eventRows);
+    const activeEpochId = meta.reviewEpochId || "";
 
     [...(eventRows || [])]
-      .sort((a, b) => {
-        const aTime = new Date(a.occurred_at || a.created_at || 0).getTime();
-        const bTime = new Date(b.occurred_at || b.created_at || 0).getTime();
-        if (aTime !== bTime) return aTime - bTime;
-        return String(a.event_id || "").localeCompare(String(b.event_id || ""));
-      })
+      .sort(compareEventOrder)
+      .filter((event) => eventBelongsToEpoch(event, activeEpochId))
       .forEach((event) => {
         const localCardId = cardCodec.toId(event.card_id);
         if (!localCardId) return;
@@ -339,7 +404,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         }
       });
 
-    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet };
+    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet, meta };
   }
 
   async function loadRemoteDocs(client, userId) {
@@ -429,13 +494,30 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     await deleteDocs(client, userId, DOC_NS.SET, deletes);
   }
 
+  async function syncReviewReset(client, userId, currentState, previousState) {
+    const currentMeta = getReviewMeta(currentState);
+    const previousMeta = getReviewMeta(previousState);
+    if (!currentMeta.reviewEpochId || currentMeta.reviewEpochId === previousMeta.reviewEpochId) return;
+    await insertEvents(client, [{
+      user_id: userId,
+      event_id: makeReviewResetEventId(currentMeta.reviewEpochId),
+      kind: REVIEW_RESET_EVENT_KIND,
+      card_id: "__review_epoch__",
+      set_id: null,
+      payload: { epochId: currentMeta.reviewEpochId, reason: currentMeta.reviewEpochReason || "reset" },
+      occurred_at: currentMeta.reviewEpochAt || new Date().toISOString()
+    }]);
+  }
+
   async function syncProgress(client, userId, currentState, previousState) {
     let events = [];
+    const epochId = getReviewEpochId(currentState);
+    const previousProgress = reviewEpochChanged(currentState, previousState) ? createEmptyProgress() : previousState?.progress;
     try {
-      events = buildProgressDiffEvents(currentState?.progress, previousState?.progress);
+      events = buildProgressDiffEvents(currentState?.progress, previousProgress);
     } catch (error) {
       if (error?.message !== "NON_MONOTONIC_PROGRESS") throw error;
-      console.warn("Remote progress reset/import is not applied automatically. Export first if you need a destructive remote reset.");
+      console.warn("Non-monotonic progress inside the same review epoch was not synced. Use Reset progress or Import again to create a new remote review epoch.");
       return;
     }
     if (!events.length) return;
@@ -445,10 +527,10 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       const remoteCardId = cardCodec.toRef(event.card_id);
       if (!remoteCardId) return null;
       const scoreAfter = getProgressScore(currentState?.progress, event.kind, event.card_id);
-      const payload = event.payload || {};
+      const payload = payloadWithEpoch(event.payload || {}, epochId);
       return {
         user_id: userId,
-        event_id: makeProgressEventId(event.kind, remoteCardId, payload, scoreAfter),
+        event_id: makeProgressEventId(event.kind, remoteCardId, payload, scoreAfter, epochId),
         kind: event.kind,
         card_id: remoteCardId,
         set_id: event.set_id || null,
@@ -460,7 +542,9 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   async function syncSmart(client, userId, currentState, previousState) {
-    const events = buildSmartEvents(currentState?.smartBySet, previousState?.smartBySet);
+    const epochId = getReviewEpochId(currentState);
+    const previousSmartBySet = reviewEpochChanged(currentState, previousState) ? {} : previousState?.smartBySet;
+    const events = buildSmartEvents(currentState?.smartBySet, previousSmartBySet);
     if (!events.length) return;
     const cardCodec = codec().createCardRefCodec(currentState?.vocab || []);
     const rows = events.map((event) => {
@@ -468,11 +552,11 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       if (!remoteCardId) return null;
       return {
         user_id: userId,
-        event_id: event.event_id,
+        event_id: makeEpochScopedEventId(event.event_id, epochId),
         kind: event.kind,
         card_id: remoteCardId,
         set_id: event.set_id || null,
-        payload: event.payload || {},
+        payload: payloadWithEpoch(event.payload || {}, epochId),
         occurred_at: event.occurred_at || new Date().toISOString()
       };
     }).filter(Boolean);
@@ -534,6 +618,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
           await syncVocabDoc(state.client, userId, payload, previousPayload || {});
           await syncCardFlags(state.client, userId, payload, previousPayload || {});
           await syncSets(state.client, userId, payload, previousPayload || {});
+          await syncReviewReset(state.client, userId, payload, previousPayload || {});
           await syncProgress(state.client, userId, payload, previousPayload || {});
           await syncSmart(state.client, userId, payload, previousPayload || {});
         } catch (error) {

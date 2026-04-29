@@ -40,6 +40,46 @@
     };
   }
 
+  function createReviewEpochId(reason = "manual") {
+    const safeReason = String(reason || "manual").replace(/[^a-z0-9_-]+/gi, "_").slice(0, 24) || "manual";
+    return [
+      "epoch",
+      safeReason,
+      Date.now().toString(36),
+      Math.random().toString(36).slice(2, 10)
+    ].join("_");
+  }
+
+  function normalizeMeta(meta) {
+    const reviewEpochId = String(meta?.reviewEpochId || "").trim();
+    const reviewEpochAt = meta?.reviewEpochAt ? new Date(meta.reviewEpochAt) : null;
+    return {
+      reviewEpochId,
+      reviewEpochAt: reviewEpochAt && !Number.isNaN(reviewEpochAt.getTime()) ? reviewEpochAt.toISOString() : null,
+      reviewEpochReason: String(meta?.reviewEpochReason || "").trim()
+    };
+  }
+
+  function bumpReviewEpoch(db, reason = "manual") {
+    db.meta = normalizeMeta({
+      reviewEpochId: createReviewEpochId(reason),
+      reviewEpochAt: new Date().toISOString(),
+      reviewEpochReason: reason
+    });
+    return db.meta;
+  }
+
+  function resetReviewData(db, reason = "manual") {
+    db.progress = createEmptyProgress();
+    db.smartBySet = {};
+    if (db.ui) {
+      db.ui.indexes = { learn: 0, practice: 0, test: 0 };
+      db.ui.order = { learn: [], practice: [], test: [] };
+      db.ui.orderType = { learn: "default", practice: "default", test: "default" };
+    }
+    bumpReviewEpoch(db, reason);
+  }
+
   function createDefaultUiState() {
     return {
       mode: "learn",
@@ -214,6 +254,7 @@
     const ui = normalizeUiState(raw?.ui);
     const progress = normalizeProgress(raw?.progress);
     const smartBySet = normalizeSmartBySet(raw?.smartBySet);
+    const meta = normalizeMeta(raw?.meta);
 
     const db = {
       schemaVersion: SCHEMA_VERSION,
@@ -221,7 +262,8 @@
       sets,
       ui,
       progress,
-      smartBySet
+      smartBySet,
+      meta
     };
 
     if (!db.sets.byId[db.ui.activeSetId]) db.ui.activeSetId = ALL_SET_ID;
@@ -273,6 +315,7 @@
         const nextVocab = normalizeVocab(cards);
         if (!preserveData) {
           this.state = normalizeDb({ vocab: nextVocab }, nextVocab);
+          resetReviewData(this.state, "replace_vocabulary");
         } else {
           this.state.vocab = nextVocab;
           this.state.sets = normalizeSets(this.state.sets, nextVocab);
@@ -283,10 +326,15 @@
 
       async restoreBuiltIn() {
         const cards = normalizeVocab(builtinCards);
+        const sameDeck = ns.syncCodec && typeof ns.syncCodec.sameCardList === "function"
+          ? ns.syncCodec.sameCardList(this.state.vocab, cards)
+          : JSON.stringify(this.state.vocab || []) === JSON.stringify(cards || []);
         this.state.vocab = cards;
         this.state.sets = normalizeSets(this.state.sets, cards);
         pruneDbToValidIds(this.state);
+        if (!sameDeck) resetReviewData(this.state, "restore_builtin_vocabulary");
         await this.persist();
+        return { resetProgress: !sameDeck };
       },
 
       async setActiveSet(setId) {
@@ -385,6 +433,12 @@
       async importJson(text) {
         const parsed = JSON.parse(String(text || ""));
         this.state = normalizeDb(parsed?.data || parsed, builtinCards);
+        bumpReviewEpoch(this.state, "import_json");
+        await this.persist();
+      },
+
+      async resetProgress(reason = "manual_reset") {
+        resetReviewData(this.state, reason);
         await this.persist();
       },
 
@@ -405,6 +459,9 @@
   ns.store = {
     createAppStore,
     createEmptyProgress,
-    normalizeDb
+    normalizeDb,
+    normalizeMeta,
+    bumpReviewEpoch,
+    resetReviewData
   };
 })(window.HSKFlashcards);
