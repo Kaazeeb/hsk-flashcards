@@ -334,18 +334,17 @@
       return;
     }
     if (info.configured && info.providerReady) {
-      state.elements.storageModeBadge.textContent = "Supabase ready · local cache";
+      state.elements.storageModeBadge.textContent = "Supabase ready · sign in required";
       return;
     }
     if (info.configured && !info.providerReady) {
-      state.elements.storageModeBadge.textContent = "Supabase script missing · local cache";
+      state.elements.storageModeBadge.textContent = "Supabase script missing · memory only";
       return;
     }
-    state.elements.storageModeBadge.textContent = "built in · local data layer";
+    state.elements.storageModeBadge.textContent = "built in · memory only";
   }
 
-  // Auth scope controls local cache namespace. Switching users must reload state
-  // so one user/device cache cannot bleed into another.
+  // Auth changes reload state from Supabase. There is no app-data local cache.
   async function syncStoreToAuthScope(force = false) {
     const nextScope = ns.auth && typeof ns.auth.getCacheScope === "function"
       ? ns.auth.getCacheScope()

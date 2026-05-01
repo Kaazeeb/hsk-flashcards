@@ -9,12 +9,14 @@
   function normalizeCard(card, index) {
     const hanzi = String(card.hanzi || card.word || card.palavra || "").trim();
     const pinyin = String(card.pinyin || "").trim();
+    const pinyinNumeric = String(card.pinyinNumeric || card.pinyin_numeric || card.numericPinyin || "").trim();
     const translation = String(card.translation || card.traducao || card.meaning || "").trim();
     return {
       id: String(card.id || createLegacyId(hanzi, pinyin, translation)),
       index,
       hanzi,
       pinyin,
+      pinyinNumeric,
       translation,
       learn: card.learn !== false,
       practice: card.practice !== false,
@@ -101,6 +103,7 @@
     const hanziIndex = headers.findIndex((header) => ["hanzi", "word", "palavra"].includes(header));
     const pinyinIndex = headers.findIndex((header) => header === "pinyin");
     const translationIndex = headers.findIndex((header) => ["translation", "traducao", "meaning"].includes(header));
+    const pinyinNumericIndex = headers.findIndex((header) => ["pinyinnumeric", "pinyinwithnumbers", "numericpinyin", "pinyin_number", "pinyinnumber"].includes(header));
 
     const fallback = hanziIndex < 0 || pinyinIndex < 0 || translationIndex < 0;
 
@@ -108,7 +111,8 @@
       const hanzi = fallback ? row[0] : row[hanziIndex];
       const pinyin = fallback ? row[1] : row[pinyinIndex];
       const translation = fallback ? row[2] : row[translationIndex];
-      return { hanzi, pinyin, translation, learn: true, practice: true, test: true };
+      const pinyinNumeric = fallback ? row[3] : (pinyinNumericIndex >= 0 ? row[pinyinNumericIndex] : "");
+      return { hanzi, pinyin, pinyinNumeric, translation, learn: true, practice: true, test: true };
     });
 
     return cards

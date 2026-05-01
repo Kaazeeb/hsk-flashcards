@@ -652,8 +652,8 @@
     });
   }
 
-  // App startup order matters: auth first, then scoped store load, then render.
-  // Loading before auth would risk binding the UI to the wrong local cache scope.
+  // App startup order matters: auth first, then remote-capable store load, then render.
+  // There is no app-data local cache; unsigned sessions start from built-in memory.
   async function bootstrap() {
     state.elements = getElements();
     if (ns.auth && typeof ns.auth.init === "function") {

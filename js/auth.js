@@ -14,7 +14,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   const EVENT_TABLE = "app_review_events";
   const SMART_EVENT_KIND = "smart_fsrs";
   const REVIEW_RESET_EVENT_KIND = "review_reset";
-  const CLIENT_ID_STORAGE_KEY = "hsk_flashcards_client_id";
   const MAX_WRITE_JSON_BYTES = 60000;
   const MAX_DOC_WRITE_ROWS = 100;
   const MAX_EVENT_WRITE_ROWS = 100;
@@ -86,20 +85,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
 
   function getClientId() {
     if (state.clientId) return state.clientId;
-    const fallback = () => `client_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-    try {
-      const existing = localStorage.getItem(CLIENT_ID_STORAGE_KEY);
-      if (existing) {
-        state.clientId = existing;
-        return existing;
-      }
-      state.clientId = fallback();
-      localStorage.setItem(CLIENT_ID_STORAGE_KEY, state.clientId);
-      return state.clientId;
-    } catch (error) {
-      state.clientId = fallback();
-      return state.clientId;
-    }
+    state.clientId = `client_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    return state.clientId;
   }
 
   function toIso(value) {
@@ -163,7 +150,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   function makeReviewResetEventId(epochId) {
-    return [getClientId(), "review_reset", String(epochId || "")].join("::");
+    return ["review_reset", String(epochId || "")].join("::");
   }
 
   function makeEpochScopedEventId(eventId, epochId) {
@@ -416,11 +403,36 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   async function loadRemoteEvents(client, userId) {
-    return selectAll(() => client.from(EVENT_TABLE)
+    const resetRows = await selectAll(() => client.from(EVENT_TABLE)
       .select("event_id, kind, card_id, set_id, payload, occurred_at, created_at")
       .eq("user_id", userId)
+      .eq("kind", REVIEW_RESET_EVENT_KIND)
       .order("occurred_at", { ascending: true })
       .order("created_at", { ascending: true }));
+
+    const latestReset = [...resetRows]
+      .filter((event) => event?.payload?.epochId)
+      .sort(compareEventOrder)
+      .pop() || null;
+
+    if (!latestReset?.payload?.epochId) {
+      return selectAll(() => client.from(EVENT_TABLE)
+        .select("event_id, kind, card_id, set_id, payload, occurred_at, created_at")
+        .eq("user_id", userId)
+        .order("occurred_at", { ascending: true })
+        .order("created_at", { ascending: true }));
+    }
+
+    const activeEpochId = String(latestReset.payload.epochId);
+    const activeRows = await selectAll(() => client.from(EVENT_TABLE)
+      .select("event_id, kind, card_id, set_id, payload, occurred_at, created_at")
+      .eq("user_id", userId)
+      .neq("kind", REVIEW_RESET_EVENT_KIND)
+      .eq("payload->>epochId", activeEpochId)
+      .order("occurred_at", { ascending: true })
+      .order("created_at", { ascending: true }));
+
+    return [latestReset, ...activeRows];
   }
 
   async function syncVocabDoc(client, userId, currentState, previousState) {

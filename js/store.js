@@ -246,7 +246,7 @@
     });
   }
 
-  // All inbound data, whether local cache, imported JSON, or Supabase rebuild,
+  // All inbound data, whether imported JSON, built-in memory, or Supabase rebuild,
   // passes through this gate. It prunes invalid card ids and restores locked sets.
   function normalizeDb(raw, builtinCards) {
     const vocab = normalizeVocab(raw?.vocab?.length ? raw.vocab : builtinCards);

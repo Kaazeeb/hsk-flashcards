@@ -21,6 +21,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       .map((card) => ({
         hanzi: String(card?.hanzi || "").trim(),
         pinyin: String(card?.pinyin || "").trim(),
+        pinyinNumeric: String(card?.pinyinNumeric || card?.pinyin_numeric || card?.numericPinyin || "").trim(),
         translation: String(card?.translation || "").trim()
       }))
       .filter((card) => card.hanzi && card.pinyin && card.translation);
@@ -31,7 +32,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const right = stripCards(b);
     if (left.length !== right.length) return false;
     for (let i = 0; i < left.length; i += 1) {
-      if (left[i].hanzi !== right[i].hanzi || left[i].pinyin !== right[i].pinyin || left[i].translation !== right[i].translation) return false;
+      if (left[i].hanzi !== right[i].hanzi || left[i].pinyin !== right[i].pinyin || left[i].pinyinNumeric !== right[i].pinyinNumeric || left[i].translation !== right[i].translation) return false;
     }
     return true;
   }

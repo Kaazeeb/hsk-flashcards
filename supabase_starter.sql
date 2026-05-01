@@ -53,6 +53,9 @@ create index if not exists app_review_events_user_occurred_created_idx
   on public.app_review_events (user_id, occurred_at asc, created_at asc);
 create index if not exists app_review_events_user_set_occurred_idx
   on public.app_review_events (user_id, set_id, occurred_at desc);
+create index if not exists app_review_events_user_epoch_expr_idx
+  on public.app_review_events (user_id, ((payload->>'epochId')), occurred_at asc, created_at asc)
+  where kind <> 'review_reset';
 
 create or replace function public.handle_new_user_profile()
 returns trigger

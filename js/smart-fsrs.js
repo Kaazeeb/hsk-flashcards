@@ -96,9 +96,11 @@
       .filter((event) => event.id && event.occurredAt);
   }
 
-  function createReviewEventId(cardIdValue, rating, occurredAt) {
-    const randomPart = Math.random().toString(36).slice(2, 10);
-    return ["smart", cardIdValue, rating, occurredAt, randomPart].join("::");
+  function createReviewEventId() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return `smart::${crypto.randomUUID()}`;
+    }
+    return `smart::${Date.now().toString(36)}::${Math.random().toString(36).slice(2, 10)}`;
   }
 
   function normalizeEntry(entry, now = new Date()) {
@@ -162,7 +164,7 @@
     const reviewEvents = [...(current.reviewEvents || [])];
     if (options.trackEvent !== false) {
       reviewEvents.push({
-        id: options.eventId || createReviewEventId(id, normalizedRating, occurredAt),
+        id: options.eventId || createReviewEventId(),
         rating: normalizedRating,
         occurredAt
       });

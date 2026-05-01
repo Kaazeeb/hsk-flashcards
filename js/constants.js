@@ -26,6 +26,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return raw.map((card) => ({
       hanzi: String(card.hanzi || "").trim(),
       pinyin: String(card.pinyin || "").trim(),
+      pinyinNumeric: String(card.pinyinNumeric || card.pinyin_numeric || card.numericPinyin || "").trim(),
       translation: String(card.translation || "").trim(),
       learn: card.learn !== false,
       practice: card.practice !== false,

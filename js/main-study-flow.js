@@ -222,7 +222,7 @@
     const input = form.querySelector("input");
     const answerText = input ? input.value : "";
     const { reviewAnswer, reviewSuffix } = getReviewPinyinText(card);
-    const check = checkPinyinAnswer(answerText, card.pinyin);
+    const check = checkPinyinAnswer(answerText, card);
     state.round.answerText = answerText;
     state.round.selectedCorrect = check.correct;
     state.round.pendingCheck = check;
@@ -231,7 +231,7 @@
       state.round.pendingWrong = true;
       state.round.resultText = check.formatValid
         ? "Not counted yet. Retry without penalty if this was a typo, or press Enter / → to count it wrong and reveal the answer."
-        : "Not counted yet. Missing tone numbers are only allowed on neutral-tone syllables. Retry without penalty, or press Enter / → to count it wrong and reveal the answer.";
+        : "Not counted yet. The answer must match the numeric pinyin shown for this card exactly. Retry without penalty, or press Enter / → to count it wrong and reveal the answer.";
       state.round.resultClass = "bad";
       render();
       scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
@@ -240,7 +240,7 @@
 
     state.round.answered = true;
     state.round.resultText = !check.formatValid
-      ? `Use tone numbers for non-neutral syllables. Neutral 5 is optional. Example: ni3hao3, lv4, xie4xie. Correct pinyin: ${reviewAnswer}${reviewSuffix}`
+      ? `Use the hardcoded numeric pinyin exactly. Neutral tone has no number. Example: ni3hao3, nv3, shen2me. Correct pinyin: ${reviewAnswer}${reviewSuffix}`
       : check.correct
         ? `Correct. ${card.hanzi} = ${reviewAnswer}`
         : `Wrong. Correct pinyin: ${reviewAnswer}${reviewSuffix}`;
@@ -283,14 +283,14 @@
     const form = event.currentTarget;
     const input = form.querySelector("input");
     const answerText = input ? input.value : "";
-    const check = checkPinyinAnswer(answerText, card.pinyin);
+    const check = checkPinyinAnswer(answerText, card);
     state.round.answerText = answerText;
     state.round.pendingCheck = check;
     if (!check.correct) {
       state.round.pendingWrong = true;
       state.round.resultText = check.formatValid
         ? "Not counted yet. Retry without penalty if this was a typo, or press Enter / → to count it wrong and reveal the answer before step 2."
-        : "Not counted yet. Missing tone numbers are only allowed on neutral-tone syllables. Retry without penalty, or press Enter / → to count it wrong and reveal the answer before step 2.";
+        : "Not counted yet. The answer must match the numeric pinyin shown for this card exactly. Retry without penalty, or press Enter / → to count it wrong and reveal the answer before step 2.";
       state.round.resultClass = "bad";
       render();
       scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
@@ -501,7 +501,7 @@
   function renderPinyinQuiz(card, queueIndex, total) {
     const isPractice = getUi().mode === "practice";
     const { reviewText } = getReviewPinyinText(card);
-    state.elements.cardPrompt.textContent = isPractice ? "Type the pinyin with tone numbers" : "Test: type the pinyin with tone numbers";
+    state.elements.cardPrompt.textContent = isPractice ? "Type the exact numeric pinyin" : "Test: type the exact numeric pinyin";
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = state.round.answered ? reviewText : "";
     state.elements.cardTranslation.textContent = state.round.answered ? card.translation : "";
@@ -514,7 +514,7 @@
         ? state.round.resultText
         : state.round.answered
           ? state.round.resultText
-          : "Use tone numbers. Example: ni3hao3, lv4, xie4xie. Use v for ü. Neutral 5 is optional.",
+          : "Use the hardcoded numeric pinyin exactly. Example: ni3hao3, nv3, shen2me. Neutral tone has no number.",
       state.round.pendingWrong || state.round.answered ? state.round.resultClass : ""
     );
 
@@ -628,7 +628,7 @@
       state.elements.cardPrompt.textContent = isNewSmartCard ? `Smart practice · ${getDb().sets.byId[smartSetId]?.name || smartSetId} · new card · 1 of 3 · type the pinyin` : `Smart practice · ${getDb().sets.byId[smartSetId]?.name || smartSetId} · 1 of 3 · type the pinyin`;
       updateResult(
         state.elements.resultText,
-        state.round.pendingWrong ? state.round.resultText : (isNewSmartCard ? "First Smart review for this card. It will only enter the FSRS schedule after you finish this review. Use tone numbers. Example: ni3hao3, lv4, xie4xie." : "Step 1 of 3. Use tone numbers. Example: ni3hao3, lv4, xie4xie."),
+        state.round.pendingWrong ? state.round.resultText : (isNewSmartCard ? "First Smart review for this card. It will only enter the FSRS schedule after you finish this review. Use the hardcoded numeric pinyin exactly. Example: ni3hao3, nv3, shen2me." : "Step 1 of 3. Use the hardcoded numeric pinyin exactly. Example: ni3hao3, nv3, shen2me."),
         state.round.pendingWrong ? state.round.resultClass : ""
       );
 
