@@ -3,7 +3,8 @@
 -- Current model:
 -- - app_sync_documents stores setup documents such as vocab, card flag bundle,
 --   named sets and set order.
--- - app_review_events stores append-only review/progress events.
+-- - app_review_events stores append-only review/progress events, including
+--   text Smart FSRS and image-card Smart FSRS events.
 -- - browser code uses only the public anon key; RLS isolates rows by user_id.
 
 create extension if not exists pgcrypto;
@@ -56,6 +57,9 @@ create index if not exists app_review_events_user_set_occurred_idx
 create index if not exists app_review_events_user_epoch_expr_idx
   on public.app_review_events (user_id, ((payload->>'epochId')), occurred_at asc, created_at asc)
   where kind <> 'review_reset';
+create index if not exists app_review_events_user_image_deck_idx
+  on public.app_review_events (user_id, set_id, occurred_at asc, created_at asc)
+  where kind = 'image_smart_fsrs';
 
 create or replace function public.handle_new_user_profile()
 returns trigger

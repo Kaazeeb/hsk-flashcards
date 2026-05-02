@@ -72,6 +72,21 @@
     };
   }
 
+
+  function applySpacingFactor(card, now = new Date(), spacingFactor = 1) {
+    const bucketed = bucketFsrsCardToDueDay(card, now);
+    const factor = Number(spacingFactor);
+    if (!Number.isFinite(factor) || factor <= 0 || factor >= 1 || bucketed.scheduled_days <= 1) {
+      return bucketed;
+    }
+    const reducedDays = Math.max(1, Math.floor(bucketed.scheduled_days * factor));
+    return {
+      ...bucketed,
+      due: getLocalNoon(addLocalDays(now, reducedDays)),
+      scheduled_days: reducedDays
+    };
+  }
+
   function createSmartEntry(now = new Date()) {
     return {
       shown: 0,
@@ -158,7 +173,7 @@
     const currentCard = isStarted(current) ? current.card : createEmptyFsrsCard(normalizedNow);
     const normalizedRating = SMART_RATINGS.includes(rating) ? rating : 3;
     const next = scheduler.next({ ...currentCard, fsrsCardId: id }, normalizedNow, normalizedRating);
-    const rounded = bucketFsrsCardToDueDay(next.card, normalizedNow);
+    const rounded = applySpacingFactor(next.card, normalizedNow, options.spacingFactor || 1);
     const correct = normalizedRating !== 1;
     const occurredAt = normalizedNow.toISOString();
     const reviewEvents = [...(current.reviewEvents || [])];
@@ -293,6 +308,7 @@
     getNewQueue,
     ratingLabel,
     bucketFsrsCardToDueDay,
+    applySpacingFactor,
     normalizeReviewEvents
   };
 })(window.HSKFlashcards);

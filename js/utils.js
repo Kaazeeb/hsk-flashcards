@@ -19,8 +19,7 @@
       pinyinNumeric,
       translation,
       learn: card.learn !== false,
-      practice: card.practice !== false,
-      test: card.test !== false
+      practice: card.practice !== false
     };
   }
 
@@ -112,7 +111,7 @@
       const pinyin = fallback ? row[1] : row[pinyinIndex];
       const translation = fallback ? row[2] : row[translationIndex];
       const pinyinNumeric = fallback ? row[3] : (pinyinNumericIndex >= 0 ? row[pinyinNumericIndex] : "");
-      return { hanzi, pinyin, pinyinNumeric, translation, learn: true, practice: true, test: true };
+      return { hanzi, pinyin, pinyinNumeric, translation, learn: true, practice: true };
     });
 
     return cards

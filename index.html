@@ -17,6 +17,7 @@
       <button id="pageLoginBtn" class="page-btn active" type="button" data-page="login">Login</button>
       <button id="pageSetupBtn" class="page-btn" type="button" data-page="setup">Setup</button>
       <button id="pageFlashcardsBtn" class="page-btn" type="button" data-page="flashcards">Flash cards</button>
+      <button id="pageImagesBtn" class="page-btn" type="button" data-page="images">Image cards</button>
     </nav>
 
 
@@ -66,9 +67,9 @@
 You only need this box if you want to import a different CSV.
 
 Accepted formats:
-hanzi,pinyin,translation
-你好,nǐ hǎo,hello
-谢谢,xièxie,thank you"
+hanzi,pinyin,translation,pinyinNumeric
+你好,nǐ hǎo,hello,ni3hao3
+谢谢,xièxie,thank you,xie4xie"
       ></textarea>
 
       <div class="button-row">
@@ -88,7 +89,6 @@ hanzi,pinyin,translation
       <div class="mode-switch">
         <button class="mode-btn active" data-mode="learn">1. Learn</button>
         <button class="mode-btn" data-mode="practice">2. Practice</button>
-        <button class="mode-btn" data-mode="test">3. Test</button>
       </div>
 
       <div id="quizTypeWrap" class="quiz-type-wrap hidden">
@@ -190,13 +190,7 @@ hanzi,pinyin,translation
         <div class="bar"><span id="barPractice"></span></div>
       </div>
 
-      <div class="bar-group">
-        <div class="bar-row">
-          <span>Test</span>
-          <span id="barTestLabel">0 / 0</span>
-        </div>
-        <div class="bar"><span id="barTest"></span></div>
-      </div>
+
     </section>
 
     <section class="panel sets-panel page-panel" data-page="setup">
@@ -272,7 +266,7 @@ hanzi,pinyin,translation
       <div class="panel-header setup-panel-header">
         <h2>Card setup</h2>
         <div class="setup-header-actions">
-          <span id="selectionSummary" class="badge">Learn 0 · Practice 0 · Test 0</span>
+          <span id="selectionSummary" class="badge">Learn 0 · Practice 0</span>
           <button id="setupToggleBtn" class="ghost setup-toggle" type="button" aria-expanded="false">Show setup</button>
         </div>
       </div>
@@ -303,16 +297,6 @@ hanzi,pinyin,translation
             </div>
           </div>
 
-          <div class="range-row">
-            <span class="range-label">Test</span>
-            <input id="rangeTest" type="text" placeholder="1-20, 28, 30-35" />
-            <div class="range-actions">
-              <button class="secondary" data-range-mode="test" data-range-action="add">Add range</button>
-              <button class="ghost" data-range-mode="test" data-range-action="remove">Remove range</button>
-              <button class="ghost" data-range-mode="test" data-range-action="all">All</button>
-              <button class="ghost" data-range-mode="test" data-range-action="none">None</button>
-            </div>
-          </div>
         </div>
 
         <label for="filterInput" class="label">Filter cards</label>
@@ -344,6 +328,61 @@ hanzi,pinyin,translation
 
       <div id="controls" class="controls"></div>
     </section>
+
+    <section class="panel image-panel page-panel" data-page="images">
+      <div class="panel-header">
+        <h2>Image flashcards</h2>
+        <span id="imageDeckMeta" class="badge subtle">0 image cards</span>
+      </div>
+      <p class="hint">This page is prepared for child-friendly image flashcards. Add small files under <code>images/flashcards/</code> and records in <code>js/image-cards-data.js</code>. Supabase stores only IDs and review events.</p>
+
+      <label for="imageDeckSelect" class="label">Image deck</label>
+      <div class="set-row">
+        <select id="imageDeckSelect"></select>
+      </div>
+
+      <div class="mode-switch image-mode-switch">
+        <button class="image-mode-btn active" type="button" data-image-mode="learn">Learn</button>
+        <button class="image-mode-btn" type="button" data-image-mode="smart">Practice · gentle FSRS</button>
+      </div>
+
+      <div id="imageScheduleCompact" class="review-plan-compact"></div>
+      <div class="button-row compact-row smart-action-row">
+        <button id="imageStartDueBtn" class="secondary" type="button">Review due images</button>
+        <button id="imageStartNewBtn" class="ghost" type="button">First view images</button>
+      </div>
+      <div class="button-row compact-row">
+        <button id="imageShuffleBtn" class="secondary" type="button">Shuffle images</button>
+        <button id="imageResetOrderBtn" class="ghost" type="button">Original order</button>
+      </div>
+      <p id="imageFlowStatus" class="status muted">Image cards are ready for setup.</p>
+    </section>
+
+    <section class="panel image-card-panel page-panel" data-page="images">
+      <div class="card-top">
+        <div class="top-badges">
+          <span id="imageModeLabel" class="badge">Images · Learn</span>
+          <span id="imageDeckLabel" class="badge subtle">All image cards</span>
+        </div>
+        <span id="imagePositionLabel" class="muted">0 / 0</span>
+      </div>
+
+      <article class="card image-card" id="imageFlashcard">
+        <div id="imagePrompt" class="prompt">No image cards configured yet</div>
+        <div id="imageFrame" class="image-frame empty-image-frame">
+          <img id="imageCardImg" alt="" hidden />
+        </div>
+        <div id="imageAnswerHanzi" class="hanzi image-answer-hanzi">—</div>
+        <div id="imageAnswerPinyin" class="pinyin muted">Add records to js/image-cards-data.js.</div>
+        <div id="imageAnswerTranslation" class="translation"></div>
+        <div id="imageStats" class="card-stats"></div>
+        <div id="imageResultText" class="result"></div>
+        <div id="imageAnswerArea" class="answer-area"></div>
+      </article>
+
+      <div id="imageControls" class="controls"></div>
+    </section>
+
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -353,6 +392,7 @@ hanzi,pinyin,translation
   <script src="js/data/hsk1-data-part-4.js"></script>
   <script src="js/data/hsk1-data-part-5.js"></script>
   <script src="hsk1-data.js"></script>
+  <script src="js/image-cards-data.js"></script>
   <script src="fsrs-lib.js"></script>
   <script src="js/constants.js"></script>
   <script src="js/utils.js"></script>
@@ -367,6 +407,7 @@ hanzi,pinyin,translation
   <script src="js/main-model.js"></script>
   <script src="js/main-setup-view.js"></script>
   <script src="js/main-study-flow.js"></script>
+  <script src="js/main-image-flow.js"></script>
   <script src="js/main-actions.js"></script>
   <script src="js/main.js"></script>
   <script src="app.js"></script>

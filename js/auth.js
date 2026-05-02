@@ -13,6 +13,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   const DOC_TABLE = "app_sync_documents";
   const EVENT_TABLE = "app_review_events";
   const SMART_EVENT_KIND = "smart_fsrs";
+  const IMAGE_SMART_EVENT_KIND = "image_smart_fsrs";
+  const IMAGE_LEARN_EVENT_KIND = "image_learn_seen";
   const REVIEW_RESET_EVENT_KIND = "review_reset";
   const MAX_WRITE_JSON_BYTES = 60000;
   const MAX_DOC_WRITE_ROWS = 100;
@@ -251,7 +253,13 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   function createEmptyProgress() {
     return ns.store && typeof ns.store.createEmptyProgress === "function"
       ? ns.store.createEmptyProgress()
-      : { seen: {}, practice: { translation: {}, pinyin: {} }, test: { translation: {}, pinyin: {} } };
+      : { seen: {}, practice: { translation: {}, pinyin: {} } };
+  }
+
+  function createEmptyImageProgress() {
+    return ns.store && typeof ns.store.createEmptyImageProgress === "function"
+      ? ns.store.createEmptyImageProgress()
+      : { seen: {} };
   }
 
   function normalizeScore(entry) {
@@ -267,10 +275,11 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   function getBucketByKind(progress, kind) {
-    if (kind === "practice_translation") return progress.practice.translation;
-    if (kind === "practice_pinyin") return progress.practice.pinyin;
-    if (kind === "test_translation") return progress.test.translation;
-    if (kind === "test_pinyin") return progress.test.pinyin;
+    const safe = progress || createEmptyProgress();
+    if (kind === "practice_translation") return safe.practice?.translation || {};
+    if (kind === "practice_pinyin") return safe.practice?.pinyin || {};
+    if (kind === "test_translation") return safe.test?.translation || {};
+    if (kind === "test_pinyin") return safe.test?.pinyin || {};
     return null;
   }
 
@@ -298,7 +307,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     Object.keys(next.seen || {}).forEach((cardId) => {
       if (next.seen[cardId] && !prev.seen?.[cardId]) events.push({ kind: "learn_seen", card_id: cardId, payload: {} });
     });
-    ["practice_translation", "practice_pinyin", "test_translation", "test_pinyin"].forEach((kind) => {
+    ["practice_translation", "practice_pinyin"].forEach((kind) => {
       const nextBucket = getBucketByKind(next, kind) || {};
       const prevBucket = getBucketByKind(prev, kind) || {};
       const ids = new Set([...Object.keys(nextBucket), ...Object.keys(prevBucket)]);
@@ -344,6 +353,51 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return events;
   }
 
+
+  function buildImageLearnEvents(currentProgress, previousProgress) {
+    const events = [];
+    const nextSeen = currentProgress?.seen || {};
+    const prevSeen = previousProgress?.seen || {};
+    Object.keys(nextSeen).forEach((cardId) => {
+      if (nextSeen[cardId] && !prevSeen?.[cardId]) {
+        events.push({
+          event_id: `image_learn_seen::${cardId}`,
+          kind: IMAGE_LEARN_EVENT_KIND,
+          card_id: String(cardId),
+          payload: {}
+        });
+      }
+    });
+    return events;
+  }
+
+  function buildImageSmartEvents(currentSmartByDeck, previousSmartByDeck) {
+    const events = [];
+    const next = deepClone(currentSmartByDeck || {}) || {};
+    const prev = deepClone(previousSmartByDeck || {}) || {};
+    Object.keys(next).forEach((deckId) => {
+      const nextBucket = next[deckId] || {};
+      const prevBucket = prev[deckId] || {};
+      Object.keys(nextBucket).forEach((cardId) => {
+        const currentEvents = ns.smart?.normalizeReviewEvents(nextBucket[cardId]?.reviewEvents) || [];
+        const previousEvents = ns.smart?.normalizeReviewEvents(prevBucket[cardId]?.reviewEvents) || [];
+        const previousIds = new Set(previousEvents.map((event) => String(event.id)));
+        currentEvents.forEach((event) => {
+          if (!event.id || previousIds.has(event.id)) return;
+          events.push({
+            event_id: event.id,
+            kind: IMAGE_SMART_EVENT_KIND,
+            set_id: String(deckId),
+            card_id: String(cardId),
+            occurred_at: toIso(event.occurredAt),
+            payload: { rating: event.rating }
+          });
+        });
+      });
+    });
+    return events;
+  }
+
   function getProgressScore(progress, kind, cardId) {
     if (kind === "learn_seen") return { shown: 1, correct: 0, wrong: 0 };
     const bucket = getBucketByKind(progress || createEmptyProgress(), kind) || {};
@@ -364,14 +418,19 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   function buildRemoteRawState(docRows, eventRows) {
     const docs = groupDocs(docRows);
     const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
+    const builtinImageCards = typeof ns.getBuiltInImageCards === "function" ? ns.getBuiltInImageCards() : [];
     const vocabDoc = docs[DOC_NS.VOCAB]?.[DOC_ID.CURRENT];
     const baseCards = Array.isArray(vocabDoc?.cards) && vocabDoc.cards.length ? vocabDoc.cards : builtinCards;
-    const baseDb = ns.store.normalizeDb({ vocab: baseCards }, builtinCards);
+    const baseDb = ns.store.normalizeDb({ vocab: baseCards, imageCards: builtinImageCards }, builtinCards, builtinImageCards);
     const flagsBundle = docs[DOC_NS.CARD_FLAGS_BUNDLE]?.[DOC_ID.CARD_FLAGS];
     const vocab = codec().applyFlagsBundleToVocab(baseDb.vocab || [], flagsBundle);
     const cardCodec = codec().createCardRefCodec(vocab);
     const progress = createEmptyProgress();
     const smartBySet = {};
+    const imageCards = baseDb.imageCards || [];
+    const imageIds = new Set(imageCards.map((card) => String(card.id || "")));
+    const imageProgress = createEmptyImageProgress();
+    const imageSmartByDeck = {};
     const meta = getLatestReviewResetMeta(eventRows);
     const activeEpochId = meta.reviewEpochId || "";
 
@@ -380,18 +439,30 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       .filter((event) => eventBelongsToEpoch(event, activeEpochId))
       .forEach((event) => {
         const localCardId = cardCodec.toId(event.card_id);
-        if (!localCardId) return;
         if (event.kind === SMART_EVENT_KIND) {
           const setId = String(event.set_id || "");
-          if (!setId || !ns.smart || typeof ns.smart.reviewCard !== "function") return;
+          if (!localCardId || !setId || !ns.smart || typeof ns.smart.reviewCard !== "function") return;
           if (!smartBySet[setId]) smartBySet[setId] = {};
           ns.smart.reviewCard(smartBySet[setId], localCardId, Number(event.payload?.rating) || 3, new Date(event.occurred_at || Date.now()), { trackEvent: false });
-        } else {
-          applyProgressEvent(progress, { ...event, card_id: localCardId });
+          return;
         }
+        if (event.kind === IMAGE_SMART_EVENT_KIND) {
+          const imageCardId = String(event.card_id || "");
+          const deckId = String(event.set_id || ns.constants.IMAGE_ALL_DECK_ID);
+          if (!imageIds.has(imageCardId) || !deckId || !ns.smart || typeof ns.smart.reviewCard !== "function") return;
+          if (!imageSmartByDeck[deckId]) imageSmartByDeck[deckId] = {};
+          ns.smart.reviewCard(imageSmartByDeck[deckId], imageCardId, Number(event.payload?.rating) || 3, new Date(event.occurred_at || Date.now()), { trackEvent: false, spacingFactor: ns.constants.IMAGE_SMART_SPACING_FACTOR });
+          return;
+        }
+        if (event.kind === IMAGE_LEARN_EVENT_KIND) {
+          const imageCardId = String(event.card_id || "");
+          if (imageIds.has(imageCardId)) imageProgress.seen[imageCardId] = true;
+          return;
+        }
+        if (localCardId) applyProgressEvent(progress, { ...event, card_id: localCardId });
       });
 
-    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet, meta };
+    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet, imageCards, imageProgress, imageSmartByDeck, meta };
   }
 
   async function loadRemoteDocs(client, userId) {
@@ -575,6 +646,49 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     await insertEvents(client, rows);
   }
 
+
+  async function syncImageLearn(client, userId, currentState, previousState) {
+    const epochId = getReviewEpochId(currentState);
+    const previousImageProgress = reviewEpochChanged(currentState, previousState) ? createEmptyImageProgress() : previousState?.imageProgress;
+    const events = buildImageLearnEvents(currentState?.imageProgress, previousImageProgress);
+    if (!events.length) return;
+    const imageIds = new Set((currentState?.imageCards || []).map((card) => String(card.id || "")));
+    const rows = events.map((event) => {
+      if (!imageIds.has(event.card_id)) return null;
+      return {
+        user_id: userId,
+        event_id: makeEpochScopedEventId(event.event_id, epochId),
+        kind: event.kind,
+        card_id: event.card_id,
+        set_id: null,
+        payload: payloadWithEpoch(event.payload || {}, epochId),
+        occurred_at: new Date().toISOString()
+      };
+    }).filter(Boolean);
+    await insertEvents(client, rows);
+  }
+
+  async function syncImageSmart(client, userId, currentState, previousState) {
+    const epochId = getReviewEpochId(currentState);
+    const previousImageSmartByDeck = reviewEpochChanged(currentState, previousState) ? {} : previousState?.imageSmartByDeck;
+    const events = buildImageSmartEvents(currentState?.imageSmartByDeck, previousImageSmartByDeck);
+    if (!events.length) return;
+    const imageIds = new Set((currentState?.imageCards || []).map((card) => String(card.id || "")));
+    const rows = events.map((event) => {
+      if (!imageIds.has(event.card_id)) return null;
+      return {
+        user_id: userId,
+        event_id: makeEpochScopedEventId(event.event_id, epochId),
+        kind: event.kind,
+        card_id: event.card_id,
+        set_id: event.set_id || null,
+        payload: payloadWithEpoch(event.payload || {}, epochId),
+        occurred_at: event.occurred_at || new Date().toISOString()
+      };
+    }).filter(Boolean);
+    await insertEvents(client, rows);
+  }
+
   async function initializeClient() {
     clearSubscription();
     state.providerReady = !!getCreateClient();
@@ -633,6 +747,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
           await syncReviewReset(state.client, userId, payload, previousPayload || {});
           await syncProgress(state.client, userId, payload, previousPayload || {});
           await syncSmart(state.client, userId, payload, previousPayload || {});
+          await syncImageLearn(state.client, userId, payload, previousPayload || {});
+          await syncImageSmart(state.client, userId, payload, previousPayload || {});
         } catch (error) {
           const text = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
           if (text.includes("relation") || text.includes("does not exist")) {

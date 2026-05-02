@@ -52,6 +52,9 @@
   const isSmartPracticeActive = proxy("isSmartPracticeActive");
   const getSmartBucketForSet = proxy("getSmartBucketForSet");
   const getSmartBucketForActiveSet = proxy("getSmartBucketForActiveSet");
+  const getSmartQueueKey = proxy("getSmartQueueKey");
+  const clearSmartSessionDeferrals = proxy("clearSmartSessionDeferrals");
+  const deferSmartCardToSessionTail = proxy("deferSmartCardToSessionTail");
   const decorateSmartItems = proxy("decorateSmartItems");
   const sortSmartReviewItems = proxy("sortSmartReviewItems");
   const getSmartDueItems = proxy("getSmartDueItems");
@@ -334,8 +337,13 @@
     const card = getCurrentCard();
     if (!card) return;
     state.round.smartFeedbackCommitted = true;
-    const bucket = getSmartBucketForSet(state.round.smartSetId || getPrimaryReviewSet().id);
-    smart.reviewCard(bucket, card, state.round.smartSelectedRating, new Date());
+    const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
+    const selectedRating = state.round.smartSelectedRating;
+    const bucket = getSmartBucketForSet(smartSetId);
+    smart.reviewCard(bucket, card, selectedRating, new Date());
+    if (selectedRating === 1) {
+      deferSmartCardToSessionTail(smartSetId, card);
+    }
     persist();
     nextSmartCard();
   }
@@ -408,6 +416,7 @@
     getUi().mode = "practice";
     getUi().quizType.practice = "smart";
     resetRoundState();
+    clearSmartSessionDeferrals();
     state.round.smartForceNew = false;
     state.currentPage = "flashcards";
     persist();
@@ -419,6 +428,7 @@
     getUi().mode = "practice";
     getUi().quizType.practice = "smart";
     resetRoundState();
+    clearSmartSessionDeferrals();
     state.round.smartForceNew = true;
     state.currentPage = "flashcards";
     persist();
@@ -475,7 +485,7 @@
   }
 
   function renderTranslationQuiz(card, queueIndex, total) {
-    state.elements.cardPrompt.textContent = getUi().mode === "practice" ? "Choose the English translation" : "Test: choose the English translation";
+    state.elements.cardPrompt.textContent = "Choose the English translation";
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = state.round.answered ? card.pinyin : "";
     state.elements.cardTranslation.textContent = state.round.answered ? card.translation : "";
@@ -499,9 +509,8 @@
   }
 
   function renderPinyinQuiz(card, queueIndex, total) {
-    const isPractice = getUi().mode === "practice";
     const { reviewText } = getReviewPinyinText(card);
-    state.elements.cardPrompt.textContent = isPractice ? "Type the exact numeric pinyin" : "Test: type the exact numeric pinyin";
+    state.elements.cardPrompt.textContent = "Type the exact numeric pinyin";
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = state.round.answered ? reviewText : "";
     state.elements.cardTranslation.textContent = state.round.answered ? card.translation : "";

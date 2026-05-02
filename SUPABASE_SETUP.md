@@ -16,3 +16,20 @@ The current schema uses:
 - `app_review_events`
 
 `app_review_events` is append-only in normal app operation.
+
+## v35 image flashcards
+
+v35 does not require a new table for image cards. Built-in image files are served from GitHub Pages under `images/flashcards/`, and Supabase stores only small append-only events in `app_review_events`:
+
+- `image_learn_seen`
+- `image_smart_fsrs`
+
+Run the current `supabase_starter.sql` to add the optional image review index:
+
+```sql
+create index if not exists app_review_events_user_image_deck_idx
+  on public.app_review_events (user_id, set_id, occurred_at asc, created_at asc)
+  where kind = 'image_smart_fsrs';
+```
+
+This index does not delete, rewrite, or reset any existing progress.

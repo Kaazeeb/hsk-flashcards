@@ -179,7 +179,6 @@
     const smartStats = getReviewSmartStats();
     const learnTotal = getModeIds("learn").length;
     const practiceTotal = getModeIds("practice").length;
-    const testTotal = getModeIds("test").length;
 
     state.elements.statTotal.textContent = String(totalCards);
     state.elements.statSeen.textContent = String(getSeenCount());
@@ -192,7 +191,6 @@
 
     setBar(state.elements.barLearn, state.elements.barLearnLabel, getSeenCount(), learnTotal);
     setBar(state.elements.barPractice, state.elements.barPracticeLabel, getModeTouchedAcrossTypes("practice"), practiceTotal);
-    setBar(state.elements.barTest, state.elements.barTestLabel, getModeTouchedAcrossTypes("test"), testTotal);
   }
 
   function getEditModeIds(mode) {
@@ -200,7 +198,7 @@
   }
 
   function renderSelectionSummary() {
-    state.elements.selectionSummary.textContent = `Learn ${getEditModeIds("learn").length} · Practice ${getEditModeIds("practice").length} · Test ${getEditModeIds("test").length}`;
+    state.elements.selectionSummary.textContent = `Learn ${getEditModeIds("learn").length} · Practice ${getEditModeIds("practice").length}`;
   }
 
   function renderOrderStatus() {

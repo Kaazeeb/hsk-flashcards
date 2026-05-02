@@ -11,8 +11,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   function normalizeCardFlags(cardOrFlags) {
     return {
       learn: cardOrFlags?.learn !== false,
-      practice: cardOrFlags?.practice !== false,
-      test: cardOrFlags?.test !== false
+      practice: cardOrFlags?.practice !== false
     };
   }
 
@@ -94,7 +93,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const enabled = [];
     const disabled = [];
     allRefs.forEach((ref) => {
-      const flags = flagsByRef[ref] || { learn: true, practice: true, test: true };
+      const flags = flagsByRef[ref] || { learn: true, practice: true };
       if (flags[mode] !== false) enabled.push(ref);
       else disabled.push(ref);
     });
@@ -118,8 +117,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       idEncoding: "idx-v1",
       modes: {
         learn: makeModeMembershipSpec(allRefs, flagsByRef, "learn"),
-        practice: makeModeMembershipSpec(allRefs, flagsByRef, "practice"),
-        test: makeModeMembershipSpec(allRefs, flagsByRef, "test")
+        practice: makeModeMembershipSpec(allRefs, flagsByRef, "practice")
       }
     };
   }
@@ -139,13 +137,12 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const allRefs = compactCardIdList(cards.map((card) => card?.id), cards, { sort: true });
     const learn = expandModeMembershipSpec(allRefs, payload?.modes?.learn);
     const practice = expandModeMembershipSpec(allRefs, payload?.modes?.practice);
-    const test = expandModeMembershipSpec(allRefs, payload?.modes?.test);
     const map = {};
     cards.forEach((card) => {
       const localId = String(card?.id || "");
       const ref = codec.toRef(localId);
       if (!localId || !ref) return;
-      map[localId] = { learn: learn.has(ref), practice: practice.has(ref), test: test.has(ref) };
+      map[localId] = { learn: learn.has(ref), practice: practice.has(ref) };
     });
     return map;
   }
@@ -153,8 +150,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   function applyFlagsMapToVocab(vocab, flagsMap) {
     return (Array.isArray(vocab) ? vocab : [])
       .map((card) => {
-        const flags = flagsMap[String(card?.id || "")] || { learn: true, practice: true, test: true };
-        return { ...card, learn: flags.learn !== false, practice: flags.practice !== false, test: flags.test !== false };
+        const flags = flagsMap[String(card?.id || "")] || { learn: true, practice: true };
+        return { ...card, learn: flags.learn !== false, practice: flags.practice !== false };
       })
       .sort((a, b) => (a.index || 0) - (b.index || 0));
   }

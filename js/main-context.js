@@ -31,6 +31,9 @@
   const isSmartPracticeActive = proxy("isSmartPracticeActive");
   const getSmartBucketForSet = proxy("getSmartBucketForSet");
   const getSmartBucketForActiveSet = proxy("getSmartBucketForActiveSet");
+  const getSmartQueueKey = proxy("getSmartQueueKey");
+  const clearSmartSessionDeferrals = proxy("clearSmartSessionDeferrals");
+  const deferSmartCardToSessionTail = proxy("deferSmartCardToSessionTail");
   const decorateSmartItems = proxy("decorateSmartItems");
   const sortSmartReviewItems = proxy("sortSmartReviewItems");
   const getSmartDueItems = proxy("getSmartDueItems");
@@ -143,7 +146,7 @@
   const bindEvents = proxy("bindEvents");
   const bootstrap = proxy("bootstrap");
 
-  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, SMART_RATINGS } = ns.constants;
+  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, IMAGE_ALL_DECK_ID, IMAGE_SMART_SPACING_FACTOR, IMAGE_SMART_RATING_LABELS, SMART_RATINGS } = ns.constants;
   const { normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate, hashStringToUnitInterval, getLocalDayStamp } = ns.utils;
   const { checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, getPinyinDisplay } = ns.pinyin;
   const { createPersistenceAdapter } = ns.adapters;
@@ -165,7 +168,11 @@
     store: null,
     smartLastCardId: "",
     smartLastSetId: "",
+    smartDeferredQueueKeys: [],
     smartSessionSeed: createSmartSessionSeed(),
+    imageSmartDeferredQueueKeys: [],
+    imageSmartSessionSeed: createSmartSessionSeed(),
+    imageRound: null,
     authScope: "anon",
     authMessage: "",
     authMessageClass: "muted",
@@ -203,6 +210,18 @@
     };
   }
 
+  function createEmptyImageRound() {
+    return {
+      stage: "question",
+      forceNew: false,
+      cardId: "",
+      deckId: "",
+      selectedRating: 3,
+      feedbackCommitted: false,
+      introCommitted: false
+    };
+  }
+
   function getElements() {
     return {
       vocabInput: document.getElementById("vocabInput"),
@@ -224,6 +243,28 @@
       pageButtons: [...document.querySelectorAll(".page-btn[data-page]")],
       pagePanels: [...document.querySelectorAll(".page-panel[data-page]")],
       modeButtons: [...document.querySelectorAll(".mode-btn")],
+      imageDeckSelect: document.getElementById("imageDeckSelect"),
+      imageModeButtons: [...document.querySelectorAll(".image-mode-btn")],
+      imageShuffleBtn: document.getElementById("imageShuffleBtn"),
+      imageResetOrderBtn: document.getElementById("imageResetOrderBtn"),
+      imageStartDueBtn: document.getElementById("imageStartDueBtn"),
+      imageStartNewBtn: document.getElementById("imageStartNewBtn"),
+      imageDeckMeta: document.getElementById("imageDeckMeta"),
+      imageScheduleCompact: document.getElementById("imageScheduleCompact"),
+      imageFlowStatus: document.getElementById("imageFlowStatus"),
+      imageModeLabel: document.getElementById("imageModeLabel"),
+      imageDeckLabel: document.getElementById("imageDeckLabel"),
+      imagePositionLabel: document.getElementById("imagePositionLabel"),
+      imagePrompt: document.getElementById("imagePrompt"),
+      imageFrame: document.getElementById("imageFrame"),
+      imageCardImg: document.getElementById("imageCardImg"),
+      imageAnswerHanzi: document.getElementById("imageAnswerHanzi"),
+      imageAnswerPinyin: document.getElementById("imageAnswerPinyin"),
+      imageAnswerTranslation: document.getElementById("imageAnswerTranslation"),
+      imageStats: document.getElementById("imageStats"),
+      imageResultText: document.getElementById("imageResultText"),
+      imageAnswerArea: document.getElementById("imageAnswerArea"),
+      imageControls: document.getElementById("imageControls"),
       quizTypeWrap: document.getElementById("quizTypeWrap"),
       quizTypeButtons: [...document.querySelectorAll(".quiz-type-btn")],
       shuffleBtn: document.getElementById("shuffleBtn"),
@@ -239,10 +280,8 @@
       statPracticeSmartCW: document.getElementById("statPracticeSmartCW"),
       barLearn: document.getElementById("barLearn"),
       barPractice: document.getElementById("barPractice"),
-      barTest: document.getElementById("barTest"),
       barLearnLabel: document.getElementById("barLearnLabel"),
       barPracticeLabel: document.getElementById("barPracticeLabel"),
-      barTestLabel: document.getElementById("barTestLabel"),
       activeSetSelect: document.getElementById("activeSetSelect"),
       reviewSetSelect: document.getElementById("reviewSetSelect"),
       reviewScopeMeta: document.getElementById("reviewScopeMeta"),
@@ -273,7 +312,6 @@
       setupBody: document.getElementById("setupBody"),
       rangeLearn: document.getElementById("rangeLearn"),
       rangePractice: document.getElementById("rangePractice"),
-      rangeTest: document.getElementById("rangeTest"),
       rangeButtons: [...document.querySelectorAll("[data-range-action]")],
       filterInput: document.getElementById("filterInput"),
       manageList: document.getElementById("manageList"),
@@ -435,15 +473,15 @@
   function ensureCurrentPageAllowed() {
     const signedIn = !!getAuthStatus().signedIn;
     if (!signedIn && state.currentPage !== "login") state.currentPage = "login";
-    if (!["login", "setup", "flashcards"].includes(state.currentPage)) state.currentPage = signedIn ? "flashcards" : "login";
+    if (!["login", "setup", "flashcards", "images"].includes(state.currentPage)) state.currentPage = signedIn ? "flashcards" : "login";
   }
 
   function setPage(page) {
     const signedIn = !!getAuthStatus().signedIn;
-    if (!["login", "setup", "flashcards"].includes(page)) return;
+    if (!["login", "setup", "flashcards", "images"].includes(page)) return;
     if (!signedIn && page !== "login") return;
     state.currentPage = page;
-    renderPageShell();
+    render();
     if (page === "setup") renderManageListIfNeeded(true);
   }
 
@@ -526,6 +564,9 @@
     TEST_QUIZ_TYPES,
     ALL_SET_ID,
     REVIEW_ALL_SETS_ID,
+    IMAGE_ALL_DECK_ID,
+    IMAGE_SMART_SPACING_FACTOR,
+    IMAGE_SMART_RATING_LABELS,
     SMART_RATINGS,
     normalizeCard,
     cardId,
@@ -554,6 +595,7 @@
     state,
     createSmartSessionSeed,
     createEmptyRound,
+    createEmptyImageRound,
     getElements,
     getDb,
     persist,

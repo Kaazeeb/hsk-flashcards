@@ -1030,3 +1030,67 @@ select {
 .set-range-actions button {
   flex: 1 1 120px;
 }
+
+/* v35 image flashcards extension. */
+.image-panel,
+.image-card-panel {
+  border-color: #d7e8ff;
+}
+
+.image-mode-switch {
+  margin-top: 12px;
+}
+
+.image-mode-btn {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--text);
+}
+
+.image-mode-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.image-card {
+  gap: 10px;
+}
+
+.image-frame {
+  width: min(100%, 420px);
+  min-height: 240px;
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #ffffff;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.image-frame.empty-image-frame::before {
+  content: "image";
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.image-frame img {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  max-height: 360px;
+  object-fit: contain;
+}
+
+.image-answer-hanzi {
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .image-frame {
+    min-height: 200px;
+  }
+}

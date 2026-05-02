@@ -52,6 +52,9 @@
   const isSmartPracticeActive = proxy("isSmartPracticeActive");
   const getSmartBucketForSet = proxy("getSmartBucketForSet");
   const getSmartBucketForActiveSet = proxy("getSmartBucketForActiveSet");
+  const getSmartQueueKey = proxy("getSmartQueueKey");
+  const clearSmartSessionDeferrals = proxy("clearSmartSessionDeferrals");
+  const deferSmartCardToSessionTail = proxy("deferSmartCardToSessionTail");
   const decorateSmartItems = proxy("decorateSmartItems");
   const sortSmartReviewItems = proxy("sortSmartReviewItems");
   const getSmartDueItems = proxy("getSmartDueItems");
@@ -148,6 +151,11 @@
     renderOrderStatus();
     renderSetupPanel();
     renderManageListIfNeeded();
+
+    if (state.currentPage === "images" && typeof runtime.renderImagePage === "function") {
+      runtime.renderImagePage();
+      return;
+    }
 
     const card = getCurrentCard();
     if (!card) {
@@ -451,6 +459,7 @@
   async function handleSetChange(event) {
     await state.store.setActiveSet(event.target.value);
     resetRoundState();
+    clearSmartSessionDeferrals();
     markManageListDirty();
     render();
   }
@@ -463,6 +472,7 @@
       await persist();
     }
     resetRoundState();
+    clearSmartSessionDeferrals();
     render();
   }
 
@@ -644,6 +654,7 @@
     if (state.elements.reviewSetSelect) state.elements.reviewSetSelect.addEventListener("change", handleReviewSetChange);
     if (state.elements.startDueReviewBtn) state.elements.startDueReviewBtn.addEventListener("click", startDueReviewCards);
     if (state.elements.startNewCardsBtn) state.elements.startNewCardsBtn.addEventListener("click", startNewCardIntroduction);
+    if (typeof runtime.bindImageEvents === "function") runtime.bindImageEvents();
     window.addEventListener("keydown", handleTranslationKeyboard);
     window.addEventListener("keydown", handlePinyinKeyboard);
     window.addEventListener("focus", () => { refreshRemoteState(false); });
@@ -660,8 +671,9 @@
       await ns.auth.init();
     }
     const builtinCards = ns.getBuiltInCards();
+    const builtinImageCards = typeof ns.getBuiltInImageCards === "function" ? ns.getBuiltInImageCards() : [];
     const adapter = createPersistenceAdapter();
-    state.store = createAppStore(adapter, builtinCards);
+    state.store = createAppStore(adapter, builtinCards, builtinImageCards);
     state.authScope = ns.auth && typeof ns.auth.getCacheScope === "function" ? ns.auth.getCacheScope() : "anon";
     await state.store.load();
     state.filterText = state.elements.filterInput.value || "";

@@ -5,7 +5,7 @@
  * the persistence adapter can decompose it into granular remote documents/events.
  */
 (function (ns) {
-  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, SCHEMA_VERSION } = ns.constants;
+  const { MODES, PRACTICE_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, IMAGE_ALL_DECK_ID, SCHEMA_VERSION } = ns.constants;
   const { normalizeCard, cardId, createAllCardsSet, createSetRecord } = ns.utils;
 
   function createEmptyScoreBucket() {
@@ -32,12 +32,12 @@
       practice: {
         translation: createEmptyScoreBucket(),
         pinyin: createEmptyScoreBucket()
-      },
-      test: {
-        translation: createEmptyScoreBucket(),
-        pinyin: createEmptyScoreBucket()
       }
     };
+  }
+
+  function createEmptyImageProgress() {
+    return { seen: {} };
   }
 
   function createReviewEpochId(reason = "manual") {
@@ -72,10 +72,17 @@
   function resetReviewData(db, reason = "manual") {
     db.progress = createEmptyProgress();
     db.smartBySet = {};
+    db.imageProgress = createEmptyImageProgress();
+    db.imageSmartByDeck = {};
     if (db.ui) {
-      db.ui.indexes = { learn: 0, practice: 0, test: 0 };
-      db.ui.order = { learn: [], practice: [], test: [] };
-      db.ui.orderType = { learn: "default", practice: "default", test: "default" };
+      db.ui.indexes = { learn: 0, practice: 0 };
+      db.ui.order = { learn: [], practice: [] };
+      db.ui.orderType = { learn: "default", practice: "default" };
+    }
+    if (db.imageUi) {
+      db.imageUi.index = 0;
+      db.imageUi.order = [];
+      db.imageUi.orderType = "default";
     }
     bumpReviewEpoch(db, reason);
   }
@@ -84,24 +91,20 @@
     return {
       mode: "learn",
       quizType: {
-        practice: "translation",
-        test: "translation"
+        practice: "translation"
       },
       setupCollapsed: true,
       indexes: {
         learn: 0,
-        practice: 0,
-        test: 0
+        practice: 0
       },
       order: {
         learn: [],
-        practice: [],
-        test: []
+        practice: []
       },
       orderType: {
         learn: "default",
-        practice: "default",
-        test: "default"
+        practice: "default"
       },
       activeSetId: ALL_SET_ID,
       reviewSetId: ALL_SET_ID
@@ -113,24 +116,20 @@
     return {
       mode: MODES.includes(ui?.mode) ? ui.mode : base.mode,
       quizType: {
-        practice: PRACTICE_QUIZ_TYPES.includes(ui?.quizType?.practice) ? ui.quizType.practice : base.quizType.practice,
-        test: TEST_QUIZ_TYPES.includes(ui?.quizType?.test) ? ui.quizType.test : base.quizType.test
+        practice: PRACTICE_QUIZ_TYPES.includes(ui?.quizType?.practice) ? ui.quizType.practice : base.quizType.practice
       },
       setupCollapsed: ui?.setupCollapsed === undefined ? base.setupCollapsed : !!ui.setupCollapsed,
       indexes: {
         learn: Number.isInteger(ui?.indexes?.learn) ? ui.indexes.learn : 0,
-        practice: Number.isInteger(ui?.indexes?.practice) ? ui.indexes.practice : 0,
-        test: Number.isInteger(ui?.indexes?.test) ? ui.indexes.test : 0
+        practice: Number.isInteger(ui?.indexes?.practice) ? ui.indexes.practice : 0
       },
       order: {
         learn: Array.isArray(ui?.order?.learn) ? ui.order.learn.map(String) : [],
-        practice: Array.isArray(ui?.order?.practice) ? ui.order.practice.map(String) : [],
-        test: Array.isArray(ui?.order?.test) ? ui.order.test.map(String) : []
+        practice: Array.isArray(ui?.order?.practice) ? ui.order.practice.map(String) : []
       },
       orderType: {
         learn: ui?.orderType?.learn === "shuffled" ? "shuffled" : "default",
-        practice: ui?.orderType?.practice === "shuffled" ? "shuffled" : "default",
-        test: ui?.orderType?.test === "shuffled" ? "shuffled" : "default"
+        practice: ui?.orderType?.practice === "shuffled" ? "shuffled" : "default"
       },
       activeSetId: typeof ui?.activeSetId === "string" ? ui.activeSetId : ALL_SET_ID,
       reviewSetId: typeof ui?.reviewSetId === "string" ? ui.reviewSetId : base.reviewSetId
@@ -169,10 +168,6 @@
       practice: {
         translation: normalizeScoreBucket(progress?.practice?.translation),
         pinyin: normalizeScoreBucket(progress?.practice?.pinyin)
-      },
-      test: {
-        translation: normalizeScoreBucket(progress?.test?.translation),
-        pinyin: normalizeScoreBucket(progress?.test?.pinyin)
       }
     };
   }
@@ -181,6 +176,51 @@
     return (Array.isArray(rawCards) ? rawCards : [])
       .map((card, index) => normalizeCard(card, index + 1))
       .filter((card) => card.hanzi && card.pinyin && card.translation);
+  }
+
+
+  function normalizeImageCards(rawCards) {
+    return (Array.isArray(rawCards) ? rawCards : [])
+      .map((card, index) => ({
+        id: String(card?.id || `image_${index + 1}`).trim(),
+        index: index + 1,
+        deckId: String(card?.deckId || card?.deck || ns.constants.IMAGE_DEFAULT_DECK_ID).trim() || ns.constants.IMAGE_DEFAULT_DECK_ID,
+        deckName: String(card?.deckName || card?.category || ns.constants.IMAGE_DEFAULT_DECK_NAME).trim() || ns.constants.IMAGE_DEFAULT_DECK_NAME,
+        imagePath: String(card?.imagePath || card?.image || card?.src || "").trim(),
+        hanzi: String(card?.hanzi || "").trim(),
+        pinyin: String(card?.pinyin || "").trim(),
+        pinyinNumeric: String(card?.pinyinNumeric || card?.pinyin_numeric || card?.numericPinyin || "").trim(),
+        translation: String(card?.translation || card?.meaning || card?.answer || "").trim(),
+        prompt: String(card?.prompt || card?.translation || card?.hanzi || "").trim(),
+        alt: String(card?.alt || card?.translation || card?.hanzi || "Image flashcard").trim(),
+        tags: Array.isArray(card?.tags) ? card.tags.map(String) : []
+      }))
+      .filter((card) => card.id && card.deckId && card.imagePath && (card.hanzi || card.pinyin || card.translation));
+  }
+
+  function createDefaultImageUiState() {
+    return {
+      deckId: IMAGE_ALL_DECK_ID,
+      mode: "learn",
+      index: 0,
+      order: [],
+      orderType: "default"
+    };
+  }
+
+  function normalizeImageUiState(ui) {
+    const base = createDefaultImageUiState();
+    return {
+      deckId: typeof ui?.deckId === "string" ? ui.deckId : base.deckId,
+      mode: ["learn", "smart"].includes(ui?.mode) ? ui.mode : base.mode,
+      index: Number.isInteger(ui?.index) ? ui.index : 0,
+      order: Array.isArray(ui?.order) ? ui.order.map(String) : [],
+      orderType: ui?.orderType === "shuffled" ? "shuffled" : "default"
+    };
+  }
+
+  function normalizeImageProgress(progress) {
+    return { seen: progress?.seen && typeof progress.seen === "object" ? progress.seen : {} };
   }
 
   function buildAllSet(vocab) {
@@ -230,12 +270,8 @@
     db.progress.seen = pruneObjectToIds(db.progress.seen, validCardIds);
     db.progress.practice.translation = pruneObjectToIds(db.progress.practice.translation, validCardIds);
     db.progress.practice.pinyin = pruneObjectToIds(db.progress.practice.pinyin, validCardIds);
-    db.progress.test.translation = pruneObjectToIds(db.progress.test.translation, validCardIds);
-    db.progress.test.pinyin = pruneObjectToIds(db.progress.test.pinyin, validCardIds);
-
     db.ui.order.learn = db.ui.order.learn.filter((id) => validCardIds.has(id));
     db.ui.order.practice = db.ui.order.practice.filter((id) => validCardIds.has(id));
-    db.ui.order.test = db.ui.order.test.filter((id) => validCardIds.has(id));
 
     Object.keys(db.smartBySet).forEach((setId) => {
       if (!db.sets.byId[setId]) {
@@ -244,16 +280,27 @@
       }
       db.smartBySet[setId] = pruneObjectToIds(db.smartBySet[setId], validCardIds);
     });
+
+    const validImageIds = new Set((db.imageCards || []).map((card) => String(card.id || "")));
+    db.imageProgress.seen = pruneObjectToIds(db.imageProgress.seen, validImageIds);
+    db.imageUi.order = db.imageUi.order.filter((id) => validImageIds.has(id));
+    Object.keys(db.imageSmartByDeck || {}).forEach((deckId) => {
+      db.imageSmartByDeck[deckId] = pruneObjectToIds(db.imageSmartByDeck[deckId], validImageIds);
+    });
   }
 
   // All inbound data, whether imported JSON, built-in memory, or Supabase rebuild,
   // passes through this gate. It prunes invalid card ids and restores locked sets.
-  function normalizeDb(raw, builtinCards) {
+  function normalizeDb(raw, builtinCards, builtinImageCards = []) {
     const vocab = normalizeVocab(raw?.vocab?.length ? raw.vocab : builtinCards);
+    const imageCards = normalizeImageCards(raw?.imageCards?.length ? raw.imageCards : builtinImageCards);
     const sets = normalizeSets(raw?.sets, vocab);
     const ui = normalizeUiState(raw?.ui);
     const progress = normalizeProgress(raw?.progress);
     const smartBySet = normalizeSmartBySet(raw?.smartBySet);
+    const imageProgress = normalizeImageProgress(raw?.imageProgress);
+    const imageSmartByDeck = normalizeSmartBySet(raw?.imageSmartByDeck);
+    const imageUi = normalizeImageUiState(raw?.imageUi);
     const meta = normalizeMeta(raw?.meta);
 
     const db = {
@@ -263,11 +310,17 @@
       ui,
       progress,
       smartBySet,
+      imageCards,
+      imageProgress,
+      imageSmartByDeck,
+      imageUi,
       meta
     };
 
     if (!db.sets.byId[db.ui.activeSetId]) db.ui.activeSetId = ALL_SET_ID;
     if (db.ui.reviewSetId !== REVIEW_ALL_SETS_ID && !db.sets.byId[db.ui.reviewSetId]) db.ui.reviewSetId = ALL_SET_ID;
+    const imageDeckIds = new Set([IMAGE_ALL_DECK_ID, ...imageCards.map((card) => card.deckId)]);
+    if (!imageDeckIds.has(db.imageUi.deckId)) db.imageUi.deckId = IMAGE_ALL_DECK_ID;
     pruneDbToValidIds(db);
     return db;
   }
@@ -276,14 +329,14 @@
     return JSON.parse(JSON.stringify(db));
   }
 
-  function createAppStore(adapter, builtinCards) {
+  function createAppStore(adapter, builtinCards, builtinImageCards = []) {
     const store = {
       adapter,
       state: null,
 
       async load() {
         const raw = await adapter.loadAppData();
-        this.state = normalizeDb(raw, builtinCards);
+        this.state = normalizeDb(raw, builtinCards, builtinImageCards);
         return this.state;
       },
 
@@ -292,11 +345,15 @@
       // without resetting the user's current page/mode.
       async refreshRemote({ preserveUi = true } = {}) {
         const currentUi = preserveUi ? cloneDb({ ui: this.state?.ui || createDefaultUiState() }).ui : null;
+        const currentImageUi = preserveUi ? cloneDb({ imageUi: this.state?.imageUi || createDefaultImageUiState() }).imageUi : null;
         const raw = await adapter.loadAppData();
-        const next = normalizeDb(raw, builtinCards);
+        const next = normalizeDb(raw, builtinCards, builtinImageCards);
         if (currentUi) next.ui = normalizeUiState(currentUi);
+        if (currentImageUi) next.imageUi = normalizeImageUiState(currentImageUi);
         if (!next.sets.byId[next.ui.activeSetId]) next.ui.activeSetId = ALL_SET_ID;
         if (next.ui.reviewSetId !== REVIEW_ALL_SETS_ID && !next.sets.byId[next.ui.reviewSetId]) next.ui.reviewSetId = ALL_SET_ID;
+        const imageDeckIds = new Set([IMAGE_ALL_DECK_ID, ...(next.imageCards || []).map((card) => card.deckId)]);
+        if (!imageDeckIds.has(next.imageUi.deckId)) next.imageUi.deckId = IMAGE_ALL_DECK_ID;
         this.state = next;
         return this.state;
       },
@@ -314,7 +371,7 @@
       async replaceVocabulary(cards, { preserveData = false } = {}) {
         const nextVocab = normalizeVocab(cards);
         if (!preserveData) {
-          this.state = normalizeDb({ vocab: nextVocab }, nextVocab);
+          this.state = normalizeDb({ vocab: nextVocab, imageCards: this.state?.imageCards || builtinImageCards }, nextVocab, builtinImageCards);
           resetReviewData(this.state, "replace_vocabulary");
         } else {
           this.state.vocab = nextVocab;
@@ -421,6 +478,12 @@
         return this.state.smartBySet[setId];
       },
 
+      ensureImageSmartDeck(deckId) {
+        const id = String(deckId || IMAGE_ALL_DECK_ID);
+        if (!this.state.imageSmartByDeck[id]) this.state.imageSmartByDeck[id] = {};
+        return this.state.imageSmartByDeck[id];
+      },
+
       exportJson() {
         return JSON.stringify({
           app: "hsk_flashcards",
@@ -432,7 +495,7 @@
 
       async importJson(text) {
         const parsed = JSON.parse(String(text || ""));
-        this.state = normalizeDb(parsed?.data || parsed, builtinCards);
+        this.state = normalizeDb(parsed?.data || parsed, builtinCards, builtinImageCards);
         bumpReviewEpoch(this.state, "import_json");
         await this.persist();
       },
@@ -459,6 +522,7 @@
   ns.store = {
     createAppStore,
     createEmptyProgress,
+    createEmptyImageProgress,
     normalizeDb,
     normalizeMeta,
     bumpReviewEpoch,

@@ -225,7 +225,6 @@
 
   function getAllowedQuizTypes(mode = getUi().mode) {
     if (mode === "practice") return PRACTICE_QUIZ_TYPES;
-    if (mode === "test") return TEST_QUIZ_TYPES;
     return [];
   }
 
@@ -246,6 +245,26 @@
     return getSmartBucketForSet(getActiveSet().id);
   }
 
+  function getSmartQueueKey(setId, idOrCard) {
+    return `${setId || ""}:${cardId(idOrCard)}`;
+  }
+
+  function clearSmartSessionDeferrals() {
+    state.smartDeferredQueueKeys = [];
+  }
+
+  function deferSmartCardToSessionTail(setId, idOrCard) {
+    const key = getSmartQueueKey(setId, idOrCard);
+    if (!key || key === ":") return;
+    state.smartDeferredQueueKeys = (state.smartDeferredQueueKeys || []).filter((item) => item !== key);
+    state.smartDeferredQueueKeys.push(key);
+  }
+
+  function pruneSmartSessionDeferrals(items) {
+    const liveKeys = new Set((items || []).map((item) => getSmartQueueKey(item.setId, item.id || item.card)));
+    state.smartDeferredQueueKeys = (state.smartDeferredQueueKeys || []).filter((key) => liveKeys.has(key));
+  }
+
   function decorateSmartItems(setId, items, now = new Date()) {
     return (items || []).map((item) => ({
       ...item,
@@ -255,7 +274,18 @@
   }
 
   function sortSmartReviewItems(items) {
+    pruneSmartSessionDeferrals(items);
+    const deferredOrder = new Map((state.smartDeferredQueueKeys || []).map((key, index) => [key, index]));
     return [...items].sort((a, b) => {
+      const aKey = getSmartQueueKey(a.setId, a.id || a.card);
+      const bKey = getSmartQueueKey(b.setId, b.id || b.card);
+      const aDeferred = deferredOrder.has(aKey);
+      const bDeferred = deferredOrder.has(bKey);
+      if (aDeferred !== bDeferred) return aDeferred ? 1 : -1;
+      if (aDeferred && bDeferred) {
+        const deferredDelta = deferredOrder.get(aKey) - deferredOrder.get(bKey);
+        if (deferredDelta !== 0) return deferredDelta;
+      }
       const aDue = smart.getDueDay(a.entry, new Date());
       const bDue = smart.getDueDay(b.entry, new Date());
       const aStamp = aDue ? aDue.getTime() : 0;
@@ -602,6 +632,9 @@
     isSmartPracticeActive,
     getSmartBucketForSet,
     getSmartBucketForActiveSet,
+    getSmartQueueKey,
+    clearSmartSessionDeferrals,
+    deferSmartCardToSessionTail,
     decorateSmartItems,
     sortSmartReviewItems,
     getSmartDueItems,
