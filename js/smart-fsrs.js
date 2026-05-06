@@ -13,7 +13,10 @@
   const { SMART_RATINGS, SMART_RATING_LABELS } = ns.constants;
   function createScheduler() {
     if (!FSRS_API || typeof FSRS_API.fsrs !== "function") return null;
-    const instance = FSRS_API.fsrs({ enable_fuzz: true });
+    const instance = FSRS_API.fsrs({
+enable_fuzz: true,
+request_retention: 0.95
+});
     if (typeof instance.useStrategy === "function" && FSRS_API.StrategyMode?.SEED && typeof FSRS_API.GenSeedStrategyWithCardId === "function") {
       instance.useStrategy(FSRS_API.StrategyMode.SEED, FSRS_API.GenSeedStrategyWithCardId("fsrsCardId"));
     }
