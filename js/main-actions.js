@@ -672,8 +672,9 @@
     }
     const builtinCards = ns.getBuiltInCards();
     const builtinImageCards = typeof ns.getBuiltInImageCards === "function" ? ns.getBuiltInImageCards() : [];
+    const builtinSentenceCards = typeof ns.getBuiltInSentenceCards === "function" ? ns.getBuiltInSentenceCards() : [];
     const adapter = createPersistenceAdapter();
-    state.store = createAppStore(adapter, builtinCards, builtinImageCards);
+    state.store = createAppStore(adapter, builtinCards, builtinImageCards, builtinSentenceCards);
     state.authScope = ns.auth && typeof ns.auth.getCacheScope === "function" ? ns.auth.getCacheScope() : "anon";
     await state.store.load();
     state.filterText = state.elements.filterInput.value || "";

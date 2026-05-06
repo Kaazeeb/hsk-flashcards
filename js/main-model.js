@@ -8,7 +8,7 @@
     if (typeof fn !== "function") throw new Error(`Main runtime function not loaded: ${name}`);
     return fn(...args);
   };
-  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, SMART_RATINGS, normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate, hashStringToUnitInterval, getLocalDayStamp, checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, getPinyinDisplay, createPersistenceAdapter, createAppStore, createButton, clearNode, setBar, updateResult, scheduleStudyAreaFocus, smart, state } = runtime;
+  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, SENTENCE_ALL_DECK_ID, SMART_RATINGS, normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate, hashStringToUnitInterval, getLocalDayStamp, checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, getPinyinDisplay, createPersistenceAdapter, createAppStore, createButton, clearNode, setBar, updateResult, scheduleStudyAreaFocus, smart, state } = runtime;
   const createSmartSessionSeed = proxy("createSmartSessionSeed");
   const createEmptyRound = proxy("createEmptyRound");
   const getElements = proxy("getElements");
@@ -128,30 +128,110 @@
       .filter((setRecord) => setRecord && !setRecord.locked);
   }
 
+  function getSentenceDecks() {
+    const groups = new Map();
+    (getDb().sentenceCards || []).forEach((card) => {
+      const deckId = String(card.deckId || "");
+      if (!deckId) return;
+      if (!groups.has(deckId)) {
+        groups.set(deckId, {
+          id: deckId,
+          name: card.deckName || deckId,
+          kind: "sentence",
+          locked: true,
+          cardIds: []
+        });
+      }
+      groups.get(deckId).cardIds.push(card.id);
+    });
+    return [...groups.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  }
+
+  function getSentenceAllDeck() {
+    const decks = getSentenceDecks();
+    return {
+      id: SENTENCE_ALL_DECK_ID,
+      name: "All sentence cards",
+      kind: "sentence",
+      locked: true,
+      cardIds: decks.flatMap((deck) => deck.cardIds || [])
+    };
+  }
+
+  function getReviewSourcesForSelect() {
+    const vocabSets = getDb().sets.order.map((id) => getDb().sets.byId[id]).filter(Boolean).map((setRecord) => ({ ...setRecord, kind: "vocab" }));
+    const sentenceDecks = getSentenceDecks();
+    const sources = [...vocabSets];
+    if (sentenceDecks.length) sources.push(getSentenceAllDeck(), ...sentenceDecks);
+    return sources;
+  }
+
+  function getReviewSourceById(id) {
+    const db = getDb();
+    if (db.sets.byId[id]) return { ...db.sets.byId[id], kind: "vocab" };
+    if (id === SENTENCE_ALL_DECK_ID && (db.sentenceCards || []).length) return getSentenceAllDeck();
+    return getSentenceDecks().find((deck) => deck.id === id) || null;
+  }
+
   function getReviewScopeId() {
     const db = getDb();
     const id = db.ui.reviewSetId || ALL_SET_ID;
     if (id === REVIEW_ALL_SETS_ID && getNamedSets().length) return id;
-    return db.sets.byId[id] ? id : ALL_SET_ID;
+    return getReviewSourceById(id) ? id : ALL_SET_ID;
   }
 
-  // Review scope can be one selected set or all saved sets together. Each Smart
-  // review still writes back to the originating set so FSRS histories stay separate.
+  // Review scope can be one selected source, all saved vocab sets together, or sentence decks.
+  // Each Smart review writes back to the originating source so FSRS histories stay separate.
   function getReviewScopeSets() {
-    const db = getDb();
     const id = getReviewScopeId();
-    if (id === REVIEW_ALL_SETS_ID) return getNamedSets();
-    return [db.sets.byId[id] || db.sets.byId[ALL_SET_ID]].filter(Boolean);
+    if (id === REVIEW_ALL_SETS_ID) return getNamedSets().map((setRecord) => ({ ...setRecord, kind: "vocab" }));
+    if (id === SENTENCE_ALL_DECK_ID) return getSentenceDecks();
+    const source = getReviewSourceById(id);
+    return [source || { ...getActiveSet(), kind: "vocab" }].filter(Boolean);
   }
 
   function getPrimaryReviewSet() {
-    return getReviewScopeSets()[0] || getActiveSet();
+    return getReviewScopeSets()[0] || { ...getActiveSet(), kind: "vocab" };
   }
 
   function getReviewScopeName() {
     const id = getReviewScopeId();
     if (id === REVIEW_ALL_SETS_ID) return "All saved sets";
+    if (id === SENTENCE_ALL_DECK_ID) return "All sentence cards";
     return getPrimaryReviewSet().name;
+  }
+
+  function getSentenceCardMap() {
+    return Object.fromEntries((getDb().sentenceCards || []).map((card) => [card.id, card]));
+  }
+
+  function getAllSmartCardMap() {
+    return { ...getAllCardMap(), ...getSentenceCardMap() };
+  }
+
+  function getSmartCardMapForSource(source) {
+    return source?.kind === "sentence" ? getSentenceCardMap() : getAllCardMap();
+  }
+
+  function getSmartIdsForSource(source) {
+    if (source?.kind === "sentence") {
+      const valid = new Set((getDb().sentenceCards || []).map((card) => card.id));
+      return (source.cardIds || []).filter((id) => valid.has(id));
+    }
+    return getPracticeScopedIdsForSet(source?.id || getActiveSet().id);
+  }
+
+  function getSmartBucketForSource(source) {
+    if (source?.kind === "sentence") return state.store.ensureSentenceSmartDeck(source.id);
+    return getSmartBucketForSet(source?.id || getActiveSet().id);
+  }
+
+  function getSmartBucketForReviewSourceId(id) {
+    return getSmartBucketForSource(getReviewSourceById(id) || { ...getActiveSet(), kind: "vocab" });
+  }
+
+  function isSentenceCard(card) {
+    return card?.cardKind === "sentence" || card?.direction === "zh_to_en" || card?.direction === "en_to_zh";
   }
 
   function getCardsForSet(setId = getActiveSet().id) {
@@ -168,6 +248,7 @@
     const seen = new Set();
     const cards = [];
     getReviewScopeSets().forEach((setRecord) => {
+      if (setRecord.kind === "sentence") return;
       getCardsForSet(setRecord.id).forEach((card) => {
         const id = cardId(card);
         if (!seen.has(id)) {
@@ -204,8 +285,8 @@
   function getReviewPracticeIds() {
     const ids = [];
     const seen = new Set();
-    getReviewScopeSets().forEach((setRecord) => {
-      getPracticeScopedIdsForSet(setRecord.id).forEach((id) => {
+    getReviewScopeSets().forEach((source) => {
+      getSmartIdsForSource(source).forEach((id) => {
         if (!seen.has(id)) {
           seen.add(id);
           ids.push(id);
@@ -300,12 +381,12 @@
   // Due reviews and new-card introduction are separate flows. This function only
   // returns already-started FSRS cards that are due for the current review scope.
   function getSmartDueItems(now = new Date()) {
-    const allMap = getAllCardMap();
     const items = [];
-    getReviewScopeSets().forEach((setRecord) => {
-      const bucket = getSmartBucketForSet(setRecord.id);
-      const due = smart.getDueQueue(getPracticeScopedIdsForSet(setRecord.id), bucket, allMap, now, { sessionSeed: `${state.smartSessionSeed}::${setRecord.id}` });
-      items.push(...decorateSmartItems(setRecord.id, due, now));
+    getReviewScopeSets().forEach((source) => {
+      const cardMap = getSmartCardMapForSource(source);
+      const bucket = getSmartBucketForSource(source);
+      const due = smart.getDueQueue(getSmartIdsForSource(source), bucket, cardMap, now, { sessionSeed: `${state.smartSessionSeed}::${source.id}` });
+      items.push(...decorateSmartItems(source.id, due, now).map((item) => ({ ...item, sourceKind: source.kind })));
     });
     return sortSmartReviewItems(items);
   }
@@ -313,12 +394,12 @@
   // New cards are Practice cards not yet started in FSRS. They appear only when
   // the user explicitly chooses to introduce new Smart cards.
   function getSmartNewItems(now = new Date()) {
-    const allMap = getAllCardMap();
     const items = [];
-    getReviewScopeSets().forEach((setRecord) => {
-      const bucket = getSmartBucketForSet(setRecord.id);
-      const fresh = smart.getNewQueue(getPracticeScopedIdsForSet(setRecord.id), bucket, allMap, now, { sessionSeed: `${state.smartSessionSeed}::${setRecord.id}` });
-      items.push(...decorateSmartItems(setRecord.id, fresh, now));
+    getReviewScopeSets().forEach((source) => {
+      const cardMap = getSmartCardMapForSource(source);
+      const bucket = getSmartBucketForSource(source);
+      const fresh = smart.getNewQueue(getSmartIdsForSource(source), bucket, cardMap, now, { sessionSeed: `${state.smartSessionSeed}::${source.id}` });
+      items.push(...decorateSmartItems(source.id, fresh, now).map((item) => ({ ...item, sourceKind: source.kind })));
     });
     return sortSmartReviewItems(items);
   }
@@ -340,9 +421,9 @@
   }
 
   function getSmartScheduleForSet(setId, now = new Date()) {
-    const setRecord = getDb().sets.byId[setId];
-    if (!setRecord) return { dueTodayCount: 0, nextDueDate: null, byDay: [], startedCount: 0, newCount: 0 };
-    return smart.getScheduleSummary(getPracticeScopedIdsForSet(setId), getSmartBucketForSet(setId), now);
+    const source = getReviewSourceById(setId);
+    if (!source) return { dueTodayCount: 0, nextDueDate: null, byDay: [], startedCount: 0, newCount: 0 };
+    return smart.getScheduleSummary(getSmartIdsForSource(source), getSmartBucketForSource(source), now);
   }
 
   function mergeScheduleSummaries(summaries) {
@@ -392,10 +473,10 @@
   }
 
   function getSmartStatsForSet(setId) {
-    const setRecord = getDb().sets.byId[setId];
-    if (!setRecord) return { shown: 0, correct: 0, wrong: 0 };
-    const ids = new Set(getPracticeScopedIdsForSet(setId));
-    const bucket = getSmartBucketForSet(setId);
+    const source = getReviewSourceById(setId);
+    if (!source) return { shown: 0, correct: 0, wrong: 0 };
+    const ids = new Set(getSmartIdsForSource(source));
+    const bucket = getSmartBucketForSource(source);
     let shown = 0;
     let correct = 0;
     let wrong = 0;
@@ -457,10 +538,11 @@
   function getSmartCurrentItem() {
     if (!isSmartPracticeActive()) return null;
     if (state.round.smartCardId && state.round.smartSetId) {
-      const setIds = new Set(getPracticeScopedIdsForSet(state.round.smartSetId));
-      const map = getAllCardMap();
+      const source = getReviewSourceById(state.round.smartSetId);
+      const setIds = new Set(getSmartIdsForSource(source));
+      const map = getSmartCardMapForSource(source);
       if (setIds.has(state.round.smartCardId) && map[state.round.smartCardId]) {
-        return { setId: state.round.smartSetId, id: state.round.smartCardId, card: map[state.round.smartCardId] };
+        return { setId: state.round.smartSetId, id: state.round.smartCardId, card: map[state.round.smartCardId], sourceKind: source?.kind || "vocab" };
       }
     }
     const queue = getSmartItems(new Date());
@@ -573,9 +655,9 @@
     if (mode === "practice") {
       getTouchedIds("practice", "translation").forEach((id) => ids.add(id));
       getTouchedIds("practice", "pinyin").forEach((id) => ids.add(id));
-      getReviewScopeSets().forEach((setRecord) => {
-        const smartStatsIds = new Set(getPracticeScopedIdsForSet(setRecord.id));
-        Object.entries(getSmartBucketForSet(setRecord.id)).forEach(([id, entry]) => {
+      getReviewScopeSets().forEach((source) => {
+        const smartStatsIds = new Set(getSmartIdsForSource(source));
+        Object.entries(getSmartBucketForSource(source)).forEach(([id, entry]) => {
           if (smartStatsIds.has(id) && ((entry.shown || 0) > 0 || (entry.correct || 0) > 0 || (entry.wrong || 0) > 0)) ids.add(id);
         });
       });
@@ -590,7 +672,7 @@
     const id = cardId(card);
     const progress = getDb().progress;
     const smartSetId = isSmartPracticeActive() && state.round.smartSetId ? state.round.smartSetId : getPrimaryReviewSet().id;
-    const smartBucket = getSmartBucketForSet(smartSetId);
+    const smartBucket = getSmartBucketForReviewSourceId(smartSetId);
     return {
       translation: progress.practice.translation[id] || { shown: 0, correct: 0, wrong: 0 },
       pinyin: progress.practice.pinyin[id] || { shown: 0, correct: 0, wrong: 0 },
@@ -613,6 +695,10 @@
     markManageListDirty,
     getActiveSet,
     getNamedSets,
+    getSentenceDecks,
+    getSentenceAllDeck,
+    getReviewSourcesForSelect,
+    getReviewSourceById,
     getReviewScopeId,
     getReviewScopeSets,
     getPrimaryReviewSet,
@@ -632,6 +718,10 @@
     isSmartPracticeActive,
     getSmartBucketForSet,
     getSmartBucketForActiveSet,
+    getSmartBucketForReviewSourceId,
+    getSmartCardMapForSource,
+    getSmartIdsForSource,
+    isSentenceCard,
     getSmartQueueKey,
     clearSmartSessionDeferrals,
     deferSmartCardToSessionTail,

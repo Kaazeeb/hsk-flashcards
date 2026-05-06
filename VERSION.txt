@@ -1,1 +1,11 @@
-hsk_flashcards_simple_v35
+hsk_flashcards_simple_v36
+
+Base: v35
+Manual project divergence preserved: js/smart-fsrs.js uses request_retention: 0.95 with enable_fuzz: true.
+
+Changes:
+- Added hardcoded HSK 1, HSK 2 and HSK 3 sentence decks.
+- Each base sentence generates two sentence cards: Chinese → English and English → Chinese.
+- Sentence cards are separate from vocabulary cards.
+- Smart FSRS now detects sentence cards and uses flip + manual rating instead of pinyin/translation input flow.
+- Sentence progress syncs through app_review_events with kind = sentence_smart_fsrs.

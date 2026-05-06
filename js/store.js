@@ -5,7 +5,7 @@
  * the persistence adapter can decompose it into granular remote documents/events.
  */
 (function (ns) {
-  const { MODES, PRACTICE_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, IMAGE_ALL_DECK_ID, SCHEMA_VERSION } = ns.constants;
+  const { MODES, PRACTICE_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, IMAGE_ALL_DECK_ID, SENTENCE_ALL_DECK_ID, SCHEMA_VERSION } = ns.constants;
   const { normalizeCard, cardId, createAllCardsSet, createSetRecord } = ns.utils;
 
   function createEmptyScoreBucket() {
@@ -74,6 +74,7 @@
     db.smartBySet = {};
     db.imageProgress = createEmptyImageProgress();
     db.imageSmartByDeck = {};
+    db.sentenceSmartByDeck = {};
     if (db.ui) {
       db.ui.indexes = { learn: 0, practice: 0 };
       db.ui.order = { learn: [], practice: [] };
@@ -198,6 +199,26 @@
       .filter((card) => card.id && card.deckId && card.imagePath && (card.hanzi || card.pinyin || card.translation));
   }
 
+  function normalizeSentenceCards(rawCards) {
+    return (Array.isArray(rawCards) ? rawCards : [])
+      .map((card, index) => ({
+        id: String(card?.id || `sentence_${index + 1}`).trim(),
+        index: index + 1,
+        cardKind: "sentence",
+        level: Math.max(1, Math.min(9, Math.floor(Number(card?.level) || 1))),
+        direction: card?.direction === "en_to_zh" ? "en_to_zh" : "zh_to_en",
+        deckId: String(card?.deckId || card?.deck || ns.constants.SENTENCE_DEFAULT_DECK_ID).trim() || ns.constants.SENTENCE_DEFAULT_DECK_ID,
+        deckName: String(card?.deckName || card?.category || ns.constants.SENTENCE_DEFAULT_DECK_NAME).trim() || ns.constants.SENTENCE_DEFAULT_DECK_NAME,
+        front: String(card?.front || card?.prompt || "").trim(),
+        back: String(card?.back || card?.answer || "").trim(),
+        chinese: String(card?.chinese || card?.hanzi || "").trim(),
+        english: String(card?.english || card?.translation || "").trim(),
+        grammarTags: Array.isArray(card?.grammarTags) ? card.grammarTags.map(String) : [],
+        tags: Array.isArray(card?.tags) ? card.tags.map(String) : []
+      }))
+      .filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && card.english);
+  }
+
   function createDefaultImageUiState() {
     return {
       deckId: IMAGE_ALL_DECK_ID,
@@ -287,19 +308,26 @@
     Object.keys(db.imageSmartByDeck || {}).forEach((deckId) => {
       db.imageSmartByDeck[deckId] = pruneObjectToIds(db.imageSmartByDeck[deckId], validImageIds);
     });
+
+    const validSentenceIds = new Set((db.sentenceCards || []).map((card) => String(card.id || "")));
+    Object.keys(db.sentenceSmartByDeck || {}).forEach((deckId) => {
+      db.sentenceSmartByDeck[deckId] = pruneObjectToIds(db.sentenceSmartByDeck[deckId], validSentenceIds);
+    });
   }
 
   // All inbound data, whether imported JSON, built-in memory, or Supabase rebuild,
   // passes through this gate. It prunes invalid card ids and restores locked sets.
-  function normalizeDb(raw, builtinCards, builtinImageCards = []) {
+  function normalizeDb(raw, builtinCards, builtinImageCards = [], builtinSentenceCards = []) {
     const vocab = normalizeVocab(raw?.vocab?.length ? raw.vocab : builtinCards);
     const imageCards = normalizeImageCards(raw?.imageCards?.length ? raw.imageCards : builtinImageCards);
+    const sentenceCards = normalizeSentenceCards(raw?.sentenceCards?.length ? raw.sentenceCards : builtinSentenceCards);
     const sets = normalizeSets(raw?.sets, vocab);
     const ui = normalizeUiState(raw?.ui);
     const progress = normalizeProgress(raw?.progress);
     const smartBySet = normalizeSmartBySet(raw?.smartBySet);
     const imageProgress = normalizeImageProgress(raw?.imageProgress);
     const imageSmartByDeck = normalizeSmartBySet(raw?.imageSmartByDeck);
+    const sentenceSmartByDeck = normalizeSmartBySet(raw?.sentenceSmartByDeck);
     const imageUi = normalizeImageUiState(raw?.imageUi);
     const meta = normalizeMeta(raw?.meta);
 
@@ -313,12 +341,15 @@
       imageCards,
       imageProgress,
       imageSmartByDeck,
+      sentenceCards,
+      sentenceSmartByDeck,
       imageUi,
       meta
     };
 
     if (!db.sets.byId[db.ui.activeSetId]) db.ui.activeSetId = ALL_SET_ID;
-    if (db.ui.reviewSetId !== REVIEW_ALL_SETS_ID && !db.sets.byId[db.ui.reviewSetId]) db.ui.reviewSetId = ALL_SET_ID;
+    const sentenceDeckIds = new Set([SENTENCE_ALL_DECK_ID, ...sentenceCards.map((card) => String(card.deckId || ""))]);
+    if (db.ui.reviewSetId !== REVIEW_ALL_SETS_ID && !db.sets.byId[db.ui.reviewSetId] && !sentenceDeckIds.has(db.ui.reviewSetId)) db.ui.reviewSetId = ALL_SET_ID;
     const imageDeckIds = new Set([IMAGE_ALL_DECK_ID, ...imageCards.map((card) => card.deckId)]);
     if (!imageDeckIds.has(db.imageUi.deckId)) db.imageUi.deckId = IMAGE_ALL_DECK_ID;
     pruneDbToValidIds(db);
@@ -329,14 +360,14 @@
     return JSON.parse(JSON.stringify(db));
   }
 
-  function createAppStore(adapter, builtinCards, builtinImageCards = []) {
+  function createAppStore(adapter, builtinCards, builtinImageCards = [], builtinSentenceCards = []) {
     const store = {
       adapter,
       state: null,
 
       async load() {
         const raw = await adapter.loadAppData();
-        this.state = normalizeDb(raw, builtinCards, builtinImageCards);
+        this.state = normalizeDb(raw, builtinCards, builtinImageCards, builtinSentenceCards);
         return this.state;
       },
 
@@ -347,11 +378,12 @@
         const currentUi = preserveUi ? cloneDb({ ui: this.state?.ui || createDefaultUiState() }).ui : null;
         const currentImageUi = preserveUi ? cloneDb({ imageUi: this.state?.imageUi || createDefaultImageUiState() }).imageUi : null;
         const raw = await adapter.loadAppData();
-        const next = normalizeDb(raw, builtinCards, builtinImageCards);
+        const next = normalizeDb(raw, builtinCards, builtinImageCards, builtinSentenceCards);
         if (currentUi) next.ui = normalizeUiState(currentUi);
         if (currentImageUi) next.imageUi = normalizeImageUiState(currentImageUi);
         if (!next.sets.byId[next.ui.activeSetId]) next.ui.activeSetId = ALL_SET_ID;
-        if (next.ui.reviewSetId !== REVIEW_ALL_SETS_ID && !next.sets.byId[next.ui.reviewSetId]) next.ui.reviewSetId = ALL_SET_ID;
+        const sentenceDeckIds = new Set([SENTENCE_ALL_DECK_ID, ...((next.sentenceCards || []).map((card) => String(card.deckId || "")))]);
+        if (next.ui.reviewSetId !== REVIEW_ALL_SETS_ID && !next.sets.byId[next.ui.reviewSetId] && !sentenceDeckIds.has(next.ui.reviewSetId)) next.ui.reviewSetId = ALL_SET_ID;
         const imageDeckIds = new Set([IMAGE_ALL_DECK_ID, ...(next.imageCards || []).map((card) => card.deckId)]);
         if (!imageDeckIds.has(next.imageUi.deckId)) next.imageUi.deckId = IMAGE_ALL_DECK_ID;
         this.state = next;
@@ -371,7 +403,7 @@
       async replaceVocabulary(cards, { preserveData = false } = {}) {
         const nextVocab = normalizeVocab(cards);
         if (!preserveData) {
-          this.state = normalizeDb({ vocab: nextVocab, imageCards: this.state?.imageCards || builtinImageCards }, nextVocab, builtinImageCards);
+          this.state = normalizeDb({ vocab: nextVocab, imageCards: this.state?.imageCards || builtinImageCards, sentenceCards: this.state?.sentenceCards || builtinSentenceCards }, nextVocab, builtinImageCards, builtinSentenceCards);
           resetReviewData(this.state, "replace_vocabulary");
         } else {
           this.state.vocab = nextVocab;
@@ -400,7 +432,8 @@
       },
 
       async setReviewSet(setId) {
-        const value = setId === REVIEW_ALL_SETS_ID || this.state.sets.byId[setId] ? setId : ALL_SET_ID;
+        const sentenceDeckIds = new Set([SENTENCE_ALL_DECK_ID, ...((this.state.sentenceCards || []).map((card) => String(card.deckId || "")))]);
+        const value = setId === REVIEW_ALL_SETS_ID || this.state.sets.byId[setId] || sentenceDeckIds.has(setId) ? setId : ALL_SET_ID;
         this.state.ui.reviewSetId = value;
         await this.persist();
       },
@@ -484,6 +517,12 @@
         return this.state.imageSmartByDeck[id];
       },
 
+      ensureSentenceSmartDeck(deckId) {
+        const id = String(deckId || SENTENCE_ALL_DECK_ID);
+        if (!this.state.sentenceSmartByDeck[id]) this.state.sentenceSmartByDeck[id] = {};
+        return this.state.sentenceSmartByDeck[id];
+      },
+
       exportJson() {
         return JSON.stringify({
           app: "hsk_flashcards",
@@ -495,7 +534,7 @@
 
       async importJson(text) {
         const parsed = JSON.parse(String(text || ""));
-        this.state = normalizeDb(parsed?.data || parsed, builtinCards, builtinImageCards);
+        this.state = normalizeDb(parsed?.data || parsed, builtinCards, builtinImageCards, builtinSentenceCards);
         bumpReviewEpoch(this.state, "import_json");
         await this.persist();
       },

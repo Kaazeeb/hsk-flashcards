@@ -33,6 +33,7 @@
   const markManageListDirty = proxy("markManageListDirty");
   const getActiveSet = proxy("getActiveSet");
   const getNamedSets = proxy("getNamedSets");
+  const getReviewSourcesForSelect = proxy("getReviewSourcesForSelect");
   const getReviewScopeId = proxy("getReviewScopeId");
   const getReviewScopeSets = proxy("getReviewScopeSets");
   const getPrimaryReviewSet = proxy("getPrimaryReviewSet");
@@ -335,11 +336,14 @@
 
     if (state.elements.reviewSetSelect) {
       clearNode(state.elements.reviewSetSelect);
-      sets.forEach((setRecord) => {
+      getReviewSourcesForSelect().forEach((source) => {
         const option = document.createElement("option");
-        option.value = setRecord.id;
-        option.textContent = `${setRecord.name} (${getPracticeScopedIdsForSet(setRecord.id).length} practice)`;
-        option.selected = setRecord.id === reviewScopeId;
+        option.value = source.id;
+        const count = source.kind === "sentence" ? (source.cardIds || []).length : getPracticeScopedIdsForSet(source.id).length;
+        option.textContent = source.kind === "sentence"
+          ? `${source.name} (${count} sentence cards)`
+          : `${source.name} (${count} practice)`;
+        option.selected = source.id === reviewScopeId;
         state.elements.reviewSetSelect.appendChild(option);
       });
       if (named.length) {

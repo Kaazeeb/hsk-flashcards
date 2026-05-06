@@ -52,6 +52,8 @@
   const isSmartPracticeActive = proxy("isSmartPracticeActive");
   const getSmartBucketForSet = proxy("getSmartBucketForSet");
   const getSmartBucketForActiveSet = proxy("getSmartBucketForActiveSet");
+  const getSmartBucketForReviewSourceId = proxy("getSmartBucketForReviewSourceId");
+  const isSentenceCard = proxy("isSentenceCard");
   const getSmartQueueKey = proxy("getSmartQueueKey");
   const clearSmartSessionDeferrals = proxy("clearSmartSessionDeferrals");
   const deferSmartCardToSessionTail = proxy("deferSmartCardToSessionTail");
@@ -339,7 +341,7 @@
     state.round.smartFeedbackCommitted = true;
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
     const selectedRating = state.round.smartSelectedRating;
-    const bucket = getSmartBucketForSet(smartSetId);
+    const bucket = getSmartBucketForReviewSourceId(smartSetId);
     smart.reviewCard(bucket, card, selectedRating, new Date());
     if (selectedRating === 1) {
       deferSmartCardToSessionTail(smartSetId, card);
@@ -573,18 +575,98 @@
     }
   }
 
+  function getSentenceFrontLabel(card) {
+    return card.direction === "en_to_zh" ? "English → Chinese" : "Chinese → English";
+  }
+
+  function renderSmartSentenceIntroduction(card, newCount, startedCount) {
+    const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
+    const sourceName = getReviewScopeName();
+    state.round.smartStage = "intro";
+    prepareRoundAppearance("practice", "smart", card);
+    renderCurrentCardStats(card);
+    state.elements.cardPrompt.textContent = `Smart · sentence first view · ${sourceName}`;
+    state.elements.cardHanzi.textContent = card.front;
+    state.elements.cardPinyin.textContent = "";
+    state.elements.cardTranslation.textContent = card.back;
+    state.elements.positionLabel.textContent = `New ${newCount} / Started ${startedCount}`;
+    updateResult(state.elements.resultText, `${getSentenceFrontLabel(card)}. Mark introduced when you have read both sides.`, "");
+    clearNode(state.elements.answerArea);
+    const note = document.createElement("div");
+    note.className = "intro-note muted";
+    note.textContent = "Sentence cards use flip + manual FSRS rating. Chinese sides show hanzi only.";
+    state.elements.answerArea.appendChild(note);
+    clearNode(state.elements.controls);
+    state.elements.controls.append(
+      createButton("Skip", nextSmartCard, "secondary"),
+      createButton("Mark introduced", introduceCurrentSmartCard)
+    );
+  }
+
+  function showSmartSentenceAnswer() {
+    if (state.round.smartStage !== "sentence-question") return;
+    const card = getCurrentCard();
+    if (!card) return;
+    state.round.smartStage = "feedback";
+    state.round.smartSelectedRating = 3;
+    state.round.answered = true;
+    state.round.resultText = "Choose the FSRS rating for this sentence.";
+    state.round.resultClass = "";
+    render();
+    scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
+  }
+
+  function renderSmartSentencePractice(card, dueCount, activeCount) {
+    const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
+    if (state.round.smartForceNew) {
+      renderSmartSentenceIntroduction(card, dueCount, activeCount);
+      return;
+    }
+    if (state.round.smartStage === "pinyin") state.round.smartStage = "sentence-question";
+    prepareRoundAppearance("practice", "smart", card);
+    setSmartPositionLabel(card, dueCount, activeCount);
+    renderCurrentCardStats(card);
+    state.elements.cardPrompt.textContent = `Smart sentence · ${getDb().sets.byId[smartSetId]?.name || getReviewScopeName()} · ${getSentenceFrontLabel(card)}`;
+    state.elements.cardHanzi.textContent = card.front;
+    state.elements.cardPinyin.textContent = "";
+    state.elements.cardTranslation.textContent = state.round.smartStage === "feedback" ? card.back : "";
+    clearNode(state.elements.answerArea);
+    clearNode(state.elements.controls);
+    if (state.round.smartStage === "sentence-question") {
+      updateResult(state.elements.resultText, "Read the front, answer mentally or aloud, then flip.", "");
+      state.elements.answerArea.appendChild(createButton("Show answer", showSmartSentenceAnswer, "answer-btn"));
+      state.elements.controls.append(createButton("Skip", nextSmartCard, "secondary"));
+      return;
+    }
+    updateResult(state.elements.resultText, state.round.resultText || "Choose the FSRS rating for this sentence.", state.round.resultClass || "");
+    SMART_RATINGS.forEach((rating, index) => {
+      const label = `${index + 1}. ${smart.ratingLabel(rating)}`;
+      const button = createButton(label, () => setSmartRating(rating), "answer-btn", { dataset: { smartRating: String(rating) } });
+      if (rating === state.round.smartSelectedRating) button.classList.add("selected");
+      state.elements.answerArea.appendChild(button);
+    });
+    state.elements.controls.append(
+      createButton("Accept rating", acceptSmartFsrsFeedback),
+      createButton("Skip", nextSmartCard, "secondary")
+    );
+  }
+
   function introduceCurrentSmartCard() {
     const card = getCurrentCard();
     const setId = state.round.smartSetId || getPrimaryReviewSet().id;
     if (!card || !state.round.smartForceNew || !setId || state.round.smartIntroCommitted) return;
     state.round.smartIntroCommitted = true;
-    const bucket = getSmartBucketForSet(setId);
+    const bucket = getSmartBucketForReviewSourceId(setId);
     smart.reviewCard(bucket, card, 3, new Date());
     persist();
     nextSmartCard();
   }
 
   function renderSmartIntroduction(card, newCount, startedCount) {
+    if (isSentenceCard(card)) {
+      renderSmartSentenceIntroduction(card, newCount, startedCount);
+      return;
+    }
     const { reviewText } = getReviewPinyinText(card);
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
     const setName = getDb().sets.byId[smartSetId]?.name || smartSetId;
@@ -616,9 +698,13 @@
   // Smart due review is pinyin -> translation -> FSRS rating. New-card introduction
   // is intentionally first-view only and enters FSRS with a default Good rating.
   function renderSmartPractice(card, dueCount, activeCount) {
+    if (isSentenceCard(card)) {
+      renderSmartSentencePractice(card, dueCount, activeCount);
+      return;
+    }
     const { reviewText } = getReviewPinyinText(card);
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
-    const smartEntry = getSmartBucketForSet(smartSetId)[cardId(card)] || smart.createSmartEntry(new Date());
+    const smartEntry = getSmartBucketForReviewSourceId(smartSetId)[cardId(card)] || smart.createSmartEntry(new Date());
     const isNewSmartCard = !smart.isStarted(smartEntry);
     if (state.round.smartForceNew) {
       renderSmartIntroduction(card, dueCount, activeCount);
@@ -775,6 +861,9 @@
     renderTranslationButtons,
     renderTranslationQuiz,
     renderPinyinQuiz,
+    renderSmartSentenceIntroduction,
+    showSmartSentenceAnswer,
+    renderSmartSentencePractice,
     introduceCurrentSmartCard,
     renderSmartIntroduction,
     renderSmartPractice,

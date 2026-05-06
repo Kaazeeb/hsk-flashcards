@@ -60,6 +60,9 @@ create index if not exists app_review_events_user_epoch_expr_idx
 create index if not exists app_review_events_user_image_deck_idx
   on public.app_review_events (user_id, set_id, occurred_at asc, created_at asc)
   where kind = 'image_smart_fsrs';
+create index if not exists app_review_events_user_sentence_deck_idx
+  on public.app_review_events (user_id, set_id, occurred_at asc, created_at asc)
+  where kind = 'sentence_smart_fsrs';
 
 create or replace function public.handle_new_user_profile()
 returns trigger

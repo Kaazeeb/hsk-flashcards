@@ -146,7 +146,7 @@
   const bindEvents = proxy("bindEvents");
   const bootstrap = proxy("bootstrap");
 
-  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, IMAGE_ALL_DECK_ID, IMAGE_SMART_SPACING_FACTOR, IMAGE_SMART_RATING_LABELS, SMART_RATINGS } = ns.constants;
+  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, IMAGE_ALL_DECK_ID, SENTENCE_ALL_DECK_ID, IMAGE_SMART_SPACING_FACTOR, IMAGE_SMART_RATING_LABELS, SMART_RATINGS } = ns.constants;
   const { normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate, hashStringToUnitInterval, getLocalDayStamp } = ns.utils;
   const { checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, getPinyinDisplay } = ns.pinyin;
   const { createPersistenceAdapter } = ns.adapters;
@@ -565,6 +565,7 @@
     ALL_SET_ID,
     REVIEW_ALL_SETS_ID,
     IMAGE_ALL_DECK_ID,
+    SENTENCE_ALL_DECK_ID,
     IMAGE_SMART_SPACING_FACTOR,
     IMAGE_SMART_RATING_LABELS,
     SMART_RATINGS,

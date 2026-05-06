@@ -15,6 +15,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   const SMART_EVENT_KIND = "smart_fsrs";
   const IMAGE_SMART_EVENT_KIND = "image_smart_fsrs";
   const IMAGE_LEARN_EVENT_KIND = "image_learn_seen";
+  const SENTENCE_SMART_EVENT_KIND = "sentence_smart_fsrs";
   const REVIEW_RESET_EVENT_KIND = "review_reset";
   const MAX_WRITE_JSON_BYTES = 60000;
   const MAX_DOC_WRITE_ROWS = 100;
@@ -398,6 +399,33 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return events;
   }
 
+  function buildSentenceSmartEvents(currentSmartByDeck, previousSmartByDeck) {
+    const events = [];
+    const next = deepClone(currentSmartByDeck || {}) || {};
+    const prev = deepClone(previousSmartByDeck || {}) || {};
+    Object.keys(next).forEach((deckId) => {
+      const nextBucket = next[deckId] || {};
+      const prevBucket = prev[deckId] || {};
+      Object.keys(nextBucket).forEach((cardId) => {
+        const currentEvents = ns.smart?.normalizeReviewEvents(nextBucket[cardId]?.reviewEvents) || [];
+        const previousEvents = ns.smart?.normalizeReviewEvents(prevBucket[cardId]?.reviewEvents) || [];
+        const previousIds = new Set(previousEvents.map((event) => String(event.id)));
+        currentEvents.forEach((event) => {
+          if (!event.id || previousIds.has(event.id)) return;
+          events.push({
+            event_id: event.id,
+            kind: SENTENCE_SMART_EVENT_KIND,
+            set_id: String(deckId),
+            card_id: String(cardId),
+            occurred_at: toIso(event.occurredAt),
+            payload: { rating: event.rating }
+          });
+        });
+      });
+    });
+    return events;
+  }
+
   function getProgressScore(progress, kind, cardId) {
     if (kind === "learn_seen") return { shown: 1, correct: 0, wrong: 0 };
     const bucket = getBucketByKind(progress || createEmptyProgress(), kind) || {};
@@ -419,9 +447,10 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const docs = groupDocs(docRows);
     const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
     const builtinImageCards = typeof ns.getBuiltInImageCards === "function" ? ns.getBuiltInImageCards() : [];
+    const builtinSentenceCards = typeof ns.getBuiltInSentenceCards === "function" ? ns.getBuiltInSentenceCards() : [];
     const vocabDoc = docs[DOC_NS.VOCAB]?.[DOC_ID.CURRENT];
     const baseCards = Array.isArray(vocabDoc?.cards) && vocabDoc.cards.length ? vocabDoc.cards : builtinCards;
-    const baseDb = ns.store.normalizeDb({ vocab: baseCards, imageCards: builtinImageCards }, builtinCards, builtinImageCards);
+    const baseDb = ns.store.normalizeDb({ vocab: baseCards, imageCards: builtinImageCards, sentenceCards: builtinSentenceCards }, builtinCards, builtinImageCards, builtinSentenceCards);
     const flagsBundle = docs[DOC_NS.CARD_FLAGS_BUNDLE]?.[DOC_ID.CARD_FLAGS];
     const vocab = codec().applyFlagsBundleToVocab(baseDb.vocab || [], flagsBundle);
     const cardCodec = codec().createCardRefCodec(vocab);
@@ -431,6 +460,9 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const imageIds = new Set(imageCards.map((card) => String(card.id || "")));
     const imageProgress = createEmptyImageProgress();
     const imageSmartByDeck = {};
+    const sentenceCards = baseDb.sentenceCards || [];
+    const sentenceIds = new Set(sentenceCards.map((card) => String(card.id || "")));
+    const sentenceSmartByDeck = {};
     const meta = getLatestReviewResetMeta(eventRows);
     const activeEpochId = meta.reviewEpochId || "";
 
@@ -459,10 +491,18 @@ window.HSKFlashcards = window.HSKFlashcards || {};
           if (imageIds.has(imageCardId)) imageProgress.seen[imageCardId] = true;
           return;
         }
+        if (event.kind === SENTENCE_SMART_EVENT_KIND) {
+          const sentenceCardId = String(event.card_id || "");
+          const deckId = String(event.set_id || ns.constants.SENTENCE_ALL_DECK_ID);
+          if (!sentenceIds.has(sentenceCardId) || !deckId || !ns.smart || typeof ns.smart.reviewCard !== "function") return;
+          if (!sentenceSmartByDeck[deckId]) sentenceSmartByDeck[deckId] = {};
+          ns.smart.reviewCard(sentenceSmartByDeck[deckId], sentenceCardId, Number(event.payload?.rating) || 3, new Date(event.occurred_at || Date.now()), { trackEvent: false });
+          return;
+        }
         if (localCardId) applyProgressEvent(progress, { ...event, card_id: localCardId });
       });
 
-    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet, imageCards, imageProgress, imageSmartByDeck, meta };
+    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet, imageCards, imageProgress, imageSmartByDeck, sentenceCards, sentenceSmartByDeck, meta };
   }
 
   async function loadRemoteDocs(client, userId) {
@@ -689,6 +729,27 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     await insertEvents(client, rows);
   }
 
+  async function syncSentenceSmart(client, userId, currentState, previousState) {
+    const epochId = getReviewEpochId(currentState);
+    const previousSentenceSmartByDeck = reviewEpochChanged(currentState, previousState) ? {} : previousState?.sentenceSmartByDeck;
+    const events = buildSentenceSmartEvents(currentState?.sentenceSmartByDeck, previousSentenceSmartByDeck);
+    if (!events.length) return;
+    const sentenceIds = new Set((currentState?.sentenceCards || []).map((card) => String(card.id || "")));
+    const rows = events.map((event) => {
+      if (!sentenceIds.has(event.card_id)) return null;
+      return {
+        user_id: userId,
+        event_id: makeEpochScopedEventId(event.event_id, epochId),
+        kind: event.kind,
+        card_id: event.card_id,
+        set_id: event.set_id || null,
+        payload: payloadWithEpoch(event.payload || {}, epochId),
+        occurred_at: event.occurred_at || new Date().toISOString()
+      };
+    }).filter(Boolean);
+    await insertEvents(client, rows);
+  }
+
   async function initializeClient() {
     clearSubscription();
     state.providerReady = !!getCreateClient();
@@ -749,6 +810,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
           await syncSmart(state.client, userId, payload, previousPayload || {});
           await syncImageLearn(state.client, userId, payload, previousPayload || {});
           await syncImageSmart(state.client, userId, payload, previousPayload || {});
+          await syncSentenceSmart(state.client, userId, payload, previousPayload || {});
         } catch (error) {
           const text = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
           if (text.includes("relation") || text.includes("does not exist")) {

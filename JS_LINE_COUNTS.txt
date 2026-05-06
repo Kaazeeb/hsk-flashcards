@@ -1,23 +1,24 @@
- 13843 total
+ 14470 total
   1418 fsrs-lib.js
   1205 js/data/hsk1-data-part-5.js
   1205 js/data/hsk1-data-part-4.js
   1205 js/data/hsk1-data-part-3.js
   1205 js/data/hsk1-data-part-2.js
   1205 js/data/hsk1-data-part-1.js
-   795 js/auth.js
-   783 js/main-study-flow.js
-   720 js/main-actions.js
-   672 js/main-model.js
-   618 js/main-context.js
+   872 js/main-study-flow.js
+   856 js/auth.js
+   762 js/main-model.js
+   721 js/main-actions.js
+   619 js/main-context.js
    579 js/main-image-flow.js
-   543 js/main-setup-view.js
-   531 js/store.js
-   314 js/smart-fsrs.js
+   570 js/store.js
+   547 js/main-setup-view.js
+   317 js/smart-fsrs.js
+   305 js/sentence-cards-data.js
    281 js/utils.js
    218 js/sync-codec.js
+   109 js/constants.js
     94 js/storage-adapters.js
-    75 js/constants.js
     74 js/pinyin.js
     68 js/ui-helpers.js
     19 js/image-cards-data.js
