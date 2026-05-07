@@ -176,60 +176,9 @@
 
     </section>
 
-    <section class="panel sets-panel page-panel" data-page="setup">
-      <div class="panel-header">
-        <h2>Built-in study scope</h2>
-        <span id="activeSetBadge" class="badge subtle">All cards</span>
-      </div>
-
-      <div class="subpanel-block set-editor-block">
-        <div class="subpanel-title">Built-in deck summary</div>
-        <p class="hint">Custom user sets and custom cards are disabled. Use Deck setup below to control built-in deck visibility for Learn / First view and Practice / Review.</p>
-
-        <label for="activeSetSelect" class="label">Deck summary</label>
-        <div class="set-row">
-          <select id="activeSetSelect" disabled></select>
-        </div>
-      </div>
-
-      <div class="stats-grid stats-grid-5 set-status-grid">
-        <article class="stat-card">
-          <span class="stat-label">Practice cards</span>
-          <strong id="setCardCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span class="stat-label">New to introduce</span>
-          <strong id="setNewCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span class="stat-label">Started in FSRS</span>
-          <strong id="setStartedCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span class="stat-label">Due today</span>
-          <strong id="setDueToday">0</strong>
-        </article>
-        <article class="stat-card">
-          <span class="stat-label">Next review</span>
-          <strong id="setNextDue">—</strong>
-        </article>
-      </div>
-
-      <div class="button-row compact-row set-flow-actions">
-        <button id="setupIntroduceBtn" class="secondary" type="button">Introduce new cards in this set</button>
-        <button id="setupReviewBtn" class="secondary" type="button">Review due cards in this set</button>
-      </div>
-
-      <div class="subpanel-block">
-        <div class="subpanel-title">Built-in deck schedule</div>
-        <p class="hint">Review dates for the selected built-in decks. Use Flash cards for daily review, or use the buttons here to jump into introduction/review.</p>
-        <div id="setsOverview" class="sets-overview"></div>
-      </div>
-    </section>
-
     <section class="panel setup-panel page-panel" data-page="setup">
       <div class="panel-header setup-panel-header">
-        <h2>Deck setup</h2>
+        <h2>Card setup</h2>
         <div class="setup-header-actions">
           <span id="selectionSummary" class="badge">Learn 0 · Practice 0</span>
           <button id="setupToggleBtn" class="ghost setup-toggle" type="button" aria-expanded="false">Show setup</button>
@@ -237,34 +186,44 @@
       </div>
 
       <div id="setupBody" class="setup-body hidden">
-        <p class="hint">Choose a built-in deck and control whether it can introduce new cards in Learn / First view and appear in Practice / Review.</p>
+        <p class="hint">Choose one built-in deck, then control which cards are visible in Learn / First view and Practice / Review. This does not delete progress.</p>
 
-        <label for="setupDeckSelect" class="label">Built-in deck</label>
+        <label for="setupDeckSelect" class="label">Deck to manage</label>
         <div class="set-row">
           <select id="setupDeckSelect"></select>
         </div>
+        <div id="setupDeckMeta" class="status muted">Choose a deck to edit.</div>
 
-        <div id="setupDeckMeta" class="status muted">Choose a deck to edit visibility.</div>
+        <div class="range-tools">
+          <p class="hint">Use the card numbers shown in the selected deck. Example: <code>1-20, 28, 30-35</code></p>
 
-        <div class="manage-row deck-visibility-row">
-          <div class="manage-meta">
-            <div class="manage-title">Visibility</div>
-            <div class="manage-sub">This affects study queues only. It does not delete progress.</div>
+          <div class="range-row">
+            <span class="range-label">Learn</span>
+            <input id="rangeLearn" type="text" placeholder="1-20, 28, 30-35" />
+            <div class="range-actions">
+              <button class="secondary" data-range-mode="learn" data-range-action="add">Add range</button>
+              <button class="ghost" data-range-mode="learn" data-range-action="remove">Remove range</button>
+              <button class="ghost" data-range-mode="learn" data-range-action="all">All</button>
+              <button class="ghost" data-range-mode="learn" data-range-action="none">None</button>
+            </div>
           </div>
-          <div class="manage-flags">
-            <label class="flag-check">
-              <input id="setupDeckLearnToggle" type="checkbox" />
-              <span>Learn / First view</span>
-            </label>
-            <label class="flag-check">
-              <input id="setupDeckPracticeToggle" type="checkbox" />
-              <span>Practice / Review</span>
-            </label>
+
+          <div class="range-row">
+            <span class="range-label">Practice</span>
+            <input id="rangePractice" type="text" placeholder="1-20, 28, 30-35" />
+            <div class="range-actions">
+              <button class="secondary" data-range-mode="practice" data-range-action="add">Add range</button>
+              <button class="ghost" data-range-mode="practice" data-range-action="remove">Remove range</button>
+              <button class="ghost" data-range-mode="practice" data-range-action="all">All</button>
+              <button class="ghost" data-range-mode="practice" data-range-action="none">None</button>
+            </div>
           </div>
         </div>
 
-        <input id="filterInput" class="hidden" type="text" aria-hidden="true" />
-        <div id="manageList" class="hidden"></div>
+        <label for="filterInput" class="label">Filter cards</label>
+        <input id="filterInput" type="text" placeholder="Filter by number, hanzi, pinyin, English or answer" />
+
+        <div id="manageList" class="manage-list"></div>
       </div>
     </section>
 

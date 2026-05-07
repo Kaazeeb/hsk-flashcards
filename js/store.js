@@ -67,9 +67,23 @@
     Object.entries(source).forEach(([deckId, flags]) => {
       const id = String(deckId || "").trim();
       if (!id || !flags || typeof flags !== "object") return;
+      const cards = {};
+      const rawCards = flags.cards && typeof flags.cards === "object" ? flags.cards : {};
+      Object.entries(rawCards).forEach(([cardId, cardFlags]) => {
+        const localId = String(cardId || "").trim();
+        if (!localId || !cardFlags || typeof cardFlags !== "object") return;
+        cards[localId] = {
+          learn: cardFlags.learn !== false,
+          practice: cardFlags.practice !== false
+        };
+      });
       output.byDeck[id] = {
+        // Kept for backwards compatibility with v42 data, but deck-level
+        // visibility is no longer used by the Setup UI. Visibility is controlled
+        // per card for every built-in deck.
         learn: flags.learn !== false,
-        practice: flags.practice !== false
+        practice: flags.practice !== false,
+        cards
       };
     });
     return output;
@@ -80,6 +94,15 @@
     return {
       learn: flags.learn !== false,
       practice: flags.practice !== false
+    };
+  }
+
+  function getBuiltinCardVisibility(visibility, deckId, cardId) {
+    const deck = visibility?.byDeck?.[String(deckId || "")] || {};
+    const card = deck.cards?.[String(cardId || "")] || {};
+    return {
+      learn: card.learn !== false,
+      practice: card.practice !== false
     };
   }
 
@@ -433,11 +456,32 @@
         const id = String(deckId || "").trim();
         if (!id) return false;
         this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility);
-        const current = getDeckVisibility(this.state.builtinVisibility, id);
+        const current = this.state.builtinVisibility.byDeck[id] || { cards: {} };
         this.state.builtinVisibility.byDeck[id] = {
+          learn: flags?.learn === undefined ? current.learn !== false : flags.learn !== false,
+          practice: flags?.practice === undefined ? current.practice !== false : flags.practice !== false,
+          cards: current.cards || {}
+        };
+        await this.persist();
+        return true;
+      },
+
+      async setBuiltInCardVisibility(deckId, cardId, flags) {
+        const id = String(deckId || "").trim();
+        const localCardId = String(cardId || "").trim();
+        if (!id || !localCardId) return false;
+        this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility);
+        const currentDeck = this.state.builtinVisibility.byDeck[id] || { learn: true, practice: true, cards: {} };
+        const current = getBuiltinCardVisibility(this.state.builtinVisibility, id, localCardId);
+        currentDeck.cards = currentDeck.cards || {};
+        const next = {
           learn: flags?.learn === undefined ? current.learn : flags.learn !== false,
           practice: flags?.practice === undefined ? current.practice : flags.practice !== false
         };
+        // Do not persist default-visible cards; keep the remote document small.
+        if (next.learn !== false && next.practice !== false) delete currentDeck.cards[localCardId];
+        else currentDeck.cards[localCardId] = next;
+        this.state.builtinVisibility.byDeck[id] = currentDeck;
         await this.persist();
         return true;
       },
@@ -494,6 +538,9 @@
     normalizeDb,
     normalizeMeta,
     bumpReviewEpoch,
-    resetReviewData
+    resetReviewData,
+    normalizeBuiltinVisibility,
+    getDeckVisibility,
+    getBuiltinCardVisibility
   };
 })(window.HSKFlashcards);

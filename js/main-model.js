@@ -128,8 +128,20 @@
       : { learn: true, practice: true };
   }
 
-  function isBuiltInDeckModeEnabled(deckId, mode = "practice") {
-    return getBuiltInDeckVisibility(deckId)[mode] !== false;
+  function getBuiltInCardVisibility(deckId, localCardId) {
+    return ns.store && typeof ns.store.getBuiltinCardVisibility === "function"
+      ? ns.store.getBuiltinCardVisibility(getDb().builtinVisibility, deckId, localCardId)
+      : { learn: true, practice: true };
+  }
+
+  function isBuiltInDeckModeEnabled() {
+    // Deck-level visibility from v42 is no longer used. Setup now controls
+    // Learn/Practice visibility per card for every built-in deck.
+    return true;
+  }
+
+  function isBuiltInCardModeEnabled(deckId, localCardId, mode = "practice") {
+    return getBuiltInCardVisibility(deckId, localCardId)[mode] !== false;
   }
 
   function getSentenceDecks(options = {}) {
@@ -138,6 +150,11 @@
     (getDb().sentenceCards || []).forEach((card) => {
       const deckId = String(card.deckId || "");
       if (!deckId) return;
+      const cardEnabled = !mode
+        || (mode === "any"
+          ? (isBuiltInCardModeEnabled(deckId, card.id, "learn") || isBuiltInCardModeEnabled(deckId, card.id, "practice"))
+          : isBuiltInCardModeEnabled(deckId, card.id, mode));
+      if (!cardEnabled) return;
       if (!groups.has(deckId)) {
         groups.set(deckId, {
           id: deckId,
@@ -149,9 +166,7 @@
       }
       groups.get(deckId).cardIds.push(card.id);
     });
-    return [...groups.values()]
-      .filter((deck) => !mode || (mode === "any" ? (isBuiltInDeckModeEnabled(deck.id, "learn") || isBuiltInDeckModeEnabled(deck.id, "practice")) : isBuiltInDeckModeEnabled(deck.id, mode)))
-      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return [...groups.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }
 
   function getSentenceAllDeck() {
@@ -165,10 +180,18 @@
     };
   }
 
+  function sourceHasAnyEnabled(source) {
+    if (!source) return false;
+    if (source.kind === "sentence") {
+      return (source.cardIds || []).some((id) => isBuiltInCardModeEnabled(source.id, id, "learn") || isBuiltInCardModeEnabled(source.id, id, "practice"));
+    }
+    return getCardsForSet(source.id).some((card) => card.learn !== false || card.practice !== false);
+  }
+
   function getReviewSourcesForSelect() {
     const vocabSets = getDb().sets.order
       .map((id) => getDb().sets.byId[id])
-      .filter((setRecord) => setRecord && (isBuiltInDeckModeEnabled(setRecord.id, "learn") || isBuiltInDeckModeEnabled(setRecord.id, "practice")))
+      .filter((setRecord) => setRecord && sourceHasAnyEnabled({ ...setRecord, kind: "vocab" }))
       .map((setRecord) => ({ ...setRecord, kind: "vocab" }));
     const sentenceDecks = getSentenceDecks({ mode: "any" });
     const sources = [...vocabSets];
@@ -178,7 +201,10 @@
 
   function getReviewSourceById(id) {
     const db = getDb();
-    if (db.sets.byId[id] && (isBuiltInDeckModeEnabled(id, "learn") || isBuiltInDeckModeEnabled(id, "practice"))) return { ...db.sets.byId[id], kind: "vocab" };
+    if (db.sets.byId[id]) {
+      const source = { ...db.sets.byId[id], kind: "vocab" };
+      return sourceHasAnyEnabled(source) ? source : null;
+    }
     if (id === SENTENCE_ALL_DECK_ID && getSentenceDecks({ mode: "any" }).length) return getSentenceAllDeck();
     return getSentenceDecks({ mode: "any" }).find((deck) => deck.id === id) || null;
   }
@@ -227,6 +253,24 @@
     return decks;
   }
 
+  function getSetupDeckById(deckId) {
+    return getSetupVisibilityDecks().find((deck) => deck.id === deckId) || getSetupVisibilityDecks()[0] || null;
+  }
+
+  function getSetupDeckCards(deckId) {
+    const deck = getSetupDeckById(deckId);
+    if (!deck) return [];
+    if (deck.kind === "sentence") {
+      const map = getSentenceCardMap();
+      return (deck.cardIds || []).map((id, index) => map[id] ? { ...map[id], setupIndex: index + 1 } : null).filter(Boolean);
+    }
+    return getCardsForSet(deck.id).map((card) => ({ ...card, setupIndex: card.index }));
+  }
+
+  function getSelectedSetupDeckId() {
+    return state.elements?.setupDeckSelect?.value || getSetupVisibilityDecks()[0]?.id || ALL_SET_ID;
+  }
+
   function getSentenceCardMap() {
     return Object.fromEntries((getDb().sentenceCards || []).map((card) => [card.id, card]));
   }
@@ -239,12 +283,21 @@
     return source?.kind === "sentence" ? getSentenceCardMap() : getAllCardMap();
   }
 
-  function getSmartIdsForSource(source) {
+  function getLearnScopedIdsForSet(setId = getActiveSet().id) {
+    const allMap = getAllCardMap();
+    const setRecord = getDb().sets.byId[setId] || getActiveSet();
+    return (setRecord?.cardIds || []).filter((id) => {
+      const card = allMap[id];
+      return !!card && card.learn !== false;
+    });
+  }
+
+  function getSmartIdsForSource(source, mode = "practice") {
     if (source?.kind === "sentence") {
       const valid = new Set((getDb().sentenceCards || []).map((card) => card.id));
-      return (source.cardIds || []).filter((id) => valid.has(id));
+      return (source.cardIds || []).filter((id) => valid.has(id) && isBuiltInCardModeEnabled(source.id, id, mode));
     }
-    return getPracticeScopedIdsForSet(source?.id || getActiveSet().id);
+    return mode === "learn" ? getLearnScopedIdsForSet(source?.id || getActiveSet().id) : getPracticeScopedIdsForSet(source?.id || getActiveSet().id);
   }
 
   function getSmartBucketForSource(source) {
@@ -295,7 +348,6 @@
   }
 
   function getPracticeScopedIdsForSet(setId = getActiveSet().id) {
-    if (!isBuiltInDeckModeEnabled(setId, "practice")) return [];
     const allMap = getAllCardMap();
     const setRecord = getDb().sets.byId[setId] || getActiveSet();
     return (setRecord?.cardIds || []).filter((id) => {
@@ -324,8 +376,6 @@
   }
 
   function getModeCards(mode = getUi().mode) {
-    if (mode === "learn" && !isBuiltInDeckModeEnabled(ALL_SET_ID, "learn")) return [];
-    if (mode === "practice" && !isBuiltInDeckModeEnabled(ALL_SET_ID, "practice")) return [];
     return getReviewScopedCards().filter((card) => card[mode] !== false);
   }
 
@@ -412,10 +462,9 @@
   function getSmartDueItems(now = new Date()) {
     const items = [];
     getReviewScopeSets().forEach((source) => {
-      if (!isBuiltInDeckModeEnabled(source.id, "practice")) return;
       const cardMap = getSmartCardMapForSource(source);
       const bucket = getSmartBucketForSource(source);
-      const due = smart.getDueQueue(getSmartIdsForSource(source), bucket, cardMap, now, { sessionSeed: `${state.smartSessionSeed}::${source.id}` });
+      const due = smart.getDueQueue(getSmartIdsForSource(source, "practice"), bucket, cardMap, now, { sessionSeed: `${state.smartSessionSeed}::${source.id}` });
       items.push(...decorateSmartItems(source.id, due, now).map((item) => ({ ...item, sourceKind: source.kind })));
     });
     return sortSmartReviewItems(items);
@@ -426,10 +475,9 @@
   function getSmartNewItems(now = new Date()) {
     const items = [];
     getReviewScopeSets().forEach((source) => {
-      if (!isBuiltInDeckModeEnabled(source.id, "learn")) return;
       const cardMap = getSmartCardMapForSource(source);
       const bucket = getSmartBucketForSource(source);
-      const fresh = smart.getNewQueue(getSmartIdsForSource(source), bucket, cardMap, now, { sessionSeed: `${state.smartSessionSeed}::${source.id}` });
+      const fresh = smart.getNewQueue(getSmartIdsForSource(source, "learn"), bucket, cardMap, now, { sessionSeed: `${state.smartSessionSeed}::${source.id}` });
       items.push(...decorateSmartItems(source.id, fresh, now).map((item) => ({ ...item, sourceKind: source.kind })));
     });
     return sortSmartReviewItems(items);
@@ -452,16 +500,18 @@
   }
 
   function getSmartScheduleForSet(setId, now = new Date()) {
-    const source = getReviewSourceById(setId);
+    const source = getReviewSourceById(setId) || getSetupDeckById(setId);
     if (!source) return { dueTodayCount: 0, nextDueDate: null, byDay: [], startedCount: 0, newCount: 0 };
-    const summary = smart.getScheduleSummary(getSmartIdsForSource(source), getSmartBucketForSource(source), now);
-    if (!isBuiltInDeckModeEnabled(source.id, "practice")) {
-      summary.dueTodayCount = 0;
-      summary.nextDueDate = null;
-      summary.byDay = [];
-    }
-    if (!isBuiltInDeckModeEnabled(source.id, "learn")) summary.newCount = 0;
-    return summary;
+    const bucket = getSmartBucketForSource(source);
+    const dueSummary = smart.getScheduleSummary(getSmartIdsForSource(source, "practice"), bucket, now);
+    const newSummary = smart.getScheduleSummary(getSmartIdsForSource(source, "learn"), bucket, now);
+    return {
+      dueTodayCount: dueSummary.dueTodayCount || 0,
+      nextDueDate: dueSummary.nextDueDate || null,
+      byDay: dueSummary.byDay || [],
+      startedCount: dueSummary.startedCount || 0,
+      newCount: newSummary.newCount || 0
+    };
   }
 
   function mergeScheduleSummaries(summaries) {
@@ -577,7 +627,7 @@
     if (!isSmartPracticeActive()) return null;
     if (state.round.smartCardId && state.round.smartSetId) {
       const source = getReviewSourceById(state.round.smartSetId);
-      const setIds = new Set(getSmartIdsForSource(source));
+      const setIds = new Set(getSmartIdsForSource(source, state.round.smartForceNew ? "learn" : "practice"));
       const map = getSmartCardMapForSource(source);
       if (setIds.has(state.round.smartCardId) && map[state.round.smartCardId]) {
         return { setId: state.round.smartSetId, id: state.round.smartCardId, card: map[state.round.smartCardId], sourceKind: source?.kind || "vocab" };
@@ -736,6 +786,11 @@
     getBuiltInDeckVisibility,
     isBuiltInDeckModeEnabled,
     getSetupVisibilityDecks,
+    getSetupDeckById,
+    getSetupDeckCards,
+    getSelectedSetupDeckId,
+    getBuiltInCardVisibility,
+    isBuiltInCardModeEnabled,
     getSentenceDecks,
     getSentenceAllDeck,
     getReviewSourcesForSelect,
@@ -750,6 +805,7 @@
     getScopedCardMap,
     getAllCardMap,
     getPracticeScopedIdsForSet,
+    getLearnScopedIdsForSet,
     getPracticeScopedCardsForSet,
     getReviewPracticeIds,
     getModeCards,

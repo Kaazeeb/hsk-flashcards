@@ -34,7 +34,11 @@
   const getActiveSet = proxy("getActiveSet");
   const getNamedSets = proxy("getNamedSets");
   const getBuiltInDeckVisibility = proxy("getBuiltInDeckVisibility");
+  const getBuiltInCardVisibility = proxy("getBuiltInCardVisibility");
   const getSetupVisibilityDecks = proxy("getSetupVisibilityDecks");
+  const getSetupDeckById = proxy("getSetupDeckById");
+  const getSetupDeckCards = proxy("getSetupDeckCards");
+  const getSelectedSetupDeckId = proxy("getSelectedSetupDeckId");
   const getReviewSourcesForSelect = proxy("getReviewSourcesForSelect");
   const getReviewScopeId = proxy("getReviewScopeId");
   const getReviewScopeSets = proxy("getReviewScopeSets");
@@ -194,11 +198,37 @@
     return getScopedCards().filter((card) => card[mode] !== false).map((card) => cardId(card));
   }
 
+  function getSetupCardLocalId(card, deck) {
+    return deck?.kind === "sentence" ? String(card?.id || "") : cardId(card);
+  }
+
+  function getSelectedSetupDeck() {
+    return getSetupDeckById(getSelectedSetupDeckId());
+  }
+
+  function getSelectedSetupCards() {
+    const deck = getSelectedSetupDeck();
+    return deck ? getSetupDeckCards(deck.id) : [];
+  }
+
+  function getSetupCardVisibility(card, deck = getSelectedSetupDeck()) {
+    if (!deck || !card) return { learn: true, practice: true };
+    if (deck.kind === "sentence") return getBuiltInCardVisibility(deck.id, card.id);
+    return { learn: card.learn !== false, practice: card.practice !== false };
+  }
+
   function renderSelectionSummary() {
-    const decks = getSetupVisibilityDecks();
-    const learnDecks = decks.filter((deck) => getBuiltInDeckVisibility(deck.id).learn !== false).length;
-    const practiceDecks = decks.filter((deck) => getBuiltInDeckVisibility(deck.id).practice !== false).length;
-    state.elements.selectionSummary.textContent = `Learn ${learnDecks} decks · Practice ${practiceDecks} decks`;
+    const deck = getSelectedSetupDeck();
+    const cards = getSelectedSetupCards();
+    let learn = 0;
+    let practice = 0;
+    cards.forEach((card) => {
+      const flags = getSetupCardVisibility(card, deck);
+      if (flags.learn !== false) learn += 1;
+      if (flags.practice !== false) practice += 1;
+    });
+    const name = deck?.name || "Deck";
+    state.elements.selectionSummary.textContent = `${name}: Learn ${learn} · Practice ${practice}`;
   }
 
   function renderOrderStatus() {
@@ -218,12 +248,6 @@
     if (!collapsed) renderBuiltInDeckVisibilityPanel();
   }
 
-  function getSelectedSetupDeck() {
-    const decks = getSetupVisibilityDecks();
-    const selectedId = state.elements.setupDeckSelect?.value || decks[0]?.id || "";
-    return decks.find((deck) => deck.id === selectedId) || decks[0] || null;
-  }
-
   function renderBuiltInDeckVisibilityPanel() {
     if (!state.elements.setupDeckSelect) return;
     const decks = getSetupVisibilityDecks();
@@ -240,35 +264,79 @@
       state.elements.setupDeckSelect.value = decks[0].id;
     }
     const deck = getSelectedSetupDeck();
-    const flags = deck ? getBuiltInDeckVisibility(deck.id) : { learn: true, practice: true };
-    if (state.elements.setupDeckLearnToggle) state.elements.setupDeckLearnToggle.checked = flags.learn !== false;
-    if (state.elements.setupDeckPracticeToggle) state.elements.setupDeckPracticeToggle.checked = flags.practice !== false;
+    const cards = getSelectedSetupCards();
     if (state.elements.setupDeckMeta) {
       state.elements.setupDeckMeta.textContent = deck
-        ? `${deck.name}: ${(deck.cardIds || []).length} cards · Learn ${flags.learn !== false ? "on" : "off"} · Practice ${flags.practice !== false ? "on" : "off"}`
+        ? `${deck.name}: ${cards.length} cards. Use the checkboxes below to include/exclude cards from Learn and Practice.`
         : "No built-in decks found.";
     }
   }
 
   function getFilteredManageCards() {
+    const deck = getSelectedSetupDeck();
     const query = state.filterText.trim().toLowerCase();
-    const scoped = getScopedCards();
-    if (!query) return scoped;
-    return scoped.filter((card) => (
-      String(card.index).includes(query)
-      || card.hanzi.toLowerCase().includes(query)
-      || card.pinyin.toLowerCase().includes(query)
-      || card.translation.toLowerCase().includes(query)
-    ));
+    const cards = getSelectedSetupCards();
+    if (!query) return cards;
+    return cards.filter((card) => {
+      const parts = [
+        String(card.setupIndex || card.index || ""),
+        card.hanzi,
+        card.pinyin,
+        card.pinyinNumeric,
+        card.translation,
+        card.front,
+        card.back,
+        card.chinese,
+        card.english,
+        card.meaning,
+        card.measureWords
+      ].map((value) => String(value || "").toLowerCase());
+      return parts.some((part) => part.includes(query));
+    });
+  }
+
+  function getSetupCardTitle(card, deck) {
+    const index = card.setupIndex || card.index || "";
+    if (deck?.kind === "sentence") {
+      if (card.direction === "hanzi_to_pinyin") return `#${index} · ${card.chinese || card.front}`;
+      if (card.direction === "measure_word") return `#${index} · ${card.chinese || card.front}`;
+      if (card.direction === "stroke_sequence") return `#${index} · ${card.front}`;
+      return `#${index} · ${card.front}`;
+    }
+    return `#${card.index} · ${card.hanzi}`;
+  }
+
+  function getSetupCardSub(card, deck) {
+    if (deck?.kind === "sentence") {
+      if (card.direction === "hanzi_to_pinyin") return `${card.back} · ${card.meaning || card.english || ""}`;
+      if (card.direction === "measure_word") return `${card.pinyin || ""} · ${card.back}`;
+      if (card.direction === "stroke_sequence") return `${card.chinese || ""} · ${card.back}`;
+      if (card.direction === "zh_qa") return `Q→A · ${card.back}`;
+      return card.back || card.english || card.chinese || "";
+    }
+    return `${card.pinyin} · ${card.translation}`;
+  }
+
+  function getSetupSmartMeta(card, deck) {
+    if (!deck || !card) return "smart new";
+    const localId = getSetupCardLocalId(card, deck);
+    const bucket = deck.kind === "sentence" ? (getDb().sentenceSmartByDeck?.[deck.id] || {}) : getSmartBucketForSet(deck.id);
+    const entry = bucket[localId] || smart.createSmartEntry(new Date());
+    if (smart.isStarted(entry)) {
+      const due = smart.getDueDay(entry, new Date());
+      return `smart due ${formatReviewDateLabel(due)}`;
+    }
+    return "smart new";
   }
 
   function renderManageList() {
     clearNode(state.elements.manageList);
+    const deck = getSelectedSetupDeck();
     const cards = getFilteredManageCards();
     if (!cards.length) {
       const empty = document.createElement("p");
       empty.className = "muted";
-      empty.textContent = "No cards match the current filter / set.";
+      empty.textContent = "No cards match the current filter / deck.";
       state.elements.manageList.appendChild(empty);
       return;
     }
@@ -282,40 +350,45 @@
 
       const title = document.createElement("div");
       title.className = "manage-title";
-      title.textContent = `#${card.index} · ${card.hanzi}`;
+      title.textContent = getSetupCardTitle(card, deck);
 
       const sub = document.createElement("div");
       sub.className = "manage-sub";
-      sub.textContent = `${card.pinyin} · ${card.translation}`;
+      sub.textContent = getSetupCardSub(card, deck);
 
       const stats = document.createElement("div");
       stats.className = "manage-mini muted";
-      const summary = getPracticeCardSummaryText(card);
-      let smartMeta = "smart inactive";
-      if (card.practice !== false) {
-        const smartSetId = getActiveSet().id;
-        const smartEntry = getSmartBucketForSet(smartSetId)[cardId(card)] || smart.createSmartEntry(new Date());
-        if (smart.isStarted(smartEntry)) {
-          const due = smart.getDueDay(smartEntry, new Date());
-          smartMeta = `smart due ${formatReviewDateLabel(due)}`;
-        } else {
-          smartMeta = "smart new";
+      if (deck?.kind === "sentence") {
+        stats.textContent = getSetupSmartMeta(card, deck);
+      } else {
+        const summary = getPracticeCardSummaryText(card);
+        let smartMeta = "smart inactive";
+        if (card.practice !== false) {
+          const smartEntry = getSmartBucketForSet(deck?.id || getActiveSet().id)[cardId(card)] || smart.createSmartEntry(new Date());
+          if (smart.isStarted(smartEntry)) {
+            const due = smart.getDueDay(smartEntry, new Date());
+            smartMeta = `smart due ${formatReviewDateLabel(due)}`;
+          } else {
+            smartMeta = "smart new";
+          }
         }
+        stats.textContent = `${summary.translation} · ${summary.pinyin} · ${smartMeta}`;
       }
-      stats.textContent = `${summary.translation} · ${summary.pinyin} · ${smartMeta}`;
 
       meta.append(title, sub, stats);
 
       const flags = document.createElement("div");
       flags.className = "manage-flags";
+      const current = getSetupCardVisibility(card, deck);
       MODES.forEach((mode) => {
         const label = document.createElement("label");
         label.className = "flag-check";
         const input = document.createElement("input");
         input.type = "checkbox";
-        input.checked = card[mode] !== false;
-        input.dataset.cardId = cardId(card);
+        input.checked = current[mode] !== false;
+        input.dataset.cardId = getSetupCardLocalId(card, deck);
         input.dataset.cardMode = mode;
+        input.dataset.deckId = deck?.id || ALL_SET_ID;
         const span = document.createElement("span");
         span.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
         label.append(input, span);
@@ -487,43 +560,9 @@
   }
 
   function renderSetPanel() {
-    const decks = getSetupVisibilityDecks();
-    const fallback = getActiveSet();
-    const selectedId = state.elements.setupDeckSelect?.value || fallback.id;
-    const activeDeck = decks.find((deck) => deck.id === selectedId) || decks[0] || { ...fallback, kind: "vocab" };
-    const summary = getSmartScheduleForSet(activeDeck.id);
-
-    if (state.elements.activeSetSelect) {
-      clearNode(state.elements.activeSetSelect);
-      decks.forEach((deck) => {
-        const option = document.createElement("option");
-        option.value = deck.id;
-        option.textContent = `${deck.name} (${(deck.cardIds || []).length})`;
-        option.selected = deck.id === activeDeck.id;
-        state.elements.activeSetSelect.appendChild(option);
-      });
-    }
-
-    state.elements.activeSetBadge.textContent = activeDeck.name || activeDeck.id;
-    if (state.elements.deleteSetBtn) state.elements.deleteSetBtn.disabled = true;
-    const count = activeDeck.kind === "sentence" ? (activeDeck.cardIds || []).length : getPracticeScopedIdsForSet(activeDeck.id).length;
-    state.elements.setCardCount.textContent = String(count);
-    if (state.elements.setNewCount) state.elements.setNewCount.textContent = String(summary.newCount || 0);
-    if (state.elements.setStartedCount) state.elements.setStartedCount.textContent = String(summary.startedCount || 0);
-    state.elements.setDueToday.textContent = String(summary.dueTodayCount || 0);
-    if (state.elements.setNextDue) state.elements.setNextDue.textContent = summary.nextDueDate ? formatReviewDateLabel(summary.nextDueDate) : (summary.newCount ? "not scheduled yet" : "—");
-
-    if (state.elements.addSetRangeBtn) state.elements.addSetRangeBtn.disabled = true;
-    if (state.elements.removeSetRangeBtn) state.elements.removeSetRangeBtn.disabled = true;
-    if (state.elements.replaceSetRangeBtn) state.elements.replaceSetRangeBtn.disabled = true;
-    if (state.elements.setupIntroduceBtn) state.elements.setupIntroduceBtn.disabled = !(summary.newCount > 0);
-    if (state.elements.setupReviewBtn) state.elements.setupReviewBtn.disabled = !(summary.dueTodayCount > 0);
-
-    clearNode(state.elements.setsOverview);
-    decks.forEach((deck) => {
-      const deckSummary = getSmartScheduleForSet(deck.id);
-      state.elements.setsOverview.appendChild(makeSetScheduleRow(deck, deckSummary, activeDeck.id));
-    });
+    // v44: setup no longer renders a separate schedule/overview panel. The Setup
+    // page is only the old card-visibility manager with a deck selector.
+    if (state.elements.activeSetBadge) state.elements.activeSetBadge.textContent = getSelectedSetupDeck()?.name || "All cards";
   }
 
   function renderCurrentCardStats(card) {

@@ -33,6 +33,9 @@
   const markManageListDirty = proxy("markManageListDirty");
   const getActiveSet = proxy("getActiveSet");
   const getNamedSets = proxy("getNamedSets");
+  const getSetupDeckById = proxy("getSetupDeckById");
+  const getSetupDeckCards = proxy("getSetupDeckCards");
+  const getSelectedSetupDeckId = proxy("getSelectedSetupDeckId");
   const getReviewScopeId = proxy("getReviewScopeId");
   const getReviewScopeSets = proxy("getReviewScopeSets");
   const getPrimaryReviewSet = proxy("getPrimaryReviewSet");
@@ -244,9 +247,41 @@
     render();
   }
 
+  function setBuiltInCardFlag(deckId, localCardId, mode, value) {
+    const id = String(deckId || "").trim();
+    const card = String(localCardId || "").trim();
+    if (!id || !card || !MODES.includes(mode)) return false;
+    const db = getDb();
+    const normalized = ns.store && typeof ns.store.normalizeBuiltinVisibility === "function"
+      ? ns.store.normalizeBuiltinVisibility(db.builtinVisibility)
+      : { byDeck: db.builtinVisibility?.byDeck || {} };
+    const deck = normalized.byDeck[id] || { learn: true, practice: true, cards: {} };
+    const current = ns.store && typeof ns.store.getBuiltinCardVisibility === "function"
+      ? ns.store.getBuiltinCardVisibility(normalized, id, card)
+      : { learn: true, practice: true };
+    const next = { ...current, [mode]: value !== false };
+    deck.cards = deck.cards || {};
+    if (next.learn !== false && next.practice !== false) delete deck.cards[card];
+    else deck.cards[card] = next;
+    normalized.byDeck[id] = deck;
+    db.builtinVisibility = normalized;
+    return true;
+  }
+
   function updateCardMode(id, mode, checked) {
+    if (!MODES.includes(mode)) return;
+    const deck = getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
+    if (deck.kind === "sentence") {
+      if (!setBuiltInCardFlag(deck.id, id, mode, checked)) return;
+      resetRoundState();
+      clearSmartSessionDeferrals();
+      markManageListDirty();
+      persist();
+      render();
+      return;
+    }
     const card = getDb().vocab.find((item) => cardId(item) === id);
-    if (!card || !MODES.includes(mode)) return;
+    if (!card) return;
     card[mode] = checked;
     ensureOrder(mode);
     resetRoundState();
@@ -259,11 +294,30 @@
     const input = state.elements[`range${mode.charAt(0).toUpperCase()}${mode.slice(1)}`];
     const ranges = parseRangeInput(input?.value || "");
     if (!ranges.size) return;
+    const deck = getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
+    const cards = getSetupDeckCards(deck.id);
     let changed = 0;
-    getScopedCards().forEach((card) => {
+
+    if (deck.kind === "sentence") {
+      cards.forEach((card) => {
+        const position = card.setupIndex || card.index;
+        if (!ranges.has(position)) return;
+        if (setBuiltInCardFlag(deck.id, card.id, mode, include)) changed += 1;
+      });
+      if (!changed) return;
+      resetRoundState();
+      clearSmartSessionDeferrals();
+      markManageListDirty();
+      persist();
+      render();
+      return;
+    }
+
+    cards.forEach((card) => {
       if (!ranges.has(card.index)) return;
-      if (card[mode] !== include) {
-        card[mode] = include;
+      const original = getDb().vocab.find((item) => cardId(item) === cardId(card));
+      if (original && original[mode] !== include) {
+        original[mode] = include;
         changed += 1;
       }
     });
@@ -276,10 +330,27 @@
   }
 
   function setAllForMode(mode, value) {
+    const deck = getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
+    const cards = getSetupDeckCards(deck.id);
     let changed = 0;
-    getScopedCards().forEach((card) => {
-      if (card[mode] !== value) {
-        card[mode] = value;
+
+    if (deck.kind === "sentence") {
+      cards.forEach((card) => {
+        if (setBuiltInCardFlag(deck.id, card.id, mode, value)) changed += 1;
+      });
+      if (!changed) return;
+      resetRoundState();
+      clearSmartSessionDeferrals();
+      markManageListDirty();
+      persist();
+      render();
+      return;
+    }
+
+    cards.forEach((card) => {
+      const original = getDb().vocab.find((item) => cardId(item) === cardId(card));
+      if (original && original[mode] !== value) {
+        original[mode] = value;
         changed += 1;
       }
     });
@@ -338,21 +409,16 @@
   }
 
   function handleSetupDeckSelectChange() {
+    state.filterText = state.elements.filterInput?.value || "";
     resetRoundState();
     clearSmartSessionDeferrals();
+    markManageListDirty();
     render();
   }
 
   async function handleSetupDeckVisibilityChange() {
-    const deckId = state.elements.setupDeckSelect?.value || "";
-    if (!deckId || !state.store || typeof state.store.setBuiltInDeckVisibility !== "function") return;
-    await state.store.setBuiltInDeckVisibility(deckId, {
-      learn: state.elements.setupDeckLearnToggle?.checked !== false,
-      practice: state.elements.setupDeckPracticeToggle?.checked !== false
-    });
-    resetRoundState();
-    clearSmartSessionDeferrals();
-    render();
+    // Kept as a no-op for compatibility with older markup. v44 uses per-card
+    // Learn/Practice flags in the manage list instead of deck-level visibility.
   }
 
   function handleManageListChange(event) {
