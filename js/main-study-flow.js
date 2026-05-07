@@ -571,8 +571,60 @@
 
   function getSentenceFrontLabel(card) {
     if (card.direction === "en_to_zh") return "English → Chinese";
-    if (card.direction === "zh_qa") return "Chinese question → Chinese answer";
+    if (card.direction === "zh_qa") return "Q→A · answer in Chinese";
+    if (card.direction === "hanzi_to_pinyin") return "Hanzi → pinyin";
+    if (card.direction === "measure_word") return "Word → measure words";
+    if (card.direction === "stroke_sequence") return "Pinyin + meaning → 5-stroke sequence";
     return "Chinese → English";
+  }
+
+  function normalizeStrokeInput(value) {
+    return String(value || "").replace(/[^1-5]/g, "");
+  }
+
+  function getStrokeAnswerForCard(card) {
+    const existing = normalizeStrokeInput(card?.strokeAnswer);
+    if (existing) return existing;
+    const fallback = ns.strokeOrder?.getStrokeSequenceForHanzi?.(card?.strokeSourceChar || card?.chinese);
+    const expected = normalizeStrokeInput(fallback);
+    if (expected) {
+      card.strokeAnswer = expected;
+      card.back = `${card.chinese} · ${card.english || ""} · ${expected}`;
+      return expected;
+    }
+    throw new Error(`No hardcoded stroke sequence available for ${card?.chinese || "this card"}.`);
+  }
+
+  async function submitSmartStrokeAnswer(event) {
+    event.preventDefault();
+    if (state.round.smartStage !== "stroke-answer" || state.round.strokeLoading) return;
+    const card = getCurrentCard();
+    if (!card) return;
+    const form = event.currentTarget;
+    const input = form.querySelector("input");
+    const answerText = input ? input.value : "";
+    const normalized = normalizeStrokeInput(answerText);
+    state.round.answerText = answerText;
+    try {
+      const expected = getStrokeAnswerForCard(card);
+      const correct = !!expected && normalized === expected;
+      state.round.selectedCorrect = correct;
+      state.round.smartSelectedRating = correct ? 3 : 1;
+      state.round.smartStage = "feedback";
+      state.round.answered = true;
+      state.round.strokeLoading = false;
+      state.round.resultText = correct
+        ? `Correct. ${card.chinese} 5-stroke sequence: ${expected}. Choose an FSRS rating.`
+        : `Wrong. ${card.chinese} 5-stroke sequence: ${expected}. Choose an FSRS rating.`;
+      state.round.resultClass = correct ? "ok" : "bad";
+    } catch (error) {
+      console.warn(error);
+      state.round.strokeLoading = false;
+      state.round.resultText = `No hardcoded stroke data for ${card.chinese}. Skip this card.`;
+      state.round.resultClass = "bad";
+    }
+    render();
+    scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
   }
 
   function renderSmartSentenceIntroduction(card, newCount, startedCount) {
@@ -590,7 +642,7 @@
     clearNode(state.elements.answerArea);
     const note = document.createElement("div");
     note.className = "intro-note muted";
-    note.textContent = "Sentence cards use flip + manual FSRS rating. Chinese sides show hanzi only, including Chinese question-answer cards.";
+    note.textContent = card.direction === "zh_qa" ? "Q→A marker: this card expects a Chinese answer, not a translation." : "Built-in study cards use flip + manual FSRS rating unless the card asks for a numeric stroke sequence.";
     state.elements.answerArea.appendChild(note);
     clearNode(state.elements.controls);
     state.elements.controls.append(
@@ -606,7 +658,9 @@
     state.round.smartStage = "feedback";
     state.round.smartSelectedRating = 3;
     state.round.answered = true;
-    state.round.resultText = "Choose the FSRS rating for this sentence.";
+    state.round.resultText = card.direction === "zh_qa"
+      ? "Compare your Chinese answer, then choose the FSRS rating."
+      : "Choose the FSRS rating for this card.";
     state.round.resultClass = "";
     render();
     scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
@@ -618,23 +672,60 @@
       renderSmartSentenceIntroduction(card, dueCount, activeCount);
       return;
     }
-    if (state.round.smartStage === "pinyin") state.round.smartStage = "sentence-question";
+    if (state.round.smartStage === "pinyin") state.round.smartStage = card.direction === "stroke_sequence" ? "stroke-answer" : "sentence-question";
     prepareRoundAppearance("practice", "smart", card);
     setSmartPositionLabel(card, dueCount, activeCount);
     renderCurrentCardStats(card);
-    state.elements.cardPrompt.textContent = `Smart sentence · ${getDb().sets.byId[smartSetId]?.name || getReviewScopeName()} · ${getSentenceFrontLabel(card)}`;
+    state.elements.cardPrompt.textContent = `Smart study · ${getDb().sets.byId[smartSetId]?.name || getReviewScopeName()} · ${getSentenceFrontLabel(card)}`;
     state.elements.cardHanzi.textContent = card.front;
-    state.elements.cardPinyin.textContent = "";
+    state.elements.cardPinyin.textContent = card.direction === "stroke_sequence" ? "Enter 1-5 stroke numbers" : "";
     state.elements.cardTranslation.textContent = state.round.smartStage === "feedback" ? card.back : "";
     clearNode(state.elements.answerArea);
     clearNode(state.elements.controls);
+    if (state.round.smartStage === "stroke-answer") {
+      updateResult(state.elements.resultText, state.round.resultText || "Type the hardcoded 5-stroke numeric sequence. Code: 1 横, 2 竖, 3 撇, 4 捺/点, 5 折.", state.round.resultClass || "");
+      const form = document.createElement("form");
+      form.className = "pinyin-form";
+      form.addEventListener("submit", submitSmartStrokeAnswer);
+      const input = document.createElement("input");
+      input.type = "text";
+      input.inputMode = "numeric";
+      input.autocomplete = "off";
+      input.placeholder = "example: 1234";
+      input.className = "pinyin-input";
+      input.value = state.round.answerText || "";
+      input.disabled = !!state.round.strokeLoading;
+      const button = createButton("Check", null, "answer-btn");
+      button.type = "submit";
+      button.disabled = !!state.round.strokeLoading;
+      form.append(input, button);
+      state.elements.answerArea.appendChild(form);
+      if (card.strokeLegend) {
+        const legend = document.createElement("div");
+        legend.className = "intro-note muted";
+        legend.textContent = card.strokeLegend;
+        state.elements.answerArea.appendChild(legend);
+      }
+      state.elements.controls.append(createButton("Skip", nextSmartCard, "secondary"));
+      setTimeout(() => input.focus({ preventScroll: true }), 0);
+      return;
+    }
     if (state.round.smartStage === "sentence-question") {
-      updateResult(state.elements.resultText, "Read the front, answer mentally or aloud, then flip.", "");
+      const prompt = card.direction === "zh_qa"
+        ? "Answer in Chinese. This is not a translation card. Then flip."
+        : "Read the front, answer mentally or aloud, then flip.";
+      updateResult(state.elements.resultText, prompt, "");
+      if (card.direction === "zh_qa") {
+        const marker = document.createElement("div");
+        marker.className = "intro-note muted";
+        marker.textContent = "Q→A: expected answer is Chinese, not English.";
+        state.elements.answerArea.appendChild(marker);
+      }
       state.elements.answerArea.appendChild(createButton("Show answer", showSmartSentenceAnswer, "answer-btn"));
       state.elements.controls.append(createButton("Skip", nextSmartCard, "secondary"));
       return;
     }
-    updateResult(state.elements.resultText, state.round.resultText || "Choose the FSRS rating for this sentence.", state.round.resultClass || "");
+    updateResult(state.elements.resultText, state.round.resultText || "Choose the FSRS rating for this card.", state.round.resultClass || "");
     SMART_RATINGS.forEach((rating, index) => {
       const label = `${index + 1}. ${smart.ratingLabel(rating)}`;
       const button = createButton(label, () => setSmartRating(rating), "answer-btn", { dataset: { smartRating: String(rating) } });
@@ -859,6 +950,7 @@
     renderPinyinQuiz,
     renderSmartSentenceIntroduction,
     showSmartSentenceAnswer,
+    submitSmartStrokeAnswer,
     renderSmartSentencePractice,
     introduceCurrentSmartCard,
     renderSmartIntroduction,

@@ -335,7 +335,7 @@
         option.value = source.id;
         const count = source.kind === "sentence" ? (source.cardIds || []).length : getPracticeScopedIdsForSet(source.id).length;
         option.textContent = source.kind === "sentence"
-          ? `${source.name} (${count} sentence cards)`
+          ? `${source.name} (${count} cards)`
           : `${source.name} (${count} practice)`;
         option.selected = source.id === reviewScopeId;
         state.elements.reviewSetSelect.appendChild(option);

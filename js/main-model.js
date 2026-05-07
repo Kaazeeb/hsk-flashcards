@@ -145,7 +145,7 @@
     const decks = getSentenceDecks();
     return {
       id: SENTENCE_ALL_DECK_ID,
-      name: "All sentence cards",
+      name: "All built-in study cards",
       kind: "sentence",
       locked: true,
       cardIds: decks.flatMap((deck) => deck.cardIds || [])
@@ -191,7 +191,7 @@
   function getReviewScopeName() {
     const id = getReviewScopeId();
     if (id === REVIEW_ALL_SETS_ID) return "All saved sets";
-    if (id === SENTENCE_ALL_DECK_ID) return "All sentence cards";
+    if (id === SENTENCE_ALL_DECK_ID) return "All built-in study cards";
     return getPrimaryReviewSet().name;
   }
 
@@ -225,7 +225,7 @@
   }
 
   function isSentenceCard(card) {
-    return card?.cardKind === "sentence" || ["zh_to_en", "en_to_zh", "zh_qa"].includes(String(card?.direction || ""));
+    return ["sentence", "study"].includes(card?.cardKind) || ["zh_to_en", "en_to_zh", "zh_qa", "hanzi_to_pinyin", "measure_word", "stroke_sequence"].includes(String(card?.direction || ""));
   }
 
   function getCardsForSet(setId = getActiveSet().id) {

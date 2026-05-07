@@ -200,23 +200,34 @@
   }
 
   function normalizeSentenceCards(rawCards) {
+    const directions = ["zh_to_en", "en_to_zh", "zh_qa", "hanzi_to_pinyin", "measure_word", "stroke_sequence"];
     return (Array.isArray(rawCards) ? rawCards : [])
-      .map((card, index) => ({
-        id: String(card?.id || `sentence_${index + 1}`).trim(),
-        index: index + 1,
-        cardKind: "sentence",
-        level: Math.max(1, Math.min(9, Math.floor(Number(card?.level) || 1))),
-        direction: ["zh_to_en", "en_to_zh", "zh_qa"].includes(String(card?.direction || "")) ? String(card.direction) : "zh_to_en",
-        deckId: String(card?.deckId || card?.deck || ns.constants.SENTENCE_DEFAULT_DECK_ID).trim() || ns.constants.SENTENCE_DEFAULT_DECK_ID,
-        deckName: String(card?.deckName || card?.category || ns.constants.SENTENCE_DEFAULT_DECK_NAME).trim() || ns.constants.SENTENCE_DEFAULT_DECK_NAME,
-        front: String(card?.front || card?.prompt || "").trim(),
-        back: String(card?.back || card?.answer || "").trim(),
-        chinese: String(card?.chinese || card?.hanzi || "").trim(),
-        english: String(card?.english || card?.translation || "").trim(),
-        grammarTags: Array.isArray(card?.grammarTags) ? card.grammarTags.map(String) : [],
-        tags: Array.isArray(card?.tags) ? card.tags.map(String) : []
-      }))
-      .filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && (card.direction === "zh_qa" || card.english));
+      .map((card, index) => {
+        const direction = directions.includes(String(card?.direction || "")) ? String(card.direction) : "zh_to_en";
+        return {
+          id: String(card?.id || `sentence_${index + 1}`).trim(),
+          index: index + 1,
+          cardKind: card?.cardKind === "study" ? "study" : "sentence",
+          level: Math.max(0, Math.min(9, Math.floor(Number(card?.level) || 0))),
+          direction,
+          deckId: String(card?.deckId || card?.deck || ns.constants.SENTENCE_DEFAULT_DECK_ID).trim() || ns.constants.SENTENCE_DEFAULT_DECK_ID,
+          deckName: String(card?.deckName || card?.category || ns.constants.SENTENCE_DEFAULT_DECK_NAME).trim() || ns.constants.SENTENCE_DEFAULT_DECK_NAME,
+          front: String(card?.front || card?.prompt || "").trim(),
+          back: String(card?.back || card?.answer || "").trim(),
+          chinese: String(card?.chinese || card?.hanzi || "").trim(),
+          english: String(card?.english || card?.translation || "").trim(),
+          pinyin: String(card?.pinyin || "").trim(),
+          pinyinNumeric: String(card?.pinyinNumeric || card?.pinyin_numeric || card?.numericPinyin || "").trim(),
+          strokeSourceChar: String(card?.strokeSourceChar || card?.chinese || "").trim(),
+          strokeAnswer: String(card?.strokeAnswer || "").trim(),
+          strokeLegend: String(card?.strokeLegend || "").trim(),
+          strokeTypes: card?.strokeTypes && typeof card.strokeTypes === "object" ? card.strokeTypes : null,
+          answerMode: String(card?.answerMode || (direction === "zh_qa" ? "zh_answer" : "")).trim(),
+          grammarTags: Array.isArray(card?.grammarTags) ? card.grammarTags.map(String) : [],
+          tags: Array.isArray(card?.tags) ? card.tags.map(String) : []
+        };
+      })
+      .filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && (card.direction === "zh_qa" || card.direction === "stroke_sequence" || card.english));
   }
 
   function createDefaultImageUiState() {

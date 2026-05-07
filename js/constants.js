@@ -76,15 +76,248 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     }).filter((card) => card.id && card.deckId && card.imagePath && (card.hanzi || card.translation || card.pinyin));
   };
 
+  const STUDY_DIRECTIONS = ["zh_to_en", "en_to_zh", "zh_qa", "hanzi_to_pinyin", "measure_word", "stroke_sequence"];
+
+  const STROKE_TYPE_LABELS = {
+    1: "横 héng",
+    2: "竖 shù",
+    3: "撇 piě",
+    4: "捺/点 nà/diǎn",
+    5: "折 zhé"
+  };
+
+  const STROKE_SEQUENCE_DATA = window.HSK_STROKE_SEQUENCES || {};
+
+  const CHAR_PINYIN_OVERRIDES = {
+    谢: "xiè",
+    么: "me",
+    妈: "mā",
+    爸: "bà",
+    哥: "gē",
+    姐: "jiě",
+    弟: "dì",
+    妹: "mèi",
+    们: "men",
+    子: "zi",
+    服: "fu",
+    饭: "fàn",
+    觉: "jiào",
+    候: "hou",
+    亮: "liang",
+    识: "shi",
+    见: "jiàn",
+    话: "huà",
+    课: "kè",
+    班: "bān",
+    病: "bìng",
+    点: "diǎn",
+    儿: "ér"
+  };
+
+  function getChineseChars(text) {
+    return [...String(text || "")].filter((char) => /[㐀-鿿]/.test(char));
+  }
+
+  function splitCompactNumericPinyin(text, count) {
+    const value = String(text || "").trim();
+    if (!value || !count) return [];
+    if (/\s/.test(value)) {
+      const parts = value.split(/\s+/).filter(Boolean);
+      return parts.length === count ? parts : [];
+    }
+    const segments = [];
+    let start = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      if (/[1-4]/.test(value[i])) {
+        segments.push(value.slice(start, i + 1));
+        start = i + 1;
+        if (segments.length === count) break;
+      }
+    }
+    if (start < value.length) segments.push(value.slice(start));
+    return segments.length === count ? segments : [];
+  }
+
+  function numericSyllableToMarked(syllable) {
+    const raw = String(syllable || "").toLowerCase().replace(/v/g, "ü");
+    const match = raw.match(/^([a-zü:]+)([1-4])?$/i);
+    if (!match) return raw;
+    const base = match[1].replace(/u:/g, "ü");
+    const tone = Number(match[2] || 0);
+    if (!tone) return base;
+    const toneMarks = {
+      a: ["ā", "á", "ǎ", "à"],
+      e: ["ē", "é", "ě", "è"],
+      i: ["ī", "í", "ǐ", "ì"],
+      o: ["ō", "ó", "ǒ", "ò"],
+      u: ["ū", "ú", "ǔ", "ù"],
+      ü: ["ǖ", "ǘ", "ǚ", "ǜ"]
+    };
+    let target = -1;
+    if (base.includes("a")) target = base.indexOf("a");
+    else if (base.includes("e")) target = base.indexOf("e");
+    else if (base.includes("ou")) target = base.indexOf("o");
+    else {
+      for (let i = base.length - 1; i >= 0; i -= 1) {
+        if ("aeiouü".includes(base[i])) { target = i; break; }
+      }
+    }
+    if (target < 0 || !toneMarks[base[target]]) return base;
+    return base.slice(0, target) + toneMarks[base[target]][tone - 1] + base.slice(target + 1);
+  }
+
+  function cleanGloss(translation) {
+    const withoutClassifiers = String(translation || "")
+      .replace(/;?\s*CL:\s*.*$/i, "")
+      .replace(/\[[^\]]*\]/g, "")
+      .replace(/\([^)]*\)/g, "")
+      .trim();
+    const firstPieces = withoutClassifiers.split(/;|,/).map((part) => part.trim()).filter(Boolean).slice(0, 2);
+    const gloss = firstPieces.join("; ") || withoutClassifiers || "vocabulary item";
+    return gloss.length > 54 ? `${gloss.slice(0, 51).trim()}...` : gloss;
+  }
+
+  function collectHanziStudyInfo(vocab) {
+    const map = new Map();
+    function ensure(char) {
+      if (!map.has(char)) {
+        map.set(char, { char, pinyin: new Set(), pinyinNumeric: new Set(), exactGlosses: [], contextGlosses: [] });
+      }
+      return map.get(char);
+    }
+    (vocab || []).forEach((card) => {
+      const chars = getChineseChars(card.hanzi);
+      if (!chars.length) return;
+      const gloss = cleanGloss(card.translation);
+      const numericParts = splitCompactNumericPinyin(card.pinyinNumeric, chars.length);
+      chars.forEach((char, index) => {
+        const info = ensure(char);
+        if (numericParts.length === chars.length) {
+          const numeric = numericParts[index];
+          if (numeric) {
+            info.pinyinNumeric.add(numeric);
+            info.pinyin.add(numericSyllableToMarked(numeric));
+          }
+        }
+        if (chars.length === 1) info.exactGlosses.push(gloss);
+        else info.contextGlosses.push(gloss);
+      });
+    });
+    Object.entries(CHAR_PINYIN_OVERRIDES).forEach(([char, pinyin]) => {
+      if (map.has(char) && !map.get(char).pinyin.size) map.get(char).pinyin.add(pinyin);
+    });
+    return [...map.values()].sort((a, b) => a.char.localeCompare(b.char, "zh-Hans-CN")).map((info) => ({
+      ...info,
+      pinyinDisplay: [...info.pinyin].join(" / ") || "—",
+      pinyinNumericDisplay: [...info.pinyinNumeric].join(" / "),
+      meaning: info.exactGlosses[0] || info.contextGlosses[0] || "vocabulary item"
+    }));
+  }
+
+  function extractMeasureWords(translation) {
+    const match = String(translation || "").match(/CL:\s*(.+)$/i);
+    if (!match) return "";
+    return match[1].trim().replace(/;\s*/g, "; ");
+  }
+
+  function buildHanziPinyinCards(vocab) {
+    return collectHanziStudyInfo(vocab).map((info) => ({
+      id: `hanzi_pinyin_${info.char.codePointAt(0).toString(16)}`,
+      level: 0,
+      cardKind: "study",
+      direction: "hanzi_to_pinyin",
+      deckId: "builtin_hanzi_pinyin",
+      deckName: "Hanzi → pinyin",
+      front: info.char,
+      back: info.pinyinDisplay,
+      chinese: info.char,
+      english: info.pinyinDisplay,
+      pinyin: info.pinyinDisplay,
+      pinyinNumeric: info.pinyinNumericDisplay,
+      tags: ["builtin", "hanzi", "pinyin"]
+    }));
+  }
+
+  function buildMeasureWordCards(vocab) {
+    return (vocab || []).map((card, index) => {
+      const measureWords = extractMeasureWords(card.translation);
+      if (!measureWords) return null;
+      const compactHanzi = String(card.hanzi || "").replace(/[^㐀-鿿]/g, "");
+      return {
+        id: `measure_word_${index + 1}_${compactHanzi}`,
+        level: 0,
+        cardKind: "study",
+        direction: "measure_word",
+        deckId: "builtin_measure_words",
+        deckName: "Measure words from vocabulary",
+        front: card.hanzi,
+        back: measureWords,
+        chinese: card.hanzi,
+        english: measureWords,
+        pinyin: card.pinyin,
+        pinyinNumeric: card.pinyinNumeric,
+        tags: ["builtin", "measure_words"]
+      };
+    }).filter(Boolean);
+  }
+
+  function buildStrokeOrderCards(vocab) {
+    const legend = getStrokeLegend();
+    return collectHanziStudyInfo(vocab).map((info) => {
+      const strokeAnswer = String(STROKE_SEQUENCE_DATA[info.char] || "").replace(/[^1-5]/g, "");
+      return {
+        id: `stroke_order_${info.char.codePointAt(0).toString(16)}`,
+        level: 0,
+        cardKind: "study",
+        direction: "stroke_sequence",
+        deckId: "builtin_stroke_order",
+        deckName: "Pinyin + meaning → 5-stroke sequence",
+        front: `${info.pinyinDisplay} · ${info.meaning}`,
+        back: `${info.char} · ${info.meaning} · ${strokeAnswer}`,
+        chinese: info.char,
+        english: info.meaning,
+        pinyin: info.pinyinDisplay,
+        pinyinNumeric: info.pinyinNumericDisplay,
+        strokeSourceChar: info.char,
+        strokeAnswer,
+        strokeLegend: legend,
+        strokeTypes: STROKE_TYPE_LABELS,
+        answerMode: "numeric_strokes_5",
+        tags: ["builtin", "stroke_order", "five_stroke"]
+      };
+    }).filter((card) => card.strokeAnswer);
+  }
+
+  function getStrokeLegend() {
+    return Object.entries(STROKE_TYPE_LABELS).map(([key, label]) => `${key}=${label}`).join(" · ");
+  }
+
+  function getStrokeSequenceForHanzi(hanzi) {
+    const char = getChineseChars(hanzi)[0] || String(hanzi || "").trim()[0] || "";
+    return String(STROKE_SEQUENCE_DATA[char] || "").replace(/[^1-5]/g, "");
+  }
+
+  ns.strokeOrder = {
+    labels: STROKE_TYPE_LABELS,
+    getStrokeLegend,
+    getStrokeSequenceForHanzi
+  };
+
   ns.getBuiltInSentenceCards = function getBuiltInSentenceCards() {
-    const raw = Array.isArray(window.HSK_SENTENCE_CARDS) ? window.HSK_SENTENCE_CARDS : [];
+    const vocab = ns.getBuiltInCards();
+    const raw = [
+      ...(Array.isArray(window.HSK_SENTENCE_CARDS) ? window.HSK_SENTENCE_CARDS : []),
+      ...buildHanziPinyinCards(vocab),
+      ...buildMeasureWordCards(vocab),
+      ...buildStrokeOrderCards(vocab)
+    ];
     const defaults = ns.constants;
     return raw.map((card, index) => {
       const rawDirection = String(card.direction || "").trim();
-      const direction = ["zh_to_en", "en_to_zh", "zh_qa"].includes(rawDirection) ? rawDirection : "zh_to_en";
-      const level = Math.max(1, Math.min(9, Math.floor(Number(card.level) || 1)));
-      const deckId = String(card.deckId || card.deck || `sentence_hsk${level}`).trim() || defaults.SENTENCE_DEFAULT_DECK_ID;
-      const deckName = String(card.deckName || card.category || `HSK ${level} sentences`).trim() || defaults.SENTENCE_DEFAULT_DECK_NAME;
+      const direction = STUDY_DIRECTIONS.includes(rawDirection) ? rawDirection : "zh_to_en";
+      const level = Math.max(0, Math.min(9, Math.floor(Number(card.level) || 0)));
+      const deckId = String(card.deckId || card.deck || `sentence_hsk${level || 1}`).trim() || defaults.SENTENCE_DEFAULT_DECK_ID;
+      const deckName = String(card.deckName || card.category || `HSK ${level || 1} sentences`).trim() || defaults.SENTENCE_DEFAULT_DECK_NAME;
       const front = String(card.front || card.prompt || "").trim();
       const back = String(card.back || card.answer || "").trim();
       const chinese = String(card.chinese || card.hanzi || (direction === "en_to_zh" ? back : `${front} ${back}`) || "").trim();
@@ -93,7 +326,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       return {
         id,
         index: index + 1,
-        cardKind: "sentence",
+        cardKind: card.cardKind === "study" ? "study" : "sentence",
         level,
         direction,
         deckId,
@@ -102,9 +335,16 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         back,
         chinese,
         english,
+        pinyin: String(card.pinyin || "").trim(),
+        pinyinNumeric: String(card.pinyinNumeric || "").trim(),
+        strokeSourceChar: String(card.strokeSourceChar || card.chinese || "").trim(),
+        strokeAnswer: String(card.strokeAnswer || "").trim(),
+        strokeLegend: String(card.strokeLegend || "").trim(),
+        strokeTypes: card.strokeTypes && typeof card.strokeTypes === "object" ? card.strokeTypes : null,
+        answerMode: String(card.answerMode || (direction === "zh_qa" ? "zh_answer" : "")).trim(),
         grammarTags: Array.isArray(card.grammarTags) ? card.grammarTags.map(String) : [],
         tags: Array.isArray(card.tags) ? card.tags.map(String) : []
       };
-    }).filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && (card.direction === "zh_qa" || card.english));
+    }).filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && (card.direction === "zh_qa" || card.direction === "stroke_sequence" || card.english));
   };
 })(window.HSKFlashcards);
