@@ -122,7 +122,18 @@
       .filter((setRecord) => setRecord && !setRecord.locked);
   }
 
-  function getSentenceDecks() {
+  function getBuiltInDeckVisibility(deckId) {
+    return ns.store && typeof ns.store.getDeckVisibility === "function"
+      ? ns.store.getDeckVisibility(getDb().builtinVisibility, deckId)
+      : { learn: true, practice: true };
+  }
+
+  function isBuiltInDeckModeEnabled(deckId, mode = "practice") {
+    return getBuiltInDeckVisibility(deckId)[mode] !== false;
+  }
+
+  function getSentenceDecks(options = {}) {
+    const mode = options.mode || "";
     const groups = new Map();
     (getDb().sentenceCards || []).forEach((card) => {
       const deckId = String(card.deckId || "");
@@ -138,11 +149,13 @@
       }
       groups.get(deckId).cardIds.push(card.id);
     });
-    return [...groups.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return [...groups.values()]
+      .filter((deck) => !mode || (mode === "any" ? (isBuiltInDeckModeEnabled(deck.id, "learn") || isBuiltInDeckModeEnabled(deck.id, "practice")) : isBuiltInDeckModeEnabled(deck.id, mode)))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name)));
   }
 
   function getSentenceAllDeck() {
-    const decks = getSentenceDecks();
+    const decks = getSentenceDecks({ mode: "any" });
     return {
       id: SENTENCE_ALL_DECK_ID,
       name: "All built-in study cards",
@@ -153,8 +166,11 @@
   }
 
   function getReviewSourcesForSelect() {
-    const vocabSets = getDb().sets.order.map((id) => getDb().sets.byId[id]).filter(Boolean).map((setRecord) => ({ ...setRecord, kind: "vocab" }));
-    const sentenceDecks = getSentenceDecks();
+    const vocabSets = getDb().sets.order
+      .map((id) => getDb().sets.byId[id])
+      .filter((setRecord) => setRecord && (isBuiltInDeckModeEnabled(setRecord.id, "learn") || isBuiltInDeckModeEnabled(setRecord.id, "practice")))
+      .map((setRecord) => ({ ...setRecord, kind: "vocab" }));
+    const sentenceDecks = getSentenceDecks({ mode: "any" });
     const sources = [...vocabSets];
     if (sentenceDecks.length) sources.push(getSentenceAllDeck(), ...sentenceDecks);
     return sources;
@@ -162,16 +178,17 @@
 
   function getReviewSourceById(id) {
     const db = getDb();
-    if (db.sets.byId[id]) return { ...db.sets.byId[id], kind: "vocab" };
-    if (id === SENTENCE_ALL_DECK_ID && (db.sentenceCards || []).length) return getSentenceAllDeck();
-    return getSentenceDecks().find((deck) => deck.id === id) || null;
+    if (db.sets.byId[id] && (isBuiltInDeckModeEnabled(id, "learn") || isBuiltInDeckModeEnabled(id, "practice"))) return { ...db.sets.byId[id], kind: "vocab" };
+    if (id === SENTENCE_ALL_DECK_ID && getSentenceDecks({ mode: "any" }).length) return getSentenceAllDeck();
+    return getSentenceDecks({ mode: "any" }).find((deck) => deck.id === id) || null;
   }
 
   function getReviewScopeId() {
     const db = getDb();
     const id = db.ui.reviewSetId || ALL_SET_ID;
     if (id === REVIEW_ALL_SETS_ID && getNamedSets().length) return id;
-    return getReviewSourceById(id) ? id : ALL_SET_ID;
+    if (getReviewSourceById(id)) return id;
+    return getReviewSourcesForSelect()[0]?.id || ALL_SET_ID;
   }
 
   // Review scope can be one selected source, all saved vocab sets together, or sentence decks.
@@ -179,7 +196,7 @@
   function getReviewScopeSets() {
     const id = getReviewScopeId();
     if (id === REVIEW_ALL_SETS_ID) return getNamedSets().map((setRecord) => ({ ...setRecord, kind: "vocab" }));
-    if (id === SENTENCE_ALL_DECK_ID) return getSentenceDecks();
+    if (id === SENTENCE_ALL_DECK_ID) return getSentenceDecks({ mode: "any" });
     const source = getReviewSourceById(id);
     return [source || { ...getActiveSet(), kind: "vocab" }].filter(Boolean);
   }
@@ -193,6 +210,21 @@
     if (id === REVIEW_ALL_SETS_ID) return "All saved sets";
     if (id === SENTENCE_ALL_DECK_ID) return "All built-in study cards";
     return getPrimaryReviewSet().name;
+  }
+
+  function getSetupVisibilityDecks() {
+    const vocab = getDb().sets.byId[ALL_SET_ID];
+    const decks = [];
+    if (vocab) {
+      decks.push({
+        id: ALL_SET_ID,
+        name: "Vocabulary · All cards",
+        kind: "vocab",
+        cardIds: vocab.cardIds || []
+      });
+    }
+    decks.push(...getSentenceDecks());
+    return decks;
   }
 
   function getSentenceCardMap() {
@@ -263,6 +295,7 @@
   }
 
   function getPracticeScopedIdsForSet(setId = getActiveSet().id) {
+    if (!isBuiltInDeckModeEnabled(setId, "practice")) return [];
     const allMap = getAllCardMap();
     const setRecord = getDb().sets.byId[setId] || getActiveSet();
     return (setRecord?.cardIds || []).filter((id) => {
@@ -291,6 +324,8 @@
   }
 
   function getModeCards(mode = getUi().mode) {
+    if (mode === "learn" && !isBuiltInDeckModeEnabled(ALL_SET_ID, "learn")) return [];
+    if (mode === "practice" && !isBuiltInDeckModeEnabled(ALL_SET_ID, "practice")) return [];
     return getReviewScopedCards().filter((card) => card[mode] !== false);
   }
 
@@ -377,6 +412,7 @@
   function getSmartDueItems(now = new Date()) {
     const items = [];
     getReviewScopeSets().forEach((source) => {
+      if (!isBuiltInDeckModeEnabled(source.id, "practice")) return;
       const cardMap = getSmartCardMapForSource(source);
       const bucket = getSmartBucketForSource(source);
       const due = smart.getDueQueue(getSmartIdsForSource(source), bucket, cardMap, now, { sessionSeed: `${state.smartSessionSeed}::${source.id}` });
@@ -390,6 +426,7 @@
   function getSmartNewItems(now = new Date()) {
     const items = [];
     getReviewScopeSets().forEach((source) => {
+      if (!isBuiltInDeckModeEnabled(source.id, "learn")) return;
       const cardMap = getSmartCardMapForSource(source);
       const bucket = getSmartBucketForSource(source);
       const fresh = smart.getNewQueue(getSmartIdsForSource(source), bucket, cardMap, now, { sessionSeed: `${state.smartSessionSeed}::${source.id}` });
@@ -417,7 +454,14 @@
   function getSmartScheduleForSet(setId, now = new Date()) {
     const source = getReviewSourceById(setId);
     if (!source) return { dueTodayCount: 0, nextDueDate: null, byDay: [], startedCount: 0, newCount: 0 };
-    return smart.getScheduleSummary(getSmartIdsForSource(source), getSmartBucketForSource(source), now);
+    const summary = smart.getScheduleSummary(getSmartIdsForSource(source), getSmartBucketForSource(source), now);
+    if (!isBuiltInDeckModeEnabled(source.id, "practice")) {
+      summary.dueTodayCount = 0;
+      summary.nextDueDate = null;
+      summary.byDay = [];
+    }
+    if (!isBuiltInDeckModeEnabled(source.id, "learn")) summary.newCount = 0;
+    return summary;
   }
 
   function mergeScheduleSummaries(summaries) {
@@ -689,6 +733,9 @@
     markManageListDirty,
     getActiveSet,
     getNamedSets,
+    getBuiltInDeckVisibility,
+    isBuiltInDeckModeEnabled,
+    getSetupVisibilityDecks,
     getSentenceDecks,
     getSentenceAllDeck,
     getReviewSourcesForSelect,

@@ -220,72 +220,97 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return match[1].trim().replace(/;\s*/g, "; ");
   }
 
-  function buildHanziPinyinCards(vocab) {
-    return collectHanziStudyInfo(vocab).map((info) => ({
-      id: `hanzi_pinyin_${info.char.codePointAt(0).toString(16)}`,
-      level: 0,
+  function getHardcodedHanziData() {
+    return (Array.isArray(window.HSK_HANZI_CARDS) ? window.HSK_HANZI_CARDS : [])
+      .map((item, index) => ({
+        id: String(item?.id || `hanzi_${index + 1}`).trim(),
+        level: Math.max(1, Math.min(3, Math.floor(Number(item?.level) || 1))),
+        hanzi: String(item?.hanzi || "").trim(),
+        pinyin: String(item?.pinyin || "").trim(),
+        pinyinNumeric: String(item?.pinyinNumeric || item?.pinyin_numeric || "").trim(),
+        meaning: String(item?.meaning || item?.english || item?.translation || "vocabulary item").trim(),
+        strokeAnswer: String(item?.strokeAnswer || "").replace(/[^1-5]/g, "")
+      }))
+      .filter((item) => item.id && item.hanzi && item.pinyin && item.strokeAnswer)
+      .sort((a, b) => a.level - b.level || a.hanzi.localeCompare(b.hanzi, "zh-Hans-CN"));
+  }
+
+  function getHardcodedMeasureWordData() {
+    return (Array.isArray(window.HSK_MEASURE_WORD_CARDS) ? window.HSK_MEASURE_WORD_CARDS : [])
+      .map((item, index) => ({
+        id: String(item?.id || `measure_${index + 1}`).trim(),
+        level: Math.max(1, Math.min(3, Math.floor(Number(item?.level) || 1))),
+        hanzi: String(item?.hanzi || "").trim(),
+        pinyin: String(item?.pinyin || "").trim(),
+        pinyinNumeric: String(item?.pinyinNumeric || item?.pinyin_numeric || "").trim(),
+        meaning: String(item?.meaning || item?.english || item?.translation || "vocabulary item").trim(),
+        measureWords: String(item?.measureWords || item?.classifiers || item?.back || "").trim()
+      }))
+      .filter((item) => item.id && item.hanzi && item.measureWords)
+      .sort((a, b) => a.level - b.level || a.hanzi.localeCompare(b.hanzi, "zh-Hans-CN"));
+  }
+
+  function buildHanziPinyinCards() {
+    return getHardcodedHanziData().map((info, index) => ({
+      id: `hanzi_pinyin_${info.id}`,
+      level: info.level,
       cardKind: "study",
       direction: "hanzi_to_pinyin",
-      deckId: "builtin_hanzi_pinyin",
-      deckName: "Hanzi → pinyin",
-      front: info.char,
-      back: info.pinyinDisplay,
-      chinese: info.char,
-      english: info.pinyinDisplay,
-      pinyin: info.pinyinDisplay,
-      pinyinNumeric: info.pinyinNumericDisplay,
-      tags: ["builtin", "hanzi", "pinyin"]
+      deckId: `builtin_hanzi_pinyin_hsk${info.level}`,
+      deckName: `HSK ${info.level} Hanzi → pinyin`,
+      front: info.hanzi,
+      back: info.pinyin,
+      chinese: info.hanzi,
+      english: info.pinyin,
+      pinyin: info.pinyin,
+      pinyinNumeric: info.pinyinNumeric,
+      meaning: info.meaning,
+      strokeAnswer: info.strokeAnswer,
+      tags: ["builtin", "hanzi", "pinyin", `hsk${info.level}`]
     }));
   }
 
-  function buildMeasureWordCards(vocab) {
-    return (vocab || []).map((card, index) => {
-      const measureWords = extractMeasureWords(card.translation);
-      if (!measureWords) return null;
-      const compactHanzi = String(card.hanzi || "").replace(/[^㐀-鿿]/g, "");
-      return {
-        id: `measure_word_${index + 1}_${compactHanzi}`,
-        level: 0,
-        cardKind: "study",
-        direction: "measure_word",
-        deckId: "builtin_measure_words",
-        deckName: "Measure words from vocabulary",
-        front: card.hanzi,
-        back: measureWords,
-        chinese: card.hanzi,
-        english: measureWords,
-        pinyin: card.pinyin,
-        pinyinNumeric: card.pinyinNumeric,
-        tags: ["builtin", "measure_words"]
-      };
-    }).filter(Boolean);
+  function buildMeasureWordCards() {
+    return getHardcodedMeasureWordData().map((item) => ({
+      id: `measure_word_${item.id}`,
+      level: item.level,
+      cardKind: "study",
+      direction: "measure_word",
+      deckId: `builtin_measure_words_hsk${item.level}`,
+      deckName: `HSK ${item.level} measure words`,
+      front: item.hanzi,
+      back: item.measureWords,
+      chinese: item.hanzi,
+      english: item.measureWords,
+      pinyin: item.pinyin,
+      pinyinNumeric: item.pinyinNumeric,
+      meaning: item.meaning,
+      tags: ["builtin", "measure_words", `hsk${item.level}`]
+    }));
   }
 
-  function buildStrokeOrderCards(vocab) {
+  function buildStrokeOrderCards() {
     const legend = getStrokeLegend();
-    return collectHanziStudyInfo(vocab).map((info) => {
-      const strokeAnswer = String(STROKE_SEQUENCE_DATA[info.char] || "").replace(/[^1-5]/g, "");
-      return {
-        id: `stroke_order_${info.char.codePointAt(0).toString(16)}`,
-        level: 0,
-        cardKind: "study",
-        direction: "stroke_sequence",
-        deckId: "builtin_stroke_order",
-        deckName: "Pinyin + meaning → 5-stroke sequence",
-        front: `${info.pinyinDisplay} · ${info.meaning}`,
-        back: `${info.char} · ${info.meaning} · ${strokeAnswer}`,
-        chinese: info.char,
-        english: info.meaning,
-        pinyin: info.pinyinDisplay,
-        pinyinNumeric: info.pinyinNumericDisplay,
-        strokeSourceChar: info.char,
-        strokeAnswer,
-        strokeLegend: legend,
-        strokeTypes: STROKE_TYPE_LABELS,
-        answerMode: "numeric_strokes_5",
-        tags: ["builtin", "stroke_order", "five_stroke"]
-      };
-    }).filter((card) => card.strokeAnswer);
+    return getHardcodedHanziData().map((info) => ({
+      id: `stroke_order_${info.id}`,
+      level: info.level,
+      cardKind: "study",
+      direction: "stroke_sequence",
+      deckId: `builtin_stroke_order_hsk${info.level}`,
+      deckName: `HSK ${info.level} pinyin + meaning → 5-stroke sequence`,
+      front: `${info.pinyin} · ${info.meaning}`,
+      back: `${info.hanzi} · ${info.meaning} · ${info.strokeAnswer}`,
+      chinese: info.hanzi,
+      english: info.meaning,
+      pinyin: info.pinyin,
+      pinyinNumeric: info.pinyinNumeric,
+      strokeSourceChar: info.hanzi,
+      strokeAnswer: info.strokeAnswer,
+      strokeLegend: legend,
+      strokeTypes: STROKE_TYPE_LABELS,
+      answerMode: "numeric_strokes_5",
+      tags: ["builtin", "stroke_order", "five_stroke", `hsk${info.level}`]
+    }));
   }
 
   function getStrokeLegend() {
@@ -294,7 +319,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
 
   function getStrokeSequenceForHanzi(hanzi) {
     const char = getChineseChars(hanzi)[0] || String(hanzi || "").trim()[0] || "";
-    return String(STROKE_SEQUENCE_DATA[char] || "").replace(/[^1-5]/g, "");
+    const record = getHardcodedHanziData().find((item) => item.hanzi === char);
+    return String(record?.strokeAnswer || "").replace(/[^1-5]/g, "");
   }
 
   ns.strokeOrder = {

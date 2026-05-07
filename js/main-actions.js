@@ -97,6 +97,7 @@
   const getFilteredManageCards = proxy("getFilteredManageCards");
   const renderManageList = proxy("renderManageList");
   const renderManageListIfNeeded = proxy("renderManageListIfNeeded");
+  const renderBuiltInDeckVisibilityPanel = proxy("renderBuiltInDeckVisibilityPanel");
   const renderScheduleRows = proxy("renderScheduleRows");
   const renderReviewScopePanel = proxy("renderReviewScopePanel");
   const appendScheduleChips = proxy("appendScheduleChips");
@@ -336,6 +337,24 @@
     render();
   }
 
+  function handleSetupDeckSelectChange() {
+    resetRoundState();
+    clearSmartSessionDeferrals();
+    render();
+  }
+
+  async function handleSetupDeckVisibilityChange() {
+    const deckId = state.elements.setupDeckSelect?.value || "";
+    if (!deckId || !state.store || typeof state.store.setBuiltInDeckVisibility !== "function") return;
+    await state.store.setBuiltInDeckVisibility(deckId, {
+      learn: state.elements.setupDeckLearnToggle?.checked !== false,
+      practice: state.elements.setupDeckPracticeToggle?.checked !== false
+    });
+    resetRoundState();
+    clearSmartSessionDeferrals();
+    render();
+  }
+
   function handleManageListChange(event) {
     const input = event.target.closest('input[data-card-id][data-card-mode]');
     if (!input || !state.elements.manageList.contains(input)) return;
@@ -495,8 +514,11 @@
     state.elements.shuffleBtn.addEventListener("click", shuffleCurrentMode);
     state.elements.resetOrderBtn.addEventListener("click", resetCurrentModeOrder);
     state.elements.setupToggleBtn.addEventListener("click", toggleSetupPanel);
-    state.elements.manageList.addEventListener("change", handleManageListChange);
-    state.elements.filterInput.addEventListener("input", (event) => {
+    if (state.elements.setupDeckSelect) state.elements.setupDeckSelect.addEventListener("change", handleSetupDeckSelectChange);
+    if (state.elements.setupDeckLearnToggle) state.elements.setupDeckLearnToggle.addEventListener("change", handleSetupDeckVisibilityChange);
+    if (state.elements.setupDeckPracticeToggle) state.elements.setupDeckPracticeToggle.addEventListener("change", handleSetupDeckVisibilityChange);
+    if (state.elements.manageList) state.elements.manageList.addEventListener("change", handleManageListChange);
+    if (state.elements.filterInput) state.elements.filterInput.addEventListener("input", (event) => {
       state.filterText = event.target.value || "";
       markManageListDirty();
       renderManageListIfNeeded(true);
@@ -509,8 +531,8 @@
     if (state.elements.removeSetRangeBtn) state.elements.removeSetRangeBtn.addEventListener("click", () => handleSetRangeAction("remove"));
     if (state.elements.replaceSetRangeBtn) state.elements.replaceSetRangeBtn.addEventListener("click", () => handleSetRangeAction("replace"));
     if (state.elements.deleteSetBtn) state.elements.deleteSetBtn.addEventListener("click", handleDeleteSelectedSet);
-    if (state.elements.setupIntroduceBtn) state.elements.setupIntroduceBtn.addEventListener("click", () => startSmartForSet(getActiveSet().id, "introduce"));
-    if (state.elements.setupReviewBtn) state.elements.setupReviewBtn.addEventListener("click", () => startSmartForSet(getActiveSet().id, "review"));
+    if (state.elements.setupIntroduceBtn) state.elements.setupIntroduceBtn.addEventListener("click", () => startSmartForSet(state.elements.setupDeckSelect?.value || getActiveSet().id, "introduce"));
+    if (state.elements.setupReviewBtn) state.elements.setupReviewBtn.addEventListener("click", () => startSmartForSet(state.elements.setupDeckSelect?.value || getActiveSet().id, "review"));
     if (state.elements.activeSetSelect) state.elements.activeSetSelect.addEventListener("change", handleSetChange);
     if (state.elements.reviewSetSelect) state.elements.reviewSetSelect.addEventListener("change", handleReviewSetChange);
     if (state.elements.startDueReviewBtn) state.elements.startDueReviewBtn.addEventListener("click", startDueReviewCards);
@@ -538,7 +560,7 @@
     state.store = createAppStore(adapter, builtinCards, builtinImageCards, builtinSentenceCards);
     state.authScope = ns.auth && typeof ns.auth.getCacheScope === "function" ? ns.auth.getCacheScope() : "anon";
     await state.store.load();
-    state.filterText = state.elements.filterInput.value || "";
+    state.filterText = state.elements.filterInput?.value || "";
     state.currentPage = getAuthStatus().signedIn ? "flashcards" : "login";
     updateStorageModeBadge();
     if (ns.auth && typeof ns.auth.subscribe === "function") {
@@ -565,6 +587,8 @@
     handleDeleteSelectedSet,
     handleSetChange,
     handleReviewSetChange,
+    handleSetupDeckSelectChange,
+    handleSetupDeckVisibilityChange,
     handleManageListChange,
     handleRangeButtonClick,
     handleTranslationKeyboard,

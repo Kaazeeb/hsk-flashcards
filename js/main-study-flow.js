@@ -34,6 +34,7 @@
   const getActiveSet = proxy("getActiveSet");
   const getNamedSets = proxy("getNamedSets");
   const getReviewScopeId = proxy("getReviewScopeId");
+  const getReviewSourceById = proxy("getReviewSourceById");
   const getReviewScopeSets = proxy("getReviewScopeSets");
   const getPrimaryReviewSet = proxy("getPrimaryReviewSet");
   const getReviewScopeName = proxy("getReviewScopeName");
@@ -393,14 +394,15 @@
   }
 
   async function startSmartForSet(setId, flow) {
-    if (!getDb().sets.byId[setId]) return;
+    const source = getReviewSourceById(setId);
+    if (!source) return;
     if (typeof state.store.setReviewSet === "function") {
       await state.store.setReviewSet(setId);
     } else {
       getUi().reviewSetId = setId;
       await persist();
     }
-    await state.store.setActiveSet(setId);
+    if (source.kind === "vocab") await state.store.setActiveSet(setId);
     if (flow === "introduce") {
       startNewCardIntroduction();
     } else {

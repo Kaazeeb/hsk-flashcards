@@ -298,6 +298,10 @@
       selectionSummary: document.getElementById("selectionSummary"),
       setupToggleBtn: document.getElementById("setupToggleBtn"),
       setupBody: document.getElementById("setupBody"),
+      setupDeckSelect: document.getElementById("setupDeckSelect"),
+      setupDeckLearnToggle: document.getElementById("setupDeckLearnToggle"),
+      setupDeckPracticeToggle: document.getElementById("setupDeckPracticeToggle"),
+      setupDeckMeta: document.getElementById("setupDeckMeta"),
       rangeLearn: document.getElementById("rangeLearn"),
       rangePractice: document.getElementById("rangePractice"),
       rangeButtons: [...document.querySelectorAll("[data-range-action]")],
@@ -541,7 +545,7 @@
       setAuthMessage("Session restored. Cloud sync active.", "ok");
     }
     updateStorageModeBadge();
-    if (changed) state.filterText = state.elements.filterInput.value || state.filterText || "";
+    if (changed) state.filterText = state.elements.filterInput?.value || state.filterText || "";
     render();
   }
 

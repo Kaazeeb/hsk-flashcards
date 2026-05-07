@@ -60,6 +60,29 @@
     };
   }
 
+  function normalizeBuiltinVisibility(raw) {
+    const output = { byDeck: {} };
+    const source = raw?.byDeck && typeof raw.byDeck === "object" ? raw.byDeck : raw;
+    if (!source || typeof source !== "object") return output;
+    Object.entries(source).forEach(([deckId, flags]) => {
+      const id = String(deckId || "").trim();
+      if (!id || !flags || typeof flags !== "object") return;
+      output.byDeck[id] = {
+        learn: flags.learn !== false,
+        practice: flags.practice !== false
+      };
+    });
+    return output;
+  }
+
+  function getDeckVisibility(visibility, deckId) {
+    const flags = visibility?.byDeck?.[String(deckId || "")] || {};
+    return {
+      learn: flags.learn !== false,
+      practice: flags.practice !== false
+    };
+  }
+
   function bumpReviewEpoch(db, reason = "manual") {
     db.meta = normalizeMeta({
       reviewEpochId: createReviewEpochId(reason),
@@ -319,6 +342,7 @@
     const sentenceSmartByDeck = normalizeSmartBySet(raw?.sentenceSmartByDeck);
     const imageUi = normalizeImageUiState(raw?.imageUi);
     const meta = normalizeMeta(raw?.meta);
+    const builtinVisibility = normalizeBuiltinVisibility(raw?.builtinVisibility);
 
     const db = {
       schemaVersion: SCHEMA_VERSION,
@@ -333,7 +357,8 @@
       sentenceCards,
       sentenceSmartByDeck,
       imageUi,
-      meta
+      meta,
+      builtinVisibility
     };
 
     if (!db.sets.byId[db.ui.activeSetId]) db.ui.activeSetId = ALL_SET_ID;
@@ -402,6 +427,19 @@
         const value = setId === REVIEW_ALL_SETS_ID || this.state.sets.byId[setId] || sentenceDeckIds.has(setId) ? setId : ALL_SET_ID;
         this.state.ui.reviewSetId = value;
         await this.persist();
+      },
+
+      async setBuiltInDeckVisibility(deckId, flags) {
+        const id = String(deckId || "").trim();
+        if (!id) return false;
+        this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility);
+        const current = getDeckVisibility(this.state.builtinVisibility, id);
+        this.state.builtinVisibility.byDeck[id] = {
+          learn: flags?.learn === undefined ? current.learn : flags.learn !== false,
+          practice: flags?.practice === undefined ? current.practice : flags.practice !== false
+        };
+        await this.persist();
+        return true;
       },
 
       // Custom user-created sets are intentionally disabled. The standard

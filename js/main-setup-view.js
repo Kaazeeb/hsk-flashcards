@@ -33,6 +33,8 @@
   const markManageListDirty = proxy("markManageListDirty");
   const getActiveSet = proxy("getActiveSet");
   const getNamedSets = proxy("getNamedSets");
+  const getBuiltInDeckVisibility = proxy("getBuiltInDeckVisibility");
+  const getSetupVisibilityDecks = proxy("getSetupVisibilityDecks");
   const getReviewSourcesForSelect = proxy("getReviewSourcesForSelect");
   const getReviewScopeId = proxy("getReviewScopeId");
   const getReviewScopeSets = proxy("getReviewScopeSets");
@@ -193,7 +195,10 @@
   }
 
   function renderSelectionSummary() {
-    state.elements.selectionSummary.textContent = `Learn ${getEditModeIds("learn").length} · Practice ${getEditModeIds("practice").length}`;
+    const decks = getSetupVisibilityDecks();
+    const learnDecks = decks.filter((deck) => getBuiltInDeckVisibility(deck.id).learn !== false).length;
+    const practiceDecks = decks.filter((deck) => getBuiltInDeckVisibility(deck.id).practice !== false).length;
+    state.elements.selectionSummary.textContent = `Learn ${learnDecks} decks · Practice ${practiceDecks} decks`;
   }
 
   function renderOrderStatus() {
@@ -210,6 +215,39 @@
     state.elements.setupBody.classList.toggle("hidden", collapsed);
     state.elements.setupToggleBtn.textContent = collapsed ? "Show setup" : "Hide setup";
     state.elements.setupToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+    if (!collapsed) renderBuiltInDeckVisibilityPanel();
+  }
+
+  function getSelectedSetupDeck() {
+    const decks = getSetupVisibilityDecks();
+    const selectedId = state.elements.setupDeckSelect?.value || decks[0]?.id || "";
+    return decks.find((deck) => deck.id === selectedId) || decks[0] || null;
+  }
+
+  function renderBuiltInDeckVisibilityPanel() {
+    if (!state.elements.setupDeckSelect) return;
+    const decks = getSetupVisibilityDecks();
+    const currentValue = state.elements.setupDeckSelect.value || decks[0]?.id || "";
+    clearNode(state.elements.setupDeckSelect);
+    decks.forEach((deck) => {
+      const option = document.createElement("option");
+      option.value = deck.id;
+      option.textContent = `${deck.name} (${(deck.cardIds || []).length})`;
+      option.selected = deck.id === currentValue;
+      state.elements.setupDeckSelect.appendChild(option);
+    });
+    if (currentValue && !decks.some((deck) => deck.id === currentValue) && decks[0]) {
+      state.elements.setupDeckSelect.value = decks[0].id;
+    }
+    const deck = getSelectedSetupDeck();
+    const flags = deck ? getBuiltInDeckVisibility(deck.id) : { learn: true, practice: true };
+    if (state.elements.setupDeckLearnToggle) state.elements.setupDeckLearnToggle.checked = flags.learn !== false;
+    if (state.elements.setupDeckPracticeToggle) state.elements.setupDeckPracticeToggle.checked = flags.practice !== false;
+    if (state.elements.setupDeckMeta) {
+      state.elements.setupDeckMeta.textContent = deck
+        ? `${deck.name}: ${(deck.cardIds || []).length} cards · Learn ${flags.learn !== false ? "on" : "off"} · Practice ${flags.practice !== false ? "on" : "off"}`
+        : "No built-in decks found.";
+    }
   }
 
   function getFilteredManageCards() {
@@ -428,7 +466,7 @@
     name.textContent = setRecord.name;
     const meta = document.createElement("div");
     meta.className = "saved-set-meta muted";
-    const practiceCount = getPracticeScopedIdsForSet(setRecord.id).length;
+    const practiceCount = setRecord.kind === "sentence" ? ((setRecord.cardIds || []).length) : getPracticeScopedIdsForSet(setRecord.id).length;
     const nextDue = summary.nextDueDate ? formatLongDate(summary.nextDueDate) : (summary.newCount ? "not scheduled yet" : "—");
     meta.textContent = `${practiceCount} practice · new ${summary.newCount || 0} · started ${summary.startedCount || 0} · due today ${summary.dueTodayCount || 0} · next ${nextDue}`;
     const chips = document.createElement("div");
@@ -449,37 +487,42 @@
   }
 
   function renderSetPanel() {
-    const sets = getDb().sets.order.map((id) => getDb().sets.byId[id]).filter(Boolean);
-    const activeSet = getActiveSet();
-    const summary = getSmartScheduleForSet(activeSet.id);
+    const decks = getSetupVisibilityDecks();
+    const fallback = getActiveSet();
+    const selectedId = state.elements.setupDeckSelect?.value || fallback.id;
+    const activeDeck = decks.find((deck) => deck.id === selectedId) || decks[0] || { ...fallback, kind: "vocab" };
+    const summary = getSmartScheduleForSet(activeDeck.id);
 
-    clearNode(state.elements.activeSetSelect);
-    sets.forEach((setRecord) => {
-      const option = document.createElement("option");
-      option.value = setRecord.id;
-      option.textContent = `${setRecord.name} (${setRecord.cardIds.length})`;
-      option.selected = setRecord.id === activeSet.id;
-      state.elements.activeSetSelect.appendChild(option);
-    });
+    if (state.elements.activeSetSelect) {
+      clearNode(state.elements.activeSetSelect);
+      decks.forEach((deck) => {
+        const option = document.createElement("option");
+        option.value = deck.id;
+        option.textContent = `${deck.name} (${(deck.cardIds || []).length})`;
+        option.selected = deck.id === activeDeck.id;
+        state.elements.activeSetSelect.appendChild(option);
+      });
+    }
 
-    state.elements.activeSetBadge.textContent = activeSet.name;
+    state.elements.activeSetBadge.textContent = activeDeck.name || activeDeck.id;
     if (state.elements.deleteSetBtn) state.elements.deleteSetBtn.disabled = true;
-    state.elements.setCardCount.textContent = String(getPracticeScopedIdsForSet(activeSet.id).length);
+    const count = activeDeck.kind === "sentence" ? (activeDeck.cardIds || []).length : getPracticeScopedIdsForSet(activeDeck.id).length;
+    state.elements.setCardCount.textContent = String(count);
     if (state.elements.setNewCount) state.elements.setNewCount.textContent = String(summary.newCount || 0);
     if (state.elements.setStartedCount) state.elements.setStartedCount.textContent = String(summary.startedCount || 0);
     state.elements.setDueToday.textContent = String(summary.dueTodayCount || 0);
     if (state.elements.setNextDue) state.elements.setNextDue.textContent = summary.nextDueDate ? formatReviewDateLabel(summary.nextDueDate) : (summary.newCount ? "not scheduled yet" : "—");
 
-    if (state.elements.addSetRangeBtn) state.elements.addSetRangeBtn.disabled = !!activeSet.locked;
-    if (state.elements.removeSetRangeBtn) state.elements.removeSetRangeBtn.disabled = !!activeSet.locked;
-    if (state.elements.replaceSetRangeBtn) state.elements.replaceSetRangeBtn.disabled = false;
+    if (state.elements.addSetRangeBtn) state.elements.addSetRangeBtn.disabled = true;
+    if (state.elements.removeSetRangeBtn) state.elements.removeSetRangeBtn.disabled = true;
+    if (state.elements.replaceSetRangeBtn) state.elements.replaceSetRangeBtn.disabled = true;
     if (state.elements.setupIntroduceBtn) state.elements.setupIntroduceBtn.disabled = !(summary.newCount > 0);
     if (state.elements.setupReviewBtn) state.elements.setupReviewBtn.disabled = !(summary.dueTodayCount > 0);
 
     clearNode(state.elements.setsOverview);
-    sets.forEach((setRecord) => {
-      const setSummary = getSmartScheduleForSet(setRecord.id);
-      state.elements.setsOverview.appendChild(makeSetScheduleRow(setRecord, setSummary, activeSet.id));
+    decks.forEach((deck) => {
+      const deckSummary = getSmartScheduleForSet(deck.id);
+      state.elements.setsOverview.appendChild(makeSetScheduleRow(deck, deckSummary, activeDeck.id));
     });
   }
 
@@ -525,6 +568,7 @@
     renderSelectionSummary,
     renderOrderStatus,
     renderSetupPanel,
+    renderBuiltInDeckVisibilityPanel,
     getFilteredManageCards,
     renderManageList,
     renderManageListIfNeeded,

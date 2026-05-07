@@ -23,8 +23,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   const MAX_FILTER_URL_CHARS = 1200;
   const SELECT_PAGE_SIZE = 1000;
 
-  const DOC_NS = { VOCAB: "vocab", CARD_FLAGS_BUNDLE: "card_flags_bundle", SET: "set", META: "meta" };
-  const DOC_ID = { CURRENT: "current", SET_ORDER: "set_order", CARD_FLAGS: "current" };
+  const DOC_NS = { VOCAB: "vocab", CARD_FLAGS_BUNDLE: "card_flags_bundle", SET: "set", META: "meta", BUILTIN_VISIBILITY: "builtin_visibility" };
+  const DOC_ID = { CURRENT: "current", SET_ORDER: "set_order", CARD_FLAGS: "current", BUILTIN_VISIBILITY: "current" };
 
   const state = {
     config: { url: HARDCODED_SUPABASE_URL, key: HARDCODED_SUPABASE_KEY },
@@ -453,6 +453,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     // old user imports. Per-card visibility still syncs through card_flags_bundle.
     const baseDb = ns.store.normalizeDb({ vocab: builtinCards, imageCards: builtinImageCards, sentenceCards: builtinSentenceCards }, builtinCards, builtinImageCards, builtinSentenceCards);
     const flagsBundle = docs[DOC_NS.CARD_FLAGS_BUNDLE]?.[DOC_ID.CARD_FLAGS];
+    const builtinVisibility = docs[DOC_NS.BUILTIN_VISIBILITY]?.[DOC_ID.BUILTIN_VISIBILITY] || {};
     const vocab = codec().applyFlagsBundleToVocab(baseDb.vocab || [], flagsBundle);
     const cardCodec = codec().createCardRefCodec(vocab);
     const progress = createEmptyProgress();
@@ -503,7 +504,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         if (localCardId) applyProgressEvent(progress, { ...event, card_id: localCardId });
       });
 
-    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet, imageCards, imageProgress, imageSmartByDeck, sentenceCards, sentenceSmartByDeck, meta };
+    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet, imageCards, imageProgress, imageSmartByDeck, sentenceCards, sentenceSmartByDeck, meta, builtinVisibility };
   }
 
   async function loadRemoteDocs(client, userId) {
@@ -562,6 +563,23 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       namespace: DOC_NS.CARD_FLAGS_BUNDLE,
       doc_id: DOC_ID.CARD_FLAGS,
       payload: { ...currentBundle, updatedAt: new Date().toISOString() },
+      updated_at: new Date().toISOString()
+    }]);
+  }
+
+  async function syncBuiltinVisibility(client, userId, currentState, previousState) {
+    const currentVisibility = ns.store && typeof ns.store.normalizeBuiltinVisibility === "function"
+      ? ns.store.normalizeBuiltinVisibility(currentState?.builtinVisibility)
+      : { byDeck: currentState?.builtinVisibility?.byDeck || {} };
+    const previousVisibility = ns.store && typeof ns.store.normalizeBuiltinVisibility === "function"
+      ? ns.store.normalizeBuiltinVisibility(previousState?.builtinVisibility)
+      : { byDeck: previousState?.builtinVisibility?.byDeck || {} };
+    if (stableStringify(currentVisibility) === stableStringify(previousVisibility)) return;
+    await upsertDocs(client, [{
+      user_id: userId,
+      namespace: DOC_NS.BUILTIN_VISIBILITY,
+      doc_id: DOC_ID.BUILTIN_VISIBILITY,
+      payload: { ...currentVisibility, updatedAt: new Date().toISOString() },
       updated_at: new Date().toISOString()
     }]);
   }
@@ -793,6 +811,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         try {
           await syncVocabDoc(state.client, userId, payload, previousPayload || {});
           await syncCardFlags(state.client, userId, payload, previousPayload || {});
+          await syncBuiltinVisibility(state.client, userId, payload, previousPayload || {});
           await syncSets(state.client, userId, payload, previousPayload || {});
           await syncReviewReset(state.client, userId, payload, previousPayload || {});
           await syncProgress(state.client, userId, payload, previousPayload || {});
