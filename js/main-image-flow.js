@@ -523,10 +523,10 @@
 
   function handleImageKeyboard(event) {
     if (state.currentPage !== "images") return;
-    if (event.key !== "Enter" && event.key !== "ArrowRight" && !/[1-4]/.test(event.key)) return;
+    if (event.key !== "Enter" && !/[1-4]/.test(event.key)) return;
     const ui = getImageUi();
     if (ui.mode === "learn") {
-      if (event.key === "Enter" || event.key === "ArrowRight") {
+      if (event.key === "Enter") {
         event.preventDefault();
         nextImageCard();
       }
@@ -534,14 +534,14 @@
     }
     const round = ensureImageRound();
     if (round.forceNew) {
-      if (event.key === "Enter" || event.key === "ArrowRight") {
+      if (event.key === "Enter") {
         event.preventDefault();
         introduceCurrentImageCard();
       }
       return;
     }
     if (round.stage !== "feedback") {
-      if (event.key === "Enter" || event.key === "ArrowRight") {
+      if (event.key === "Enter") {
         event.preventDefault();
         showImageSmartAnswer();
       }
@@ -553,7 +553,7 @@
       renderImagePage();
       return;
     }
-    if (event.key === "Enter" || event.key === "ArrowRight") {
+    if (event.key === "Enter") {
       event.preventDefault();
       acceptImageSmartRating();
     }

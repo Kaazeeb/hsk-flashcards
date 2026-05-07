@@ -87,13 +87,7 @@
   const updateCardMode = proxy("updateCardMode");
   const applyRangeToMode = proxy("applyRangeToMode");
   const setAllForMode = proxy("setAllForMode");
-  const handleSaveVocabulary = proxy("handleSaveVocabulary");
-  const handleRestoreBuiltIn = proxy("handleRestoreBuiltIn");
   const handleResetProgress = proxy("handleResetProgress");
-  const triggerTextDownload = proxy("triggerTextDownload");
-  const handleExportApp = proxy("handleExportApp");
-  const handleImportAppClick = proxy("handleImportAppClick");
-  const handleImportAppFile = proxy("handleImportAppFile");
   const handleSaveNamedSet = proxy("handleSaveNamedSet");
   const getCardsFromSetRangeInput = proxy("getCardsFromSetRangeInput");
   const handleSetRangeAction = proxy("handleSetRangeAction");
@@ -231,7 +225,7 @@
   }
 
   function isSentenceCard(card) {
-    return card?.cardKind === "sentence" || card?.direction === "zh_to_en" || card?.direction === "en_to_zh";
+    return card?.cardKind === "sentence" || ["zh_to_en", "en_to_zh", "zh_qa"].includes(String(card?.direction || ""));
   }
 
   function getCardsForSet(setId = getActiveSet().id) {

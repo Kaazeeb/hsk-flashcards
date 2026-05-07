@@ -448,9 +448,10 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
     const builtinImageCards = typeof ns.getBuiltInImageCards === "function" ? ns.getBuiltInImageCards() : [];
     const builtinSentenceCards = typeof ns.getBuiltInSentenceCards === "function" ? ns.getBuiltInSentenceCards() : [];
-    const vocabDoc = docs[DOC_NS.VOCAB]?.[DOC_ID.CURRENT];
-    const baseCards = Array.isArray(vocabDoc?.cards) && vocabDoc.cards.length ? vocabDoc.cards : builtinCards;
-    const baseDb = ns.store.normalizeDb({ vocab: baseCards, imageCards: builtinImageCards, sentenceCards: builtinSentenceCards }, builtinCards, builtinImageCards, builtinSentenceCards);
+    // v38: vocabulary is standard built-in content only. Existing remote custom
+    // vocabulary documents are ignored so app updates cannot be overridden by
+    // old user imports. Per-card visibility still syncs through card_flags_bundle.
+    const baseDb = ns.store.normalizeDb({ vocab: builtinCards, imageCards: builtinImageCards, sentenceCards: builtinSentenceCards }, builtinCards, builtinImageCards, builtinSentenceCards);
     const flagsBundle = docs[DOC_NS.CARD_FLAGS_BUNDLE]?.[DOC_ID.CARD_FLAGS];
     const vocab = codec().applyFlagsBundleToVocab(baseDb.vocab || [], flagsBundle);
     const cardCodec = codec().createCardRefCodec(vocab);
@@ -547,21 +548,9 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   async function syncVocabDoc(client, userId, currentState, previousState) {
-    const currentCards = currentState?.vocab || [];
-    const previousCards = previousState?.vocab || [];
-    if (codec().sameCardList(currentCards, previousCards)) return;
-    const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
-    if (codec().sameCardList(currentCards, builtinCards)) {
-      await deleteDocs(client, userId, DOC_NS.VOCAB, [DOC_ID.CURRENT]);
-      return;
-    }
-    await upsertDocs(client, [{
-      user_id: userId,
-      namespace: DOC_NS.VOCAB,
-      doc_id: DOC_ID.CURRENT,
-      payload: { cards: codec().stripCards(currentCards), updatedAt: new Date().toISOString() },
-      updated_at: new Date().toISOString()
-    }]);
+    // v38: users cannot import or edit vocabulary content. Keep this as a no-op
+    // so legacy vocab/current documents are neither written nor used by the app.
+    return;
   }
 
   async function syncCardFlags(client, userId, currentState, previousState) {
@@ -640,7 +629,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       events = buildProgressDiffEvents(currentState?.progress, previousProgress);
     } catch (error) {
       if (error?.message !== "NON_MONOTONIC_PROGRESS") throw error;
-      console.warn("Non-monotonic progress inside the same review epoch was not synced. Use Reset progress or Import again to create a new remote review epoch.");
+      console.warn("Non-monotonic progress inside the same review epoch was not synced. Use Reset progress to create a new remote review epoch.");
       return;
     }
     if (!events.length) return;
@@ -814,7 +803,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         } catch (error) {
           const text = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
           if (text.includes("relation") || text.includes("does not exist")) {
-            throw new Error("Supabase sync tables are missing. Run the current supabase_starter.sql first.");
+            throw new Error("Supabase sync tables are missing. Create the required Supabase tables first.");
           }
           throw error;
         }

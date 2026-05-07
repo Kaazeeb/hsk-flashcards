@@ -125,13 +125,7 @@
   const updateCardMode = proxy("updateCardMode");
   const applyRangeToMode = proxy("applyRangeToMode");
   const setAllForMode = proxy("setAllForMode");
-  const handleSaveVocabulary = proxy("handleSaveVocabulary");
-  const handleRestoreBuiltIn = proxy("handleRestoreBuiltIn");
   const handleResetProgress = proxy("handleResetProgress");
-  const triggerTextDownload = proxy("triggerTextDownload");
-  const handleExportApp = proxy("handleExportApp");
-  const handleImportAppClick = proxy("handleImportAppClick");
-  const handleImportAppFile = proxy("handleImportAppFile");
   const handleSaveNamedSet = proxy("handleSaveNamedSet");
   const getCardsFromSetRangeInput = proxy("getCardsFromSetRangeInput");
   const handleSetRangeAction = proxy("handleSetRangeAction");
@@ -224,13 +218,7 @@
 
   function getElements() {
     return {
-      vocabInput: document.getElementById("vocabInput"),
-      saveVocabBtn: document.getElementById("saveVocabBtn"),
-      loadPlaceholderBtn: document.getElementById("loadPlaceholderBtn"),
       resetProgressBtn: document.getElementById("resetProgressBtn"),
-      exportProgressBtn: document.getElementById("exportProgressBtn"),
-      importProgressBtn: document.getElementById("importProgressBtn"),
-      importProgressInput: document.getElementById("importProgressInput"),
       storageModeBadge: document.getElementById("storageModeBadge"),
       statusText: document.getElementById("statusText"),
       authBadge: document.getElementById("authBadge"),

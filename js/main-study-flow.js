@@ -116,13 +116,7 @@
   const updateCardMode = proxy("updateCardMode");
   const applyRangeToMode = proxy("applyRangeToMode");
   const setAllForMode = proxy("setAllForMode");
-  const handleSaveVocabulary = proxy("handleSaveVocabulary");
-  const handleRestoreBuiltIn = proxy("handleRestoreBuiltIn");
   const handleResetProgress = proxy("handleResetProgress");
-  const triggerTextDownload = proxy("triggerTextDownload");
-  const handleExportApp = proxy("handleExportApp");
-  const handleImportAppClick = proxy("handleImportAppClick");
-  const handleImportAppFile = proxy("handleImportAppFile");
   const handleSaveNamedSet = proxy("handleSaveNamedSet");
   const getCardsFromSetRangeInput = proxy("getCardsFromSetRangeInput");
   const handleSetRangeAction = proxy("handleSetRangeAction");
@@ -576,7 +570,9 @@
   }
 
   function getSentenceFrontLabel(card) {
-    return card.direction === "en_to_zh" ? "English → Chinese" : "Chinese → English";
+    if (card.direction === "en_to_zh") return "English → Chinese";
+    if (card.direction === "zh_qa") return "Chinese question → Chinese answer";
+    return "Chinese → English";
   }
 
   function renderSmartSentenceIntroduction(card, newCount, startedCount) {
@@ -594,7 +590,7 @@
     clearNode(state.elements.answerArea);
     const note = document.createElement("div");
     note.className = "intro-note muted";
-    note.textContent = "Sentence cards use flip + manual FSRS rating. Chinese sides show hanzi only.";
+    note.textContent = "Sentence cards use flip + manual FSRS rating. Chinese sides show hanzi only, including Chinese question-answer cards.";
     state.elements.answerArea.appendChild(note);
     clearNode(state.elements.controls);
     state.elements.controls.append(
@@ -667,7 +663,7 @@
       renderSmartSentenceIntroduction(card, newCount, startedCount);
       return;
     }
-    const { reviewText } = getReviewPinyinText(card);
+    const reviewText = String(card.pinyin || "").trim();
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
     const setName = getDb().sets.byId[smartSetId]?.name || smartSetId;
     state.round.smartStage = "intro";
@@ -686,7 +682,7 @@
     clearNode(state.elements.answerArea);
     const note = document.createElement("div");
     note.className = "intro-note muted";
-    note.textContent = "No answer is recorded in this step. Enter or → marks the card as introduced.";
+    note.textContent = "No answer is recorded in this step. Enter marks the card as introduced.";
     state.elements.answerArea.appendChild(note);
     clearNode(state.elements.controls);
     state.elements.controls.append(
@@ -702,7 +698,7 @@
       renderSmartSentencePractice(card, dueCount, activeCount);
       return;
     }
-    const { reviewText } = getReviewPinyinText(card);
+    const reviewText = String(card.pinyin || "").trim();
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
     const smartEntry = getSmartBucketForReviewSourceId(smartSetId)[cardId(card)] || smart.createSmartEntry(new Date());
     const isNewSmartCard = !smart.isStarted(smartEntry);

@@ -290,38 +290,6 @@
     render();
   }
 
-  async function handleSaveVocabulary() {
-    const rawText = state.elements.vocabInput.value.trim();
-    if (!rawText) {
-      state.elements.statusText.textContent = "Paste a CSV first, or use Restore built-in.";
-      return;
-    }
-    const rows = parseCSV(rawText);
-    const cards = mapRowsToCards(rows);
-    if (!cards.length) {
-      state.elements.statusText.textContent = "Could not find valid rows. Expected hanzi, pinyin and translation.";
-      return;
-    }
-    await state.store.replaceVocabulary(cards, { preserveData: false });
-    state.filterText = "";
-    state.elements.filterInput.value = "";
-    resetRoundState();
-    markManageListDirty();
-    state.elements.statusText.textContent = `${cards.length} cards saved locally. Custom sets and progress were reset for the new vocabulary.`;
-    render();
-  }
-
-  async function handleRestoreBuiltIn() {
-    const result = await state.store.restoreBuiltIn();
-    state.elements.vocabInput.value = "";
-    resetRoundState();
-    markManageListDirty();
-    state.elements.statusText.textContent = result?.resetProgress
-      ? "Built-in vocabulary restored. Progress was reset to avoid replaying old review history onto a different deck."
-      : "Built-in vocabulary restored. Existing sets and progress were kept where card IDs still matched.";
-    render();
-  }
-
   async function handleResetProgress() {
     await state.store.resetProgress("manual_reset");
     resetRoundState();
@@ -330,66 +298,8 @@
     render();
   }
 
-  function triggerTextDownload(filename, text, mimeType = "application/json") {
-    const blob = new Blob([text], { type: `${mimeType};charset=utf-8` });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function handleExportApp() {
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    triggerTextDownload(`hsk-flashcards-app-${stamp}.json`, state.store.exportJson());
-    state.elements.statusText.textContent = "App data exported as JSON.";
-  }
-
-  function handleImportAppClick() {
-    state.elements.importProgressInput.value = "";
-    state.elements.importProgressInput.click();
-  }
-
-  async function handleImportAppFile(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        await state.store.importJson(String(reader.result || ""));
-        resetRoundState();
-        markManageListDirty();
-        state.elements.statusText.textContent = `App data imported from ${file.name}.`;
-        render();
-      } catch (error) {
-        state.elements.statusText.textContent = "Could not import the selected JSON file.";
-      }
-    };
-    reader.onerror = () => {
-      state.elements.statusText.textContent = "Could not read the selected JSON file.";
-    };
-    reader.readAsText(file);
-  }
-
   async function handleSaveNamedSet() {
-    const name = state.elements.setNameInput.value.trim();
-    if (!name) {
-      state.elements.statusText.textContent = "Enter a set name first.";
-      return;
-    }
-    const practiceIds = getScopedCards().filter((card) => card.practice !== false).map((card) => cardId(card));
-    if (!practiceIds.length) {
-      state.elements.statusText.textContent = "No Practice cards are currently selected in this editing set.";
-      return;
-    }
-    const record = await state.store.saveNamedSet(name, practiceIds);
-    resetRoundState();
-    markManageListDirty();
-    state.elements.statusText.textContent = `Named set saved from Practice selection: ${record.name} (${record.cardIds.length} cards).`;
-    render();
+    state.elements.statusText.textContent = "Custom user sets are disabled. Use Card setup visibility instead.";
   }
 
   function getCardsFromSetRangeInput() {
@@ -399,61 +309,11 @@
   }
 
   async function handleSetRangeAction(action) {
-    const activeSet = getActiveSet();
-    const cards = getCardsFromSetRangeInput();
-    if (!cards.length) {
-      state.elements.statusText.textContent = "Enter ranges that match at least one card, for example 301-330.";
-      return;
-    }
-    if (action === "add" || action === "replace") {
-      cards.forEach((card) => { card.practice = true; });
-    }
-    const ids = cards.map((card) => cardId(card));
-    let record = null;
-
-    if ((!activeSet || activeSet.locked) && action !== "replace") {
-      state.elements.statusText.textContent = "Choose a named set before adding or removing ranges.";
-      return;
-    }
-
-    if (action === "add") {
-      record = await state.store.addCardsToSet(activeSet.id, ids);
-      state.elements.statusText.textContent = `Added ${ids.length} card${ids.length === 1 ? "" : "s"} to ${activeSet.name}. Added cards are new until Smart introduction.`;
-    } else if (action === "remove") {
-      record = await state.store.removeCardsFromSet(activeSet.id, ids);
-      state.elements.statusText.textContent = `Removed matching range cards from ${activeSet.name}.`;
-    } else if (action === "replace") {
-      if (activeSet && !activeSet.locked) {
-        record = await state.store.updateSetCards(activeSet.id, ids);
-        state.elements.statusText.textContent = `Replaced ${activeSet.name} with ${record?.cardIds?.length || 0} cards from ranges.`;
-      } else {
-        const name = state.elements.setNameInput.value.trim();
-        if (!name) {
-          state.elements.statusText.textContent = "Enter a set name first to create a set from ranges.";
-          return;
-        }
-        record = await state.store.saveNamedSet(name, ids);
-        state.elements.statusText.textContent = `Named set saved from ranges: ${record.name} (${record.cardIds.length} cards).`;
-      }
-    }
-    if (!record) {
-      state.elements.statusText.textContent = "Could not update that set.";
-      return;
-    }
-    state.elements.setRangeInput.value = "";
-    resetRoundState();
-    markManageListDirty();
-    render();
+    state.elements.statusText.textContent = "Custom user sets are disabled. Use Card setup visibility instead.";
   }
 
   async function handleDeleteSelectedSet() {
-    const activeSet = getActiveSet();
-    if (!activeSet || activeSet.locked) return;
-    await state.store.deleteSet(activeSet.id);
-    resetRoundState();
-    markManageListDirty();
-    state.elements.statusText.textContent = `Deleted set: ${activeSet.name}.`;
-    render();
+    state.elements.statusText.textContent = "Custom user sets are disabled.";
   }
 
   async function handleSetChange(event) {
@@ -500,18 +360,24 @@
     const isTypingField = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
     if (!getCurrentCard()) return;
 
+    if (getUi().mode === "learn" && event.key === "Enter" && !isTypingField) {
+      event.preventDefault();
+      nextCard();
+      return;
+    }
+
     if (isSmartPracticeActive() && state.round.smartStage === "feedback") {
       if (/[1-4]/.test(event.key)) {
         event.preventDefault();
         setSmartRating(Number(event.key));
         return;
       }
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      if (event.key === "ArrowDown") {
         event.preventDefault();
         moveSmartRatingSelection(1);
         return;
       }
-      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      if (event.key === "ArrowUp") {
         event.preventDefault();
         moveSmartRatingSelection(-1);
         return;
@@ -541,12 +407,12 @@
         selectTranslationOption(numberIndex);
         return;
       }
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      if (event.key === "ArrowDown") {
         event.preventDefault();
         moveTranslationSelection(1);
         return;
       }
-      if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      if (event.key === "ArrowUp") {
         event.preventDefault();
         moveTranslationSelection(-1);
         return;
@@ -562,7 +428,7 @@
       }
     }
 
-    if (state.round.answered && (event.key === "Enter" || event.key === "ArrowRight")) {
+    if (state.round.answered && event.key === "Enter") {
       event.preventDefault();
       nextCard();
     }
@@ -572,7 +438,7 @@
     if (state.currentPage !== "flashcards") return;
     const active = document.activeElement;
     const isTextInput = active && active.tagName === "INPUT" && active.type === "text";
-    if (event.key !== "Enter" && event.key !== "ArrowRight") return;
+    if (event.key !== "Enter") return;
 
     if (isSmartPracticeActive() && state.round.smartForceNew && state.round.smartStage === "intro") {
       event.preventDefault();
@@ -625,12 +491,7 @@
     if (state.elements.authSignInBtn) state.elements.authSignInBtn.addEventListener("click", handleAuthSignIn);
     if (state.elements.authSignOutBtn) state.elements.authSignOutBtn.addEventListener("click", handleAuthSignOut);
     state.elements.pageButtons.forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
-    state.elements.saveVocabBtn.addEventListener("click", handleSaveVocabulary);
-    state.elements.loadPlaceholderBtn.addEventListener("click", handleRestoreBuiltIn);
     state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
-    state.elements.exportProgressBtn.addEventListener("click", handleExportApp);
-    state.elements.importProgressBtn.addEventListener("click", handleImportAppClick);
-    state.elements.importProgressInput.addEventListener("change", handleImportAppFile);
     state.elements.shuffleBtn.addEventListener("click", shuffleCurrentMode);
     state.elements.resetOrderBtn.addEventListener("click", resetCurrentModeOrder);
     state.elements.setupToggleBtn.addEventListener("click", toggleSetupPanel);
@@ -643,14 +504,14 @@
     state.elements.modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
     state.elements.quizTypeButtons.forEach((button) => button.addEventListener("click", () => setQuizTypeForCurrentMode(button.dataset.quiz)));
     state.elements.rangeButtons.forEach((button) => button.addEventListener("click", handleRangeButtonClick));
-    state.elements.saveSetBtn.addEventListener("click", handleSaveNamedSet);
+    if (state.elements.saveSetBtn) state.elements.saveSetBtn.addEventListener("click", handleSaveNamedSet);
     if (state.elements.addSetRangeBtn) state.elements.addSetRangeBtn.addEventListener("click", () => handleSetRangeAction("add"));
     if (state.elements.removeSetRangeBtn) state.elements.removeSetRangeBtn.addEventListener("click", () => handleSetRangeAction("remove"));
     if (state.elements.replaceSetRangeBtn) state.elements.replaceSetRangeBtn.addEventListener("click", () => handleSetRangeAction("replace"));
-    state.elements.deleteSetBtn.addEventListener("click", handleDeleteSelectedSet);
+    if (state.elements.deleteSetBtn) state.elements.deleteSetBtn.addEventListener("click", handleDeleteSelectedSet);
     if (state.elements.setupIntroduceBtn) state.elements.setupIntroduceBtn.addEventListener("click", () => startSmartForSet(getActiveSet().id, "introduce"));
     if (state.elements.setupReviewBtn) state.elements.setupReviewBtn.addEventListener("click", () => startSmartForSet(getActiveSet().id, "review"));
-    state.elements.activeSetSelect.addEventListener("change", handleSetChange);
+    if (state.elements.activeSetSelect) state.elements.activeSetSelect.addEventListener("change", handleSetChange);
     if (state.elements.reviewSetSelect) state.elements.reviewSetSelect.addEventListener("change", handleReviewSetChange);
     if (state.elements.startDueReviewBtn) state.elements.startDueReviewBtn.addEventListener("click", startDueReviewCards);
     if (state.elements.startNewCardsBtn) state.elements.startNewCardsBtn.addEventListener("click", startNewCardIntroduction);
@@ -697,13 +558,7 @@
     updateCardMode,
     applyRangeToMode,
     setAllForMode,
-    handleSaveVocabulary,
-    handleRestoreBuiltIn,
     handleResetProgress,
-    triggerTextDownload,
-    handleExportApp,
-    handleImportAppClick,
-    handleImportAppFile,
     handleSaveNamedSet,
     getCardsFromSetRangeInput,
     handleSetRangeAction,

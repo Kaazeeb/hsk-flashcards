@@ -6,7 +6,7 @@
  */
 (function (ns) {
   const { MODES, PRACTICE_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, IMAGE_ALL_DECK_ID, SENTENCE_ALL_DECK_ID, SCHEMA_VERSION } = ns.constants;
-  const { normalizeCard, cardId, createAllCardsSet, createSetRecord } = ns.utils;
+  const { normalizeCard, cardId, createAllCardsSet } = ns.utils;
 
   function createEmptyScoreBucket() {
     return {};
@@ -206,7 +206,7 @@
         index: index + 1,
         cardKind: "sentence",
         level: Math.max(1, Math.min(9, Math.floor(Number(card?.level) || 1))),
-        direction: card?.direction === "en_to_zh" ? "en_to_zh" : "zh_to_en",
+        direction: ["zh_to_en", "en_to_zh", "zh_qa"].includes(String(card?.direction || "")) ? String(card.direction) : "zh_to_en",
         deckId: String(card?.deckId || card?.deck || ns.constants.SENTENCE_DEFAULT_DECK_ID).trim() || ns.constants.SENTENCE_DEFAULT_DECK_ID,
         deckName: String(card?.deckName || card?.category || ns.constants.SENTENCE_DEFAULT_DECK_NAME).trim() || ns.constants.SENTENCE_DEFAULT_DECK_NAME,
         front: String(card?.front || card?.prompt || "").trim(),
@@ -216,7 +216,7 @@
         grammarTags: Array.isArray(card?.grammarTags) ? card.grammarTags.map(String) : [],
         tags: Array.isArray(card?.tags) ? card.tags.map(String) : []
       }))
-      .filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && card.english);
+      .filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && (card.direction === "zh_qa" || card.english));
   }
 
   function createDefaultImageUiState() {
@@ -249,33 +249,10 @@
   }
 
   function normalizeSets(rawSets, vocab) {
-    const validIds = new Set(vocab.map((card) => cardId(card)));
-    const allSet = buildAllSet(vocab);
-    const byId = { [ALL_SET_ID]: allSet };
-    const rawById = rawSets?.byId && typeof rawSets.byId === "object" ? rawSets.byId : {};
-    const rawOrder = Array.isArray(rawSets?.order) ? rawSets.order.map(String) : [];
-
-    rawOrder.forEach((setId) => {
-      if (setId === ALL_SET_ID) return;
-      const entry = rawById[setId];
-      if (!entry || typeof entry !== "object") return;
-      const cardIds = [...new Set((entry.cardIds || []).map(String).filter((id) => validIds.has(id)))];
-      byId[setId] = {
-        id: setId,
-        name: String(entry.name || setId).trim() || setId,
-        cardIds,
-        locked: false,
-        createdAt: entry.createdAt || new Date().toISOString(),
-        updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString()
-      };
-    });
-
-    const order = [ALL_SET_ID, ...Object.keys(byId).filter((id) => id !== ALL_SET_ID && rawOrder.includes(id))];
-    Object.keys(byId).forEach((id) => {
-      if (!order.includes(id)) order.push(id);
-    });
-
-    return { byId, order };
+    return {
+      byId: { [ALL_SET_ID]: buildAllSet(vocab) },
+      order: [ALL_SET_ID]
+    };
   }
 
   function pruneObjectToIds(bucket, validIds) {
@@ -315,12 +292,13 @@
     });
   }
 
-  // All inbound data, whether imported JSON, built-in memory, or Supabase rebuild,
-  // passes through this gate. It prunes invalid card ids and restores locked sets.
+  // All card catalogs are standard app content. Remote data may still carry legacy
+  // custom vocab/image/sentence docs, but v38 ignores those definitions and only
+  // applies user progress plus per-card Learn/Practice visibility flags.
   function normalizeDb(raw, builtinCards, builtinImageCards = [], builtinSentenceCards = []) {
-    const vocab = normalizeVocab(raw?.vocab?.length ? raw.vocab : builtinCards);
-    const imageCards = normalizeImageCards(raw?.imageCards?.length ? raw.imageCards : builtinImageCards);
-    const sentenceCards = normalizeSentenceCards(raw?.sentenceCards?.length ? raw.sentenceCards : builtinSentenceCards);
+    const vocab = normalizeVocab(builtinCards);
+    const imageCards = normalizeImageCards(builtinImageCards);
+    const sentenceCards = normalizeSentenceCards(builtinSentenceCards);
     const sets = normalizeSets(raw?.sets, vocab);
     const ui = normalizeUiState(raw?.ui);
     const progress = normalizeProgress(raw?.progress);
@@ -398,33 +376,10 @@
         return this.state;
       },
 
-      // CSV import may be an unrelated deck, so it resets dependent data unless
-      // explicitly told to preserve/prune. Built-in restore has its own safer path.
-      async replaceVocabulary(cards, { preserveData = false } = {}) {
-        const nextVocab = normalizeVocab(cards);
-        if (!preserveData) {
-          this.state = normalizeDb({ vocab: nextVocab, imageCards: this.state?.imageCards || builtinImageCards, sentenceCards: this.state?.sentenceCards || builtinSentenceCards }, nextVocab, builtinImageCards, builtinSentenceCards);
-          resetReviewData(this.state, "replace_vocabulary");
-        } else {
-          this.state.vocab = nextVocab;
-          this.state.sets = normalizeSets(this.state.sets, nextVocab);
-          pruneDbToValidIds(this.state);
-        }
-        await this.persist();
-      },
-
-      async restoreBuiltIn() {
-        const cards = normalizeVocab(builtinCards);
-        const sameDeck = ns.syncCodec && typeof ns.syncCodec.sameCardList === "function"
-          ? ns.syncCodec.sameCardList(this.state.vocab, cards)
-          : JSON.stringify(this.state.vocab || []) === JSON.stringify(cards || []);
-        this.state.vocab = cards;
-        this.state.sets = normalizeSets(this.state.sets, cards);
-        pruneDbToValidIds(this.state);
-        if (!sameDeck) resetReviewData(this.state, "restore_builtin_vocabulary");
-        await this.persist();
-        return { resetProgress: !sameDeck };
-      },
+      // User-created/imported card catalogs are disabled in v38. Keep these API
+      // stubs so old call sites or browser console calls cannot mutate the deck.
+      async replaceVocabulary() { return false; },
+      async restoreBuiltIn() { return { resetProgress: false, disabled: true }; },
 
       async setActiveSet(setId) {
         this.state.ui.activeSetId = this.state.sets.byId[setId] ? setId : ALL_SET_ID;
@@ -438,73 +393,14 @@
         await this.persist();
       },
 
-      // Sets define review scope only. Smart FSRS state is per set and card, and
-      // a card enters that set's FSRS bucket only after its first Smart review.
-      async saveNamedSet(name, cardIds) {
-        const trimmed = String(name || "").trim();
-        if (!trimmed) return null;
-        const normalizedIds = [...new Set((cardIds || []).map(String))];
-        const existing = Object.values(this.state.sets.byId).find((set) => !set.locked && set.name.trim().toLowerCase() === trimmed.toLowerCase());
-        const now = new Date().toISOString();
-        if (existing) {
-          existing.cardIds = normalizedIds;
-          existing.updatedAt = now;
-          existing.name = trimmed;
-          this.state.sets.byId[existing.id] = existing;
-          await this.setActiveSet(existing.id);
-          return existing;
-        }
-        let record = createSetRecord(trimmed, normalizedIds);
-        let suffix = 2;
-        while (this.state.sets.byId[record.id]) {
-          record.id = `${createSetRecord(trimmed, normalizedIds).id}-${suffix}`;
-          suffix += 1;
-        }
-        record.updatedAt = now;
-        this.state.sets.byId[record.id] = record;
-        this.state.sets.order.push(record.id);
-        this.state.ui.activeSetId = record.id;
-        await this.persist();
-        return record;
-      },
-
-      async updateSetCards(setId, cardIds) {
-        const record = this.state.sets.byId[setId];
-        if (!record || record.locked) return null;
-        const validIds = new Set(this.state.vocab.map((card) => cardId(card)));
-        const normalizedIds = [...new Set((cardIds || []).map(String).filter((id) => validIds.has(id)))];
-        record.cardIds = normalizedIds;
-        record.updatedAt = new Date().toISOString();
-        this.state.sets.byId[setId] = record;
-        await this.persist();
-        return record;
-      },
-
-      async addCardsToSet(setId, cardIds) {
-        const record = this.state.sets.byId[setId];
-        if (!record || record.locked) return null;
-        const merged = [...new Set([...(record.cardIds || []), ...(cardIds || []).map(String)])];
-        return this.updateSetCards(setId, merged);
-      },
-
-      async removeCardsFromSet(setId, cardIds) {
-        const record = this.state.sets.byId[setId];
-        if (!record || record.locked) return null;
-        const remove = new Set((cardIds || []).map(String));
-        return this.updateSetCards(setId, (record.cardIds || []).filter((id) => !remove.has(String(id))));
-      },
-
-      async deleteSet(setId) {
-        const record = this.state.sets.byId[setId];
-        if (!record || record.locked) return false;
-        delete this.state.sets.byId[setId];
-        this.state.sets.order = this.state.sets.order.filter((id) => id !== setId);
-        delete this.state.smartBySet[setId];
-        if (this.state.ui.activeSetId === setId) this.state.ui.activeSetId = ALL_SET_ID;
-        if (this.state.ui.reviewSetId === setId) this.state.ui.reviewSetId = ALL_SET_ID;
-        await this.persist();
-        return true;
-      },
+      // Custom user-created sets are intentionally disabled. The standard
+      // vocabulary scope is All cards; visibility is controlled per card via
+      // Learn/Practice flags in Setup.
+      async saveNamedSet() { return null; },
+      async updateSetCards() { return null; },
+      async addCardsToSet() { return null; },
+      async removeCardsFromSet() { return null; },
+      async deleteSet() { return false; },
 
       ensureSmartSet(setId) {
         if (!this.state.smartBySet[setId]) this.state.smartBySet[setId] = {};
@@ -521,22 +417,6 @@
         const id = String(deckId || SENTENCE_ALL_DECK_ID);
         if (!this.state.sentenceSmartByDeck[id]) this.state.sentenceSmartByDeck[id] = {};
         return this.state.sentenceSmartByDeck[id];
-      },
-
-      exportJson() {
-        return JSON.stringify({
-          app: "hsk_flashcards",
-          schemaVersion: SCHEMA_VERSION,
-          exportedAt: new Date().toISOString(),
-          data: this.state
-        }, null, 2);
-      },
-
-      async importJson(text) {
-        const parsed = JSON.parse(String(text || ""));
-        this.state = normalizeDb(parsed?.data || parsed, builtinCards, builtinImageCards, builtinSentenceCards);
-        bumpReviewEpoch(this.state, "import_json");
-        await this.persist();
       },
 
       async resetProgress(reason = "manual_reset") {

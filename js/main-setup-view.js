@@ -126,13 +126,7 @@
   const updateCardMode = proxy("updateCardMode");
   const applyRangeToMode = proxy("applyRangeToMode");
   const setAllForMode = proxy("setAllForMode");
-  const handleSaveVocabulary = proxy("handleSaveVocabulary");
-  const handleRestoreBuiltIn = proxy("handleRestoreBuiltIn");
   const handleResetProgress = proxy("handleResetProgress");
-  const triggerTextDownload = proxy("triggerTextDownload");
-  const handleExportApp = proxy("handleExportApp");
-  const handleImportAppClick = proxy("handleImportAppClick");
-  const handleImportAppFile = proxy("handleImportAppFile");
   const handleSaveNamedSet = proxy("handleSaveNamedSet");
   const getCardsFromSetRangeInput = proxy("getCardsFromSetRangeInput");
   const handleSetRangeAction = proxy("handleSetRangeAction");
@@ -469,7 +463,7 @@
     });
 
     state.elements.activeSetBadge.textContent = activeSet.name;
-    state.elements.deleteSetBtn.disabled = !!activeSet.locked;
+    if (state.elements.deleteSetBtn) state.elements.deleteSetBtn.disabled = true;
     state.elements.setCardCount.textContent = String(getPracticeScopedIdsForSet(activeSet.id).length);
     if (state.elements.setNewCount) state.elements.setNewCount.textContent = String(summary.newCount || 0);
     if (state.elements.setStartedCount) state.elements.setStartedCount.textContent = String(summary.startedCount || 0);

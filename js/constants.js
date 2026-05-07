@@ -80,14 +80,15 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const raw = Array.isArray(window.HSK_SENTENCE_CARDS) ? window.HSK_SENTENCE_CARDS : [];
     const defaults = ns.constants;
     return raw.map((card, index) => {
-      const direction = card.direction === "en_to_zh" ? "en_to_zh" : "zh_to_en";
+      const rawDirection = String(card.direction || "").trim();
+      const direction = ["zh_to_en", "en_to_zh", "zh_qa"].includes(rawDirection) ? rawDirection : "zh_to_en";
       const level = Math.max(1, Math.min(9, Math.floor(Number(card.level) || 1)));
       const deckId = String(card.deckId || card.deck || `sentence_hsk${level}`).trim() || defaults.SENTENCE_DEFAULT_DECK_ID;
       const deckName = String(card.deckName || card.category || `HSK ${level} sentences`).trim() || defaults.SENTENCE_DEFAULT_DECK_NAME;
       const front = String(card.front || card.prompt || "").trim();
       const back = String(card.back || card.answer || "").trim();
-      const chinese = String(card.chinese || card.hanzi || (direction === "zh_to_en" ? front : back) || "").trim();
-      const english = String(card.english || card.translation || (direction === "zh_to_en" ? back : front) || "").trim();
+      const chinese = String(card.chinese || card.hanzi || (direction === "en_to_zh" ? back : `${front} ${back}`) || "").trim();
+      const english = String(card.english || card.translation || (direction === "zh_to_en" ? back : direction === "en_to_zh" ? front : "") || "").trim();
       const id = String(card.id || `sentence_${level}_${index + 1}_${direction}`).trim();
       return {
         id,
@@ -104,6 +105,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         grammarTags: Array.isArray(card.grammarTags) ? card.grammarTags.map(String) : [],
         tags: Array.isArray(card.tags) ? card.tags.map(String) : []
       };
-    }).filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && card.english);
+    }).filter((card) => card.id && card.deckId && card.front && card.back && card.chinese && (card.direction === "zh_qa" || card.english));
   };
 })(window.HSKFlashcards);

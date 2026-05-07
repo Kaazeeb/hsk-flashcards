@@ -57,28 +57,16 @@
     <section class="panel import-panel page-panel" data-page="setup">
       <div class="panel-header">
         <h2>Vocabulary</h2>
-        <span class="badge" id="storageModeBadge">built in · memory only</span>
+        <span class="badge" id="storageModeBadge">standard deck</span>
       </div>
 
-      <label for="vocabInput" class="label">Optional: paste a different vocabulary CSV</label>
-      <textarea
-        id="vocabInput"
-        placeholder="Built-in HSK 1–3 is already included.
-You only need this box if you want to import a different CSV.
-
-Accepted formats:
-hanzi,pinyin,translation,pinyinNumeric
-你好,nǐ hǎo,hello,ni3hao3
-谢谢,xièxie,thank you,xie4xie"
-      ></textarea>
+      <p class="hint">Vocabulary cards are standard built-in content managed by the app. Users can control Learn and Practice visibility below, but cannot create cards or import custom vocabulary.</p>
 
       <div class="button-row">
-        <button id="saveVocabBtn">Import pasted vocabulary</button>
-        <button id="loadPlaceholderBtn" class="secondary">Restore built-in</button>
         <button id="resetProgressBtn" class="secondary">Reset progress</button>
       </div>
 
-      <p id="statusText" class="status muted">Built-in HSK 1–3 loads automatically on first open.</p>
+      <p id="statusText" class="status muted">Built-in HSK 1–3 vocabulary and sentence decks load automatically.</p>
     </section>
 
     <section class="panel mode-panel page-panel" data-page="flashcards">
@@ -117,7 +105,7 @@ hanzi,pinyin,translation,pinyinNumeric
           </div>
           <p id="smartFlowStatus" class="status muted">Choose Smart · FSRS to review scheduled cards or introduce new cards.</p>
         </div>
-        <p class="hint">Set membership is managed in Setup. Due reviews and first-view introductions are separate flows.</p>
+        <p class="hint">Built-in content visibility is managed in Setup. Due reviews and first-view introductions are separate flows.</p>
       </div>
 
       <div class="button-row compact-row">
@@ -133,11 +121,6 @@ hanzi,pinyin,translation,pinyinNumeric
         <h2>Progress</h2>
       </div>
 
-      <div class="button-row compact-row report-actions">
-        <button id="exportProgressBtn" class="secondary">Export app JSON</button>
-        <button id="importProgressBtn" class="secondary">Import app JSON</button>
-        <input id="importProgressInput" class="hidden" type="file" accept="application/json,.json" />
-      </div>
 
       <div class="stats-grid stats-grid-6">
         <article class="stat-card">
@@ -195,36 +178,18 @@ hanzi,pinyin,translation,pinyinNumeric
 
     <section class="panel sets-panel page-panel" data-page="setup">
       <div class="panel-header">
-        <h2>Card sets</h2>
+        <h2>Built-in study scope</h2>
         <span id="activeSetBadge" class="badge subtle">All cards</span>
       </div>
 
       <div class="subpanel-block set-editor-block">
-        <div class="subpanel-title">Editing set</div>
-        <p class="hint">Sets define the deck you want to study. Adding cards to a set does not start FSRS; new cards enter the review schedule only after you introduce them from Flash cards.</p>
+        <div class="subpanel-title">Standard vocabulary set</div>
+        <p class="hint">Custom user sets are disabled. Use the Card setup section below to control which built-in vocabulary cards are visible in Learn and Practice.</p>
 
-        <label for="activeSetSelect" class="label">Set being edited</label>
+        <label for="activeSetSelect" class="label">Vocabulary set</label>
         <div class="set-row">
-          <select id="activeSetSelect"></select>
-          <button id="deleteSetBtn" class="ghost">Delete selected set</button>
+          <select id="activeSetSelect" disabled></select>
         </div>
-
-        <label for="setNameInput" class="label">Create or update a named set from the current Practice selection</label>
-        <div class="set-row">
-          <input id="setNameInput" type="text" placeholder="e.g. hsk-meu-baralho" />
-          <button id="saveSetBtn">Save / update set</button>
-        </div>
-
-        <label for="setRangeInput" class="label">Adjust this set by card indexes</label>
-        <div class="set-range-editor">
-          <input id="setRangeInput" type="text" placeholder="Example: 1-100, 125, 130-150" />
-          <div class="set-range-actions">
-            <button id="addSetRangeBtn" class="secondary" type="button">Add ranges</button>
-            <button id="removeSetRangeBtn" class="ghost" type="button">Remove ranges</button>
-            <button id="replaceSetRangeBtn" class="ghost" type="button">Replace set</button>
-          </div>
-        </div>
-        <p class="hint">Example: if a set already has 100 scheduled cards, add 30 more here. Those 30 remain <strong>New to introduce</strong> until you choose Smart introduction.</p>
       </div>
 
       <div class="stats-grid stats-grid-5 set-status-grid">
@@ -256,8 +221,8 @@ hanzi,pinyin,translation,pinyinNumeric
       </div>
 
       <div class="subpanel-block">
-        <div class="subpanel-title">Review schedules by set</div>
-        <p class="hint">Single setup dashboard for review dates. Use Flash cards for daily review, or use row buttons to jump into one set.</p>
+        <div class="subpanel-title">Built-in vocabulary schedule</div>
+        <p class="hint">Review dates for the standard vocabulary deck. Use Flash cards for daily review, or use the buttons here to jump into introduction/review.</p>
         <div id="setsOverview" class="sets-overview"></div>
       </div>
     </section>
@@ -319,7 +284,7 @@ hanzi,pinyin,translation,pinyinNumeric
       <article class="card" id="flashcard">
         <div id="cardPrompt" class="prompt">Waiting for vocabulary</div>
         <div id="cardHanzi" class="hanzi">—</div>
-        <div id="cardPinyin" class="pinyin muted">Paste your list above and save it.</div>
+        <div id="cardPinyin" class="pinyin muted">Built-in vocabulary is ready.</div>
         <div id="cardTranslation" class="translation"></div>
         <div id="cardStats" class="card-stats"></div>
         <div id="resultText" class="result"></div>
@@ -394,6 +359,9 @@ hanzi,pinyin,translation,pinyinNumeric
   <script src="hsk1-data.js"></script>
   <script src="js/image-cards-data.js"></script>
   <script src="js/sentence-cards-data.js"></script>
+  <script src="js/sentence-cards-data-part-1.js"></script>
+  <script src="js/sentence-cards-data-part-2.js"></script>
+  <script src="js/sentence-cards-data-part-3.js"></script>
   <script src="fsrs-lib.js"></script>
   <script src="js/constants.js"></script>
   <script src="js/utils.js"></script>

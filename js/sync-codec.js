@@ -162,19 +162,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   function getNamedSetsMap(sets) {
-    const byId = sets?.byId && typeof sets.byId === "object" ? sets.byId : {};
-    const map = {};
-    Object.values(byId).forEach((setRecord) => {
-      if (!setRecord || setRecord.locked) return;
-      map[String(setRecord.id)] = {
-        id: String(setRecord.id),
-        name: String(setRecord.name || setRecord.id).trim() || String(setRecord.id),
-        cardIds: Array.isArray(setRecord.cardIds) ? setRecord.cardIds.map(String) : [],
-        createdAt: setRecord.createdAt || new Date().toISOString(),
-        updatedAt: setRecord.updatedAt || setRecord.createdAt || new Date().toISOString()
-      };
-    });
-    return map;
+    return {};
   }
 
   function sameSetDoc(a, b) {
@@ -185,22 +173,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   }
 
   function buildSetsRaw(docGroups, vocab, allSetId) {
-    const rawById = {};
-    Object.values(docGroups.set || {}).forEach((payload) => {
-      if (!payload?.id) return;
-      rawById[String(payload.id)] = {
-        id: String(payload.id),
-        name: String(payload.name || payload.id).trim() || String(payload.id),
-        cardIds: expandCardIdList(payload.cardRefs || [], vocab || []),
-        createdAt: payload.createdAt || new Date().toISOString(),
-        updatedAt: payload.updatedAt || payload.createdAt || new Date().toISOString(),
-        locked: false
-      };
-    });
-    const orderDoc = docGroups.meta?.set_order;
-    const rawOrder = Array.isArray(orderDoc?.order) ? orderDoc.order.map(String) : Object.keys(rawById);
-    const order = rawOrder.filter((id) => id && id !== allSetId && rawById[id]);
-    return { byId: rawById, order };
+    return { byId: {}, order: [] };
   }
 
   ns.syncCodec = {
