@@ -141,6 +141,7 @@
   const introduceCurrentSmartCard = proxy("introduceCurrentSmartCard");
   const renderSmartIntroduction = proxy("renderSmartIntroduction");
   const renderSmartPractice = proxy("renderSmartPractice");
+  const showSmartSentenceAnswer = proxy("showSmartSentenceAnswer");
   const renderSmartBlocked = proxy("renderSmartBlocked");
 
   function render() {
@@ -254,12 +255,14 @@
     const db = getDb();
     const normalized = ns.store && typeof ns.store.normalizeBuiltinVisibility === "function"
       ? ns.store.normalizeBuiltinVisibility(db.builtinVisibility)
-      : { byDeck: db.builtinVisibility?.byDeck || {} };
+      : { version: 2, vocabMigrated: false, byDeck: db.builtinVisibility?.byDeck || {} };
+    if (id === ALL_SET_ID) normalized.vocabMigrated = true;
     const deck = normalized.byDeck[id] || { learn: true, practice: true, cards: {} };
     const current = ns.store && typeof ns.store.getBuiltinCardVisibility === "function"
       ? ns.store.getBuiltinCardVisibility(normalized, id, card)
       : { learn: true, practice: true };
     const next = { ...current, [mode]: value !== false };
+    if (current.learn === next.learn && current.practice === next.practice) return false;
     deck.cards = deck.cards || {};
     if (next.learn !== false && next.practice !== false) delete deck.cards[card];
     else deck.cards[card] = next;
@@ -268,23 +271,17 @@
     return true;
   }
 
+  function getSetupActionCardId(card, deck) {
+    return deck?.kind === "sentence" ? String(card?.id || "") : cardId(card);
+  }
+
   function updateCardMode(id, mode, checked) {
     if (!MODES.includes(mode)) return;
     const deck = getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
-    if (deck.kind === "sentence") {
-      if (!setBuiltInCardFlag(deck.id, id, mode, checked)) return;
-      resetRoundState();
-      clearSmartSessionDeferrals();
-      markManageListDirty();
-      persist();
-      render();
-      return;
-    }
-    const card = getDb().vocab.find((item) => cardId(item) === id);
-    if (!card) return;
-    card[mode] = checked;
+    if (!setBuiltInCardFlag(deck.id, id, mode, checked)) return;
     ensureOrder(mode);
     resetRoundState();
+    clearSmartSessionDeferrals();
     markManageListDirty();
     persist();
     render();
@@ -298,32 +295,15 @@
     const cards = getSetupDeckCards(deck.id);
     let changed = 0;
 
-    if (deck.kind === "sentence") {
-      cards.forEach((card) => {
-        const position = card.setupIndex || card.index;
-        if (!ranges.has(position)) return;
-        if (setBuiltInCardFlag(deck.id, card.id, mode, include)) changed += 1;
-      });
-      if (!changed) return;
-      resetRoundState();
-      clearSmartSessionDeferrals();
-      markManageListDirty();
-      persist();
-      render();
-      return;
-    }
-
     cards.forEach((card) => {
-      if (!ranges.has(card.index)) return;
-      const original = getDb().vocab.find((item) => cardId(item) === cardId(card));
-      if (original && original[mode] !== include) {
-        original[mode] = include;
-        changed += 1;
-      }
+      const position = card.setupIndex || card.index;
+      if (!ranges.has(position)) return;
+      if (setBuiltInCardFlag(deck.id, getSetupActionCardId(card, deck), mode, include)) changed += 1;
     });
     if (!changed) return;
     ensureOrder(mode);
     resetRoundState();
+    clearSmartSessionDeferrals();
     markManageListDirty();
     persist();
     render();
@@ -334,29 +314,13 @@
     const cards = getSetupDeckCards(deck.id);
     let changed = 0;
 
-    if (deck.kind === "sentence") {
-      cards.forEach((card) => {
-        if (setBuiltInCardFlag(deck.id, card.id, mode, value)) changed += 1;
-      });
-      if (!changed) return;
-      resetRoundState();
-      clearSmartSessionDeferrals();
-      markManageListDirty();
-      persist();
-      render();
-      return;
-    }
-
     cards.forEach((card) => {
-      const original = getDb().vocab.find((item) => cardId(item) === cardId(card));
-      if (original && original[mode] !== value) {
-        original[mode] = value;
-        changed += 1;
-      }
+      if (setBuiltInCardFlag(deck.id, getSetupActionCardId(card, deck), mode, value)) changed += 1;
     });
     if (!changed) return;
     ensureOrder(mode);
     resetRoundState();
+    clearSmartSessionDeferrals();
     markManageListDirty();
     persist();
     render();
@@ -528,6 +492,12 @@
     if (isSmartPracticeActive() && state.round.smartForceNew && state.round.smartStage === "intro") {
       event.preventDefault();
       introduceCurrentSmartCard();
+      return;
+    }
+
+    if (isSmartPracticeActive() && state.round.smartStage === "sentence-question" && !isTextInput) {
+      event.preventDefault();
+      showSmartSentenceAnswer();
       return;
     }
 

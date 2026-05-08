@@ -230,8 +230,8 @@
     if (getUi().mode === "practice" && !check.correct) {
       state.round.pendingWrong = true;
       state.round.resultText = check.formatValid
-        ? "Not counted yet. Retry without penalty if this was a typo, or press Enter / → to count it wrong and reveal the answer."
-        : "Not counted yet. The answer must match the numeric pinyin shown for this card exactly. Retry without penalty, or press Enter / → to count it wrong and reveal the answer.";
+        ? "Not counted yet. Retry without penalty if this was a typo, or press Enter to count it wrong and reveal the answer."
+        : "Not counted yet. The answer must match the numeric pinyin shown for this card exactly. Retry without penalty, or press Enter to count it wrong and reveal the answer.";
       state.round.resultClass = "bad";
       render();
       scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
@@ -289,8 +289,8 @@
     if (!check.correct) {
       state.round.pendingWrong = true;
       state.round.resultText = check.formatValid
-        ? "Not counted yet. Retry without penalty if this was a typo, or press Enter / → to count it wrong and reveal the answer before step 2."
-        : "Not counted yet. The answer must match the numeric pinyin shown for this card exactly. Retry without penalty, or press Enter / → to count it wrong and reveal the answer before step 2.";
+        ? "Not counted yet. Retry without penalty if this was a typo, or press Enter to count it wrong and reveal the answer before step 2."
+        : "Not counted yet. The answer must match the numeric pinyin shown for this card exactly. Retry without penalty, or press Enter to count it wrong and reveal the answer before step 2.";
       state.round.resultClass = "bad";
       render();
       scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
@@ -449,7 +449,44 @@
     scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
   }
 
+  function renderStudyLearn(card, queueIndex, total) {
+    const isStrokeCard = card.direction === "stroke_sequence";
+    state.elements.cardPrompt.textContent = `Study card · ${getSentenceFrontLabel(card)}`;
+    state.elements.cardHanzi.textContent = card.front || card.chinese || "—";
+    state.elements.cardPinyin.textContent = isStrokeCard
+      ? "Code: 1 横, 2 竖, 3 撇, 4 捺/点, 5 折"
+      : String(card.pinyin || "");
+    state.elements.cardTranslation.textContent = card.back || "";
+    clearNode(state.elements.answerArea);
+    if (card.direction === "zh_qa") {
+      const marker = document.createElement("div");
+      marker.className = "intro-note muted";
+      marker.textContent = "Q→A: expected answer is Chinese, not English.";
+      state.elements.answerArea.appendChild(marker);
+    }
+    if (isStrokeCard) {
+      const answer = document.createElement("div");
+      answer.className = "intro-note muted";
+      answer.textContent = `Hardcoded stroke answer: ${getStrokeAnswerForCard(card)}`;
+      state.elements.answerArea.appendChild(answer);
+    }
+    updateResult(state.elements.resultText, "Learn mode shows both sides. Press Enter for the next card.", "");
+    setPositionLabel(card, queueIndex, total);
+    prepareRoundAppearance("learn", "", card);
+    renderCurrentCardStats(card);
+
+    clearNode(state.elements.controls);
+    state.elements.controls.append(
+      createButton("Previous", prevCard, "secondary"),
+      createButton("Next", nextCard)
+    );
+  }
+
   function renderLearn(card, queueIndex, total) {
+    if (isSentenceCard(card)) {
+      renderStudyLearn(card, queueIndex, total);
+      return;
+    }
     state.elements.cardPrompt.textContent = "Vocabulary";
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = card.pinyin;

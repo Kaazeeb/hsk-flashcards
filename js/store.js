@@ -61,7 +61,7 @@
   }
 
   function normalizeBuiltinVisibility(raw) {
-    const output = { byDeck: {} };
+    const output = { version: 2, vocabMigrated: raw?.vocabMigrated === true, byDeck: {} };
     const source = raw?.byDeck && typeof raw.byDeck === "object" ? raw.byDeck : raw;
     if (!source || typeof source !== "object") return output;
     Object.entries(source).forEach(([deckId, flags]) => {
@@ -104,6 +104,42 @@
       learn: card.learn !== false,
       practice: card.practice !== false
     };
+  }
+
+  function applyLegacyVocabFlagsToBuiltinVisibility(visibility, vocab, rawVocab) {
+    const normalized = normalizeBuiltinVisibility(visibility);
+    if (normalized.vocabMigrated) return normalized;
+
+    const existingDeck = normalized.byDeck[ALL_SET_ID];
+    if (existingDeck?.cards && Object.keys(existingDeck.cards).length) {
+      normalized.vocabMigrated = true;
+      return normalized;
+    }
+
+    const legacyCards = Array.isArray(rawVocab) ? rawVocab : [];
+    if (!legacyCards.length) return normalized;
+
+    const validIds = new Set((Array.isArray(vocab) ? vocab : []).map((card) => cardId(card)).filter(Boolean));
+    const cards = {};
+    legacyCards.forEach((rawCard, index) => {
+      const normalizedCard = normalizeCard(rawCard, index + 1);
+      const id = cardId(normalizedCard);
+      if (!id || (validIds.size && !validIds.has(id))) return;
+      const flags = {
+        learn: rawCard?.learn !== false,
+        practice: rawCard?.practice !== false
+      };
+      if (flags.learn !== false && flags.practice !== false) return;
+      cards[id] = flags;
+    });
+
+    normalized.byDeck[ALL_SET_ID] = {
+      learn: true,
+      practice: true,
+      cards
+    };
+    normalized.vocabMigrated = true;
+    return normalized;
   }
 
   function bumpReviewEpoch(db, reason = "manual") {
@@ -322,11 +358,13 @@
 
   function pruneDbToValidIds(db) {
     const validCardIds = new Set(db.vocab.map((card) => cardId(card)));
-    db.progress.seen = pruneObjectToIds(db.progress.seen, validCardIds);
+    const validSentenceIds = new Set((db.sentenceCards || []).map((card) => String(card.id || "")));
+    const validStudyIds = new Set([...validCardIds, ...validSentenceIds]);
+    db.progress.seen = pruneObjectToIds(db.progress.seen, validStudyIds);
     db.progress.practice.translation = pruneObjectToIds(db.progress.practice.translation, validCardIds);
     db.progress.practice.pinyin = pruneObjectToIds(db.progress.practice.pinyin, validCardIds);
-    db.ui.order.learn = db.ui.order.learn.filter((id) => validCardIds.has(id));
-    db.ui.order.practice = db.ui.order.practice.filter((id) => validCardIds.has(id));
+    db.ui.order.learn = db.ui.order.learn.filter((id) => validStudyIds.has(id));
+    db.ui.order.practice = db.ui.order.practice.filter((id) => validStudyIds.has(id));
 
     Object.keys(db.smartBySet).forEach((setId) => {
       if (!db.sets.byId[setId]) {
@@ -343,7 +381,6 @@
       db.imageSmartByDeck[deckId] = pruneObjectToIds(db.imageSmartByDeck[deckId], validImageIds);
     });
 
-    const validSentenceIds = new Set((db.sentenceCards || []).map((card) => String(card.id || "")));
     Object.keys(db.sentenceSmartByDeck || {}).forEach((deckId) => {
       db.sentenceSmartByDeck[deckId] = pruneObjectToIds(db.sentenceSmartByDeck[deckId], validSentenceIds);
     });
@@ -365,7 +402,7 @@
     const sentenceSmartByDeck = normalizeSmartBySet(raw?.sentenceSmartByDeck);
     const imageUi = normalizeImageUiState(raw?.imageUi);
     const meta = normalizeMeta(raw?.meta);
-    const builtinVisibility = normalizeBuiltinVisibility(raw?.builtinVisibility);
+    const builtinVisibility = applyLegacyVocabFlagsToBuiltinVisibility(normalizeBuiltinVisibility(raw?.builtinVisibility), vocab, raw?.vocab);
 
     const db = {
       schemaVersion: SCHEMA_VERSION,
@@ -456,6 +493,7 @@
         const id = String(deckId || "").trim();
         if (!id) return false;
         this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility);
+        if (id === ALL_SET_ID) this.state.builtinVisibility.vocabMigrated = true;
         const current = this.state.builtinVisibility.byDeck[id] || { cards: {} };
         this.state.builtinVisibility.byDeck[id] = {
           learn: flags?.learn === undefined ? current.learn !== false : flags.learn !== false,
@@ -471,6 +509,7 @@
         const localCardId = String(cardId || "").trim();
         if (!id || !localCardId) return false;
         this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility);
+        if (id === ALL_SET_ID) this.state.builtinVisibility.vocabMigrated = true;
         const currentDeck = this.state.builtinVisibility.byDeck[id] || { learn: true, practice: true, cards: {} };
         const current = getBuiltinCardVisibility(this.state.builtinVisibility, id, localCardId);
         currentDeck.cards = currentDeck.cards || {};

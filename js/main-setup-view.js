@@ -73,6 +73,7 @@
   const getAllSetsScheduleByDay = proxy("getAllSetsScheduleByDay");
   const getSmartStatsForSet = proxy("getSmartStatsForSet");
   const getReviewSmartStats = proxy("getReviewSmartStats");
+  const getSmartIdsForSource = proxy("getSmartIdsForSource");
   const buildOrderedIds = proxy("buildOrderedIds");
   const ensureOrder = proxy("ensureOrder");
   const getOrderedIds = proxy("getOrderedIds");
@@ -195,7 +196,7 @@
   }
 
   function getEditModeIds(mode) {
-    return getScopedCards().filter((card) => card[mode] !== false).map((card) => cardId(card));
+    return getModeIds(mode);
   }
 
   function getSetupCardLocalId(card, deck) {
@@ -213,8 +214,7 @@
 
   function getSetupCardVisibility(card, deck = getSelectedSetupDeck()) {
     if (!deck || !card) return { learn: true, practice: true };
-    if (deck.kind === "sentence") return getBuiltInCardVisibility(deck.id, card.id);
-    return { learn: card.learn !== false, practice: card.practice !== false };
+    return getBuiltInCardVisibility(deck.id, getSetupCardLocalId(card, deck));
   }
 
   function renderSelectionSummary() {
@@ -362,8 +362,9 @@
         stats.textContent = getSetupSmartMeta(card, deck);
       } else {
         const summary = getPracticeCardSummaryText(card);
+        const currentFlags = getSetupCardVisibility(card, deck);
         let smartMeta = "smart inactive";
-        if (card.practice !== false) {
+        if (currentFlags.practice !== false) {
           const smartEntry = getSmartBucketForSet(deck?.id || getActiveSet().id)[cardId(card)] || smart.createSmartEntry(new Date());
           if (smart.isStarted(smartEntry)) {
             const due = smart.getDueDay(smartEntry, new Date());
@@ -437,6 +438,7 @@
     const named = getNamedSets();
     const reviewScopeId = getReviewScopeId();
     const summary = getReviewScheduleSummary();
+    const learnCount = getModeIds("learn").length;
     const practiceCount = getReviewPracticeIds().length;
 
     if (state.elements.reviewSetSelect) {
@@ -444,10 +446,9 @@
       getReviewSourcesForSelect().forEach((source) => {
         const option = document.createElement("option");
         option.value = source.id;
-        const count = source.kind === "sentence" ? (source.cardIds || []).length : getPracticeScopedIdsForSet(source.id).length;
-        option.textContent = source.kind === "sentence"
-          ? `${source.name} (${count} cards)`
-          : `${source.name} (${count} practice)`;
+        const learnSourceCount = getSmartIdsForSource(source, "learn").length;
+        const practiceSourceCount = getSmartIdsForSource(source, "practice").length;
+        option.textContent = `${source.name} (Learn ${learnSourceCount} · Practice ${practiceSourceCount})`;
         option.selected = source.id === reviewScopeId;
         state.elements.reviewSetSelect.appendChild(option);
       });
@@ -461,7 +462,7 @@
     }
 
     if (state.elements.reviewScopeMeta) {
-      state.elements.reviewScopeMeta.textContent = `${practiceCount} cards · due ${summary.dueTodayCount} · new ${summary.newCount}`;
+      state.elements.reviewScopeMeta.textContent = `Learn ${learnCount} · Practice ${practiceCount} · due ${summary.dueTodayCount} · new ${summary.newCount}`;
     }
 
     if (state.elements.reviewPlanCompact) {
@@ -539,7 +540,7 @@
     name.textContent = setRecord.name;
     const meta = document.createElement("div");
     meta.className = "saved-set-meta muted";
-    const practiceCount = setRecord.kind === "sentence" ? ((setRecord.cardIds || []).length) : getPracticeScopedIdsForSet(setRecord.id).length;
+    const practiceCount = getSmartIdsForSource(setRecord, "practice").length;
     const nextDue = summary.nextDueDate ? formatLongDate(summary.nextDueDate) : (summary.newCount ? "not scheduled yet" : "—");
     meta.textContent = `${practiceCount} practice · new ${summary.newCount || 0} · started ${summary.startedCount || 0} · due today ${summary.dueTodayCount || 0} · next ${nextDue}`;
     const chips = document.createElement("div");
