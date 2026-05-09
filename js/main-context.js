@@ -158,6 +158,7 @@
   const state = {
     filterText: "",
     manageListDirty: true,
+    reviewScheduleExpanded: false,
     elements: null,
     store: null,
     smartLastCardId: "",
@@ -274,6 +275,8 @@
       reviewSetSelect: document.getElementById("reviewSetSelect"),
       reviewScopeMeta: document.getElementById("reviewScopeMeta"),
       reviewPlanCompact: document.getElementById("reviewPlanCompact"),
+      toggleFullScheduleBtn: document.getElementById("toggleFullScheduleBtn"),
+      reviewScheduleFull: document.getElementById("reviewScheduleFull"),
       startDueReviewBtn: document.getElementById("startDueReviewBtn"),
       startNewCardsBtn: document.getElementById("startNewCardsBtn"),
       smartFlowStatus: document.getElementById("smartFlowStatus"),

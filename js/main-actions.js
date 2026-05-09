@@ -372,6 +372,11 @@
     render();
   }
 
+  function toggleFullReviewSchedule() {
+    state.reviewScheduleExpanded = !state.reviewScheduleExpanded;
+    render();
+  }
+
   function handleSetupDeckSelectChange() {
     state.filterText = state.elements.filterInput?.value || "";
     resetRoundState();
@@ -571,6 +576,7 @@
     if (state.elements.setupReviewBtn) state.elements.setupReviewBtn.addEventListener("click", () => startSmartForSet(state.elements.setupDeckSelect?.value || getActiveSet().id, "review"));
     if (state.elements.activeSetSelect) state.elements.activeSetSelect.addEventListener("change", handleSetChange);
     if (state.elements.reviewSetSelect) state.elements.reviewSetSelect.addEventListener("change", handleReviewSetChange);
+    if (state.elements.toggleFullScheduleBtn) state.elements.toggleFullScheduleBtn.addEventListener("click", toggleFullReviewSchedule);
     if (state.elements.startDueReviewBtn) state.elements.startDueReviewBtn.addEventListener("click", startDueReviewCards);
     if (state.elements.startNewCardsBtn) state.elements.startNewCardsBtn.addEventListener("click", startNewCardIntroduction);
     if (typeof runtime.bindImageEvents === "function") runtime.bindImageEvents();
@@ -623,6 +629,7 @@
     handleDeleteSelectedSet,
     handleSetChange,
     handleReviewSetChange,
+    toggleFullReviewSchedule,
     handleSetupDeckSelectChange,
     handleSetupDeckVisibilityChange,
     handleManageListChange,

@@ -70,6 +70,7 @@
   const getSmartScheduleForSet = proxy("getSmartScheduleForSet");
   const mergeScheduleSummaries = proxy("mergeScheduleSummaries");
   const getReviewScheduleSummary = proxy("getReviewScheduleSummary");
+  const getReviewFutureScheduleRows = proxy("getReviewFutureScheduleRows");
   const getAllSetsScheduleByDay = proxy("getAllSetsScheduleByDay");
   const getSmartStatsForSet = proxy("getSmartStatsForSet");
   const getReviewSmartStats = proxy("getReviewSmartStats");
@@ -433,6 +434,84 @@
     });
   }
 
+  function getFullScheduleCardTitle(card) {
+    if (!card) return "Unknown card";
+    if (card.cardKind || card.direction) {
+      const front = String(card.front || card.hanzi || card.chinese || card.prompt || "").trim();
+      const back = String(card.back || card.translation || card.answer || "").trim();
+      return [front, back].filter(Boolean).join(" → ") || String(card.id || "Study card");
+    }
+    return [card.hanzi, card.pinyin, card.translation].filter(Boolean).join(" · ") || String(card.id || "Vocabulary card");
+  }
+
+  function renderFullReviewSchedulePanel(summary) {
+    const button = state.elements.toggleFullScheduleBtn;
+    const container = state.elements.reviewScheduleFull;
+    if (!button && !container) return;
+
+    const todayStamp = getLocalDayStamp(new Date());
+    const futureCount = (summary.byDay || [])
+      .filter((item) => item.date.getTime() > todayStamp)
+      .reduce((total, item) => total + (Number(item.count) || 0), 0);
+
+    if (button) {
+      button.textContent = state.reviewScheduleExpanded
+        ? "Hide all future reviews"
+        : `Show all future reviews${futureCount ? ` (${futureCount})` : ""}`;
+      button.setAttribute("aria-expanded", state.reviewScheduleExpanded ? "true" : "false");
+    }
+
+    if (!container) return;
+    clearNode(container);
+    container.classList.toggle("hidden", !state.reviewScheduleExpanded);
+    if (!state.reviewScheduleExpanded) return;
+
+    const rows = getReviewFutureScheduleRows();
+    if (!rows.length) {
+      const empty = document.createElement("div");
+      empty.className = "schedule-empty muted";
+      empty.textContent = "No future reviews are scheduled for this review source.";
+      container.appendChild(empty);
+      return;
+    }
+
+    const grouped = new Map();
+    rows.forEach((row) => {
+      const stamp = row.date.getTime();
+      if (!grouped.has(stamp)) grouped.set(stamp, { date: row.date, items: [] });
+      grouped.get(stamp).items.push(row);
+    });
+
+    grouped.forEach((group) => {
+      const block = document.createElement("section");
+      block.className = "full-schedule-day";
+
+      const header = document.createElement("div");
+      header.className = "schedule-row full-schedule-header";
+      const left = document.createElement("span");
+      left.textContent = formatLongDate(group.date);
+      const right = document.createElement("strong");
+      right.textContent = `${group.items.length} card${group.items.length === 1 ? "" : "s"}`;
+      header.append(left, right);
+      block.appendChild(header);
+
+      group.items.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "full-schedule-card-row";
+        const title = document.createElement("span");
+        title.className = "full-schedule-card-title";
+        title.textContent = getFullScheduleCardTitle(item.card);
+        const meta = document.createElement("span");
+        meta.className = "full-schedule-card-meta muted";
+        meta.textContent = `${item.setName || getReviewScopeName()}${item.index ? ` · #${item.index}` : ""}`;
+        row.append(title, meta);
+        block.appendChild(row);
+      });
+
+      container.appendChild(block);
+    });
+  }
+
   function renderReviewScopePanel() {
     const sets = getDb().sets.order.map((id) => getDb().sets.byId[id]).filter(Boolean);
     const named = getNamedSets();
@@ -495,6 +574,8 @@
         state.elements.reviewPlanCompact.appendChild(empty);
       }
     }
+
+    renderFullReviewSchedulePanel(summary);
 
     if (state.elements.startDueReviewBtn) state.elements.startDueReviewBtn.disabled = !summary.dueTodayCount;
     if (state.elements.startNewCardsBtn) state.elements.startNewCardsBtn.disabled = !summary.newCount;

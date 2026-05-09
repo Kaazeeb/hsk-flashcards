@@ -911,6 +911,52 @@ select {
   font-size: 13px;
 }
 
+.schedule-full-actions {
+  margin-top: 10px;
+}
+
+.review-schedule-full {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.full-schedule-day + .full-schedule-day {
+  border-top: 1px solid var(--line);
+}
+
+.full-schedule-header {
+  background: var(--soft);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.full-schedule-card-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-top: 1px solid #f0f0f0;
+  font-size: 13px;
+}
+
+.full-schedule-card-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.full-schedule-card-meta {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .set-range-row {
   margin-top: 10px;
 }

@@ -587,6 +587,39 @@
     return mergeScheduleSummaries(getReviewScopeSets().map((setRecord) => getSmartScheduleForSet(setRecord.id, now)));
   }
 
+  function getReviewFutureScheduleRows(now = new Date()) {
+    const todayStamp = getLocalDayStamp(now);
+    const rows = [];
+    getReviewScopeSets().forEach((source) => {
+      const cardMap = getSmartCardMapForSource(source);
+      const bucket = getSmartBucketForSource(source);
+      getSmartIdsForSource(source, "practice").forEach((id) => {
+        const card = cardMap[id];
+        if (!card) return;
+        const entry = smart.getEntry(bucket, id, now);
+        if (!smart.isStarted(entry)) return;
+        const dueDay = smart.getDueDay(entry, now);
+        if (!dueDay || dueDay.getTime() <= todayStamp) return;
+        rows.push({
+          date: dueDay,
+          setId: source.id,
+          setName: source.name || source.id,
+          sourceKind: source.kind || "vocab",
+          id,
+          card,
+          index: Number(card.setupIndex || card.index) || 0
+        });
+      });
+    });
+    return rows.sort((a, b) => {
+      const dateDelta = a.date.getTime() - b.date.getTime();
+      if (dateDelta) return dateDelta;
+      if (a.setName !== b.setName) return String(a.setName).localeCompare(String(b.setName));
+      if (a.index !== b.index) return a.index - b.index;
+      return String(a.id).localeCompare(String(b.id));
+    });
+  }
+
   function getAllSetsScheduleByDay(now = new Date()) {
     const groups = new Map();
     getDb().sets.order.map((id) => getDb().sets.byId[id]).filter(Boolean).forEach((setRecord) => {
@@ -879,6 +912,7 @@
     getSmartScheduleForSet,
     mergeScheduleSummaries,
     getReviewScheduleSummary,
+    getReviewFutureScheduleRows,
     getAllSetsScheduleByDay,
     getSmartStatsForSet,
     getReviewSmartStats,

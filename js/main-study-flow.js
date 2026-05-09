@@ -492,7 +492,7 @@
     state.elements.cardPinyin.textContent = card.pinyin;
     state.elements.cardTranslation.textContent = card.translation;
     clearNode(state.elements.answerArea);
-    updateResult(state.elements.resultText, "", "");
+    updateResult(state.elements.resultText, "Press Enter for the next card.", "");
     setPositionLabel(card, queueIndex, total);
     prepareRoundAppearance("learn", "", card);
     renderCurrentCardStats(card);
