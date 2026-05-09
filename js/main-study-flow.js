@@ -444,7 +444,10 @@
     state.smartLastSetId = state.round.smartSetId || "";
     resetRoundState();
     state.round.smartForceNew = keepNewFlow;
-    persist();
+    // Moving within the Smart queue only changes runtime state. Persisting here
+    // serialized the whole DB a second time after every FSRS rating/introduction
+    // and made Enter feel slow. Durable changes are saved by the action that
+    // actually changes progress.
     render();
     scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
   }

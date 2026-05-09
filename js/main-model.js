@@ -698,17 +698,17 @@
     return clamp(getUi().indexes[mode] || 0, 0, total - 1);
   }
 
-  function getSmartCurrentItem() {
+  function getSmartCurrentItem(now = new Date(), precomputedQueue = null) {
     if (!isSmartPracticeActive()) return null;
     if (state.round.smartCardId && state.round.smartSetId) {
       const source = getReviewSourceById(state.round.smartSetId);
-      const setIds = new Set(getSmartIdsForSource(source, state.round.smartForceNew ? "learn" : "practice"));
+      const setIds = new Set(getSmartIdsForSource(source, "practice"));
       const map = getSmartCardMapForSource(source);
       if (setIds.has(state.round.smartCardId) && map[state.round.smartCardId]) {
         return { setId: state.round.smartSetId, id: state.round.smartCardId, card: map[state.round.smartCardId], sourceKind: source?.kind || "vocab" };
       }
     }
-    const queue = getSmartItems(new Date());
+    const queue = Array.isArray(precomputedQueue) ? precomputedQueue : getSmartItems(now);
     let picked = queue[0] || null;
     if (picked && queue.length > 1 && state.smartLastCardId) {
       const alternative = queue.find((item) => `${item.setId}:${item.id || cardId(item.card)}` !== `${state.smartLastSetId}:${state.smartLastCardId}`);

@@ -9,7 +9,16 @@ page reloads.
 */
 (function (ns) {
   function deepClone(value) {
-    return value == null ? value : JSON.parse(JSON.stringify(value));
+    if (value == null) return value;
+    if (typeof structuredClone === "function") {
+      try { return structuredClone(value); }
+      catch (error) { /* Fall back to JSON for plain app data. */ }
+    }
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function deferPersistenceWork() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   class RemoteOnlyAdapter {
@@ -65,15 +74,21 @@ page reloads.
     }
 
     async saveAppData(payload) {
-      this.pendingSavePayload = deepClone(payload);
+      // Keep the UI responsive: capture the latest state reference now, but do
+      // the expensive full-state clone/write after the current keypress/render.
+      // Rapid Enter presses collapse into the newest pending payload instead of
+      // serializing the entire DB for every intermediate runtime-only step.
+      this.pendingSavePayload = payload;
       if (this.saveInFlight) return this.saveInFlight;
 
       this.saveInFlight = (async () => {
         try {
+          await deferPersistenceWork();
           while (this.pendingSavePayload) {
-            const nextPayload = this.pendingSavePayload;
+            const nextPayload = deepClone(this.pendingSavePayload);
             this.pendingSavePayload = null;
             await this.saveSinglePayload(nextPayload);
+            if (this.pendingSavePayload) await deferPersistenceWork();
           }
         } finally {
           this.saveInFlight = null;

@@ -162,12 +162,26 @@
       return;
     }
 
-    const card = getCurrentCard();
-    if (!card) {
-      if (isSmartPracticeActive()) {
+    if (isSmartPracticeActive()) {
+      const now = new Date();
+      const activeSmartItems = getSmartItems(now);
+      if (!activeSmartItems.length) {
         renderSmartBlocked();
         return;
       }
+      const item = getSmartCurrentItem(now, activeSmartItems);
+      const card = item?.card || null;
+      if (!card) {
+        renderSmartBlocked();
+        return;
+      }
+      const summary = getReviewScheduleSummary(now);
+      renderSmartPractice(card, activeSmartItems.length, summary.startedCount);
+      return;
+    }
+
+    const card = getCurrentCard();
+    if (!card) {
       const total = getOrderedIds().length;
       if (!total) {
         clearCard(`No cards selected for ${getUi().mode}`, "Use Card setup or switch card set.");
@@ -179,18 +193,6 @@
 
     if (getUi().mode === "learn") {
       renderLearn(card, getCurrentIndex(), getOrderedIds().length);
-      return;
-    }
-
-    if (isSmartPracticeActive()) {
-      const queue = getSmartQueue(new Date());
-      if (!queue.length) {
-        renderSmartBlocked();
-        return;
-      }
-      const activeSmartItems = getSmartItems(new Date());
-      const summary = getReviewScheduleSummary();
-      renderSmartPractice(card, activeSmartItems.length, summary.startedCount);
       return;
     }
 
@@ -409,6 +411,7 @@
 
   // Keyboard handler covers both translation MCQ and FSRS rating selection.
   function handleTranslationKeyboard(event) {
+    if (event.defaultPrevented) return;
     if (state.currentPage !== "flashcards") return;
     const active = document.activeElement;
     const isTypingField = active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA");
@@ -489,6 +492,7 @@
   }
 
   function handlePinyinKeyboard(event) {
+    if (event.defaultPrevented) return;
     if (state.currentPage !== "flashcards") return;
     const active = document.activeElement;
     const isTextInput = active && active.tagName === "INPUT" && active.type === "text";

@@ -444,6 +444,11 @@
     return [card.hanzi, card.pinyin, card.translation].filter(Boolean).join(" · ") || String(card.id || "Vocabulary card");
   }
 
+  function normalizeScheduleDate(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
   function renderFullReviewSchedulePanel(summary) {
     const button = state.elements.toggleFullScheduleBtn;
     const container = state.elements.reviewScheduleFull;
@@ -451,7 +456,8 @@
 
     const todayStamp = getLocalDayStamp(new Date());
     const futureCount = (summary.byDay || [])
-      .filter((item) => item.date.getTime() > todayStamp)
+      .map((item) => ({ ...item, date: normalizeScheduleDate(item.date) }))
+      .filter((item) => item.date && item.date.getTime() > todayStamp)
       .reduce((total, item) => total + (Number(item.count) || 0), 0);
 
     if (button) {
@@ -466,7 +472,20 @@
     container.classList.toggle("hidden", !state.reviewScheduleExpanded);
     if (!state.reviewScheduleExpanded) return;
 
-    const rows = getReviewFutureScheduleRows();
+    let rows = [];
+    try {
+      rows = getReviewFutureScheduleRows()
+        .map((row) => ({ ...row, date: normalizeScheduleDate(row.date) }))
+        .filter((row) => row.date && row.date.getTime() > todayStamp);
+    } catch (error) {
+      console.warn("Could not render full future review schedule.", error);
+      const empty = document.createElement("div");
+      empty.className = "schedule-empty muted";
+      empty.textContent = "Could not load future review details. Hide and show this panel again after the next sync/render.";
+      container.appendChild(empty);
+      return;
+    }
+
     if (!rows.length) {
       const empty = document.createElement("div");
       empty.className = "schedule-empty muted";
