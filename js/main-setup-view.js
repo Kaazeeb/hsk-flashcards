@@ -661,7 +661,7 @@
   }
 
   function renderSetPanel() {
-    // v44: setup no longer renders a separate schedule/overview panel. The Setup
+    // v46: setup no longer renders a separate schedule/overview panel. The Setup
     // page is only the old card-visibility manager with a deck selector.
     if (state.elements.activeSetBadge) state.elements.activeSetBadge.textContent = getSelectedSetupDeck()?.name || "All cards";
   }

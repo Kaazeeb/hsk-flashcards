@@ -161,6 +161,83 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return applyFlagsMapToVocab(vocab, flagsMapFromBundle(vocab, payload));
   }
 
+  function normalizeIdList(ids) {
+    const seen = new Set();
+    const output = [];
+    (Array.isArray(ids) ? ids : []).forEach((id) => {
+      const value = String(id || "").trim();
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      output.push(value);
+    });
+    return output;
+  }
+
+  function makeVisibilityModeSpec(allIds, cardFlags, mode) {
+    const ids = normalizeIdList(allIds);
+    if (!ids.length) return { type: "all" };
+    const enabled = [];
+    const disabled = [];
+    ids.forEach((id) => {
+      const flags = cardFlags?.[id] || { learn: true, practice: true };
+      if (flags[mode] !== false) enabled.push(id);
+      else disabled.push(id);
+    });
+    if (!disabled.length) return { type: "all" };
+    if (!enabled.length) return { type: "none" };
+    if (enabled.length <= disabled.length) return { type: "enabled", ids: enabled };
+    return { type: "disabled", ids: disabled };
+  }
+
+  function isAllVisibilitySpec(spec) {
+    return !spec || !spec.type || spec.type === "all" || (Array.isArray(spec.ids) && !spec.ids.length && spec.type !== "none");
+  }
+
+  function buildVisibilityDeckIdMap(state) {
+    const byDeck = {};
+    const allSetId = window.HSKFlashcards?.constants?.ALL_SET_ID || "all_cards";
+    normalizeIdList((state?.vocab || []).map((card) => card?.id)).forEach((id) => {
+      if (!byDeck[allSetId]) byDeck[allSetId] = [];
+      byDeck[allSetId].push(id);
+    });
+    (Array.isArray(state?.sentenceCards) ? state.sentenceCards : []).forEach((card) => {
+      const deckId = String(card?.deckId || "").trim();
+      const id = String(card?.id || "").trim();
+      if (!deckId || !id) return;
+      if (!byDeck[deckId]) byDeck[deckId] = [];
+      byDeck[deckId].push(id);
+    });
+    Object.keys(byDeck).forEach((deckId) => { byDeck[deckId] = normalizeIdList(byDeck[deckId]); });
+    return byDeck;
+  }
+
+  function buildBuiltinVisibilityPayload(visibility, state) {
+    const deckIds = buildVisibilityDeckIdMap(state);
+    const source = visibility?.byDeck && typeof visibility.byDeck === "object" ? visibility.byDeck : {};
+    const deckIdSet = new Set([...Object.keys(deckIds), ...Object.keys(source)]);
+    const decks = {};
+    [...deckIdSet].sort().forEach((deckId) => {
+      const ids = deckIds[deckId] || Object.keys(source[deckId]?.cards || {}).sort();
+      const cards = source[deckId]?.cards || {};
+      const learn = makeVisibilityModeSpec(ids, cards, "learn");
+      const practice = makeVisibilityModeSpec(ids, cards, "practice");
+      if (isAllVisibilitySpec(learn) && isAllVisibilitySpec(practice)) return;
+      decks[deckId] = { learn, practice };
+    });
+    return {
+      version: 3,
+      visibilityEncoding: "mode-membership-v1",
+      idEncoding: "local-card-id-v1",
+      vocabMigrated: visibility?.vocabMigrated === true,
+      decks
+    };
+  }
+
+  ns.syncCodecVisibility = {
+    buildVisibilityDeckIdMap,
+    buildBuiltinVisibilityPayload
+  };
+
   function getNamedSetsMap(sets) {
     return {};
   }
@@ -184,6 +261,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     expandCardIdList,
     buildFlagsBundlePayload,
     applyFlagsBundleToVocab,
+    buildBuiltinVisibilityPayload,
+    buildVisibilityDeckIdMap,
     getNamedSetsMap,
     sameSetDoc,
     buildSetsRaw

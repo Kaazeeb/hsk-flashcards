@@ -12,6 +12,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
 
   const DOC_TABLE = "app_sync_documents";
   const EVENT_TABLE = "app_review_events";
+  const VISIBILITY_TABLE = "app_card_visibility_bits";
   const SMART_EVENT_KIND = "smart_fsrs";
   const IMAGE_SMART_EVENT_KIND = "image_smart_fsrs";
   const IMAGE_LEARN_EVENT_KIND = "image_learn_seen";
@@ -23,8 +24,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   const MAX_FILTER_URL_CHARS = 1200;
   const SELECT_PAGE_SIZE = 1000;
 
-  const DOC_NS = { VOCAB: "vocab", CARD_FLAGS_BUNDLE: "card_flags_bundle", SET: "set", META: "meta", BUILTIN_VISIBILITY: "builtin_visibility" };
-  const DOC_ID = { CURRENT: "current", SET_ORDER: "set_order", CARD_FLAGS: "current", BUILTIN_VISIBILITY: "current" };
+  const DOC_NS = { VOCAB: "vocab", CARD_FLAGS_BUNDLE: "card_flags_bundle", SET: "set", META: "meta" };
+  const DOC_ID = { CURRENT: "current", SET_ORDER: "set_order", CARD_FLAGS: "current" };
 
   const state = {
     config: { url: HARDCODED_SUPABASE_URL, key: HARDCODED_SUPABASE_KEY },
@@ -443,17 +444,17 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     ].join("::");
   }
 
-  function buildRemoteRawState(docRows, eventRows) {
+  function buildRemoteRawState(docRows, eventRows, visibilityRows = []) {
     const docs = groupDocs(docRows);
     const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
     const builtinImageCards = typeof ns.getBuiltInImageCards === "function" ? ns.getBuiltInImageCards() : [];
     const builtinSentenceCards = typeof ns.getBuiltInSentenceCards === "function" ? ns.getBuiltInSentenceCards() : [];
-    // v38: vocabulary is standard built-in content only. Existing remote custom
+    // Vocabulary is standard built-in content only. Existing remote custom
     // vocabulary documents are ignored so app updates cannot be overridden by
-    // old user imports. Per-card visibility still syncs through card_flags_bundle.
+    // old user imports. v46 Setup visibility is loaded from app_card_visibility_bits.
     const baseDb = ns.store.normalizeDb({ vocab: builtinCards, imageCards: builtinImageCards, sentenceCards: builtinSentenceCards }, builtinCards, builtinImageCards, builtinSentenceCards);
     const flagsBundle = docs[DOC_NS.CARD_FLAGS_BUNDLE]?.[DOC_ID.CARD_FLAGS];
-    const builtinVisibility = docs[DOC_NS.BUILTIN_VISIBILITY]?.[DOC_ID.BUILTIN_VISIBILITY] || {};
+    const builtinVisibility = { version: 46, rows: Array.isArray(visibilityRows) ? visibilityRows : [] };
     const vocab = codec().applyFlagsBundleToVocab(baseDb.vocab || [], flagsBundle);
     const cardCodec = codec().createCardRefCodec(vocab);
     const progress = createEmptyProgress();
@@ -548,40 +549,135 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return [latestReset, ...activeRows];
   }
 
+  function isMissingVisibilityTableError(error) {
+    const text = `${error?.message || ""} ${error?.details || ""} ${error?.hint || ""} ${error?.code || ""}`.toLowerCase();
+    return text.includes(VISIBILITY_TABLE.toLowerCase())
+      || text.includes("relation") && text.includes("does not exist")
+      || text.includes("schema cache") && text.includes(VISIBILITY_TABLE.toLowerCase());
+  }
+
+  async function loadRemoteVisibilityRows(client, userId) {
+    try {
+      return selectAll(() => client.from(VISIBILITY_TABLE)
+        .select("d,m,z,n,x,t")
+        .eq("u", userId)
+        .order("d", { ascending: true })
+        .order("m", { ascending: true }));
+    } catch (error) {
+      const message = isMissingVisibilityTableError(error)
+        ? "Visibility table is missing. Apply the v46 Supabase SQL before relying on Setup sync."
+        : "Visibility table could not be read. Built-in default visibility will be used for this session.";
+      console.warn(message, error);
+      return [];
+    }
+  }
+
   async function syncVocabDoc(client, userId, currentState, previousState) {
-    // v38: users cannot import or edit vocabulary content. Keep this as a no-op
+    // v46: users cannot import or edit vocabulary content. Keep this as a no-op
     // so legacy vocab/current documents are neither written nor used by the app.
     return;
   }
 
   async function syncCardFlags(client, userId, currentState, previousState) {
-    const currentBundle = codec().buildFlagsBundlePayload(currentState?.vocab || []);
-    const previousBundle = codec().buildFlagsBundlePayload(previousState?.vocab || []);
-    if (stableStringify(currentBundle) === stableStringify(previousBundle)) return;
-    await upsertDocs(client, [{
-      user_id: userId,
-      namespace: DOC_NS.CARD_FLAGS_BUNDLE,
-      doc_id: DOC_ID.CARD_FLAGS,
-      payload: { ...currentBundle, updatedAt: new Date().toISOString() },
-      updated_at: new Date().toISOString()
-    }]);
+    // v46: setup visibility no longer writes card_flags_bundle JSON.
+    return;
+  }
+
+  function visibilityRowsFromState(snapshot) {
+    if (!ns.visibilityBits || typeof ns.visibilityBits.buildRows !== "function") return [];
+    const deckIds = typeof codec().buildVisibilityDeckIdMap === "function"
+      ? codec().buildVisibilityDeckIdMap(snapshot || {})
+      : {};
+    return ns.visibilityBits.buildRows(snapshot?.builtinVisibility, deckIds);
+  }
+
+  function visibilityRowKey(row) {
+    return `${Number(row?.d)}:${Number(row?.m)}`;
+  }
+
+  function normalizeVisibilityRow(row) {
+    return {
+      d: Math.max(0, Math.floor(Number(row?.d) || 0)),
+      m: Math.max(0, Math.floor(Number(row?.m) || 0)),
+      z: row?.z !== false,
+      n: Math.max(0, Math.floor(Number(row?.n) || 0)),
+      x: String(row?.x || "")
+    };
+  }
+
+  function visibilityRowsMap(rows) {
+    const map = new Map();
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const normalized = normalizeVisibilityRow(row);
+      if (normalized.d <= 0 || ![0, 1].includes(normalized.m)) return;
+      map.set(visibilityRowKey(normalized), normalized);
+    });
+    return map;
+  }
+
+  function sameVisibilityRow(a, b) {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    return Number(a.d) === Number(b.d)
+      && Number(a.m) === Number(b.m)
+      && (a.z !== false) === (b.z !== false)
+      && Number(a.n) === Number(b.n)
+      && String(a.x || "") === String(b.x || "");
+  }
+
+  async function upsertVisibilityRows(client, userId, rows) {
+    if (!rows.length) return;
+    const now = new Date().toISOString();
+    const payload = rows.map((row) => ({
+      u: userId,
+      d: row.d,
+      m: row.m,
+      z: row.z !== false,
+      n: row.n,
+      x: String(row.x || ""),
+      t: now
+    }));
+    for (const chunk of chunkRowsByJsonBytes(payload, MAX_WRITE_JSON_BYTES, MAX_DOC_WRITE_ROWS)) {
+      const { error } = await client.from(VISIBILITY_TABLE).upsert(chunk, { onConflict: "u,d,m" });
+      if (error) throw error;
+    }
+  }
+
+  async function deleteVisibilityRows(client, userId, rows) {
+    for (const row of rows || []) {
+      const { error } = await client.from(VISIBILITY_TABLE)
+        .delete()
+        .eq("u", userId)
+        .eq("d", row.d)
+        .eq("m", row.m);
+      if (error) throw error;
+    }
   }
 
   async function syncBuiltinVisibility(client, userId, currentState, previousState) {
-    const currentVisibility = ns.store && typeof ns.store.normalizeBuiltinVisibility === "function"
-      ? ns.store.normalizeBuiltinVisibility(currentState?.builtinVisibility)
-      : { byDeck: currentState?.builtinVisibility?.byDeck || {} };
-    const previousVisibility = ns.store && typeof ns.store.normalizeBuiltinVisibility === "function"
-      ? ns.store.normalizeBuiltinVisibility(previousState?.builtinVisibility)
-      : { byDeck: previousState?.builtinVisibility?.byDeck || {} };
-    if (stableStringify(currentVisibility) === stableStringify(previousVisibility)) return;
-    await upsertDocs(client, [{
-      user_id: userId,
-      namespace: DOC_NS.BUILTIN_VISIBILITY,
-      doc_id: DOC_ID.BUILTIN_VISIBILITY,
-      payload: { ...currentVisibility, updatedAt: new Date().toISOString() },
-      updated_at: new Date().toISOString()
-    }]);
+    const currentMap = visibilityRowsMap(visibilityRowsFromState(currentState || {}));
+    const previousMap = visibilityRowsMap(visibilityRowsFromState(previousState || {}));
+    const upserts = [];
+    const deletes = [];
+
+    currentMap.forEach((currentRow, key) => {
+      const previousRow = previousMap.get(key);
+      if (!sameVisibilityRow(currentRow, previousRow)) upserts.push(currentRow);
+    });
+    previousMap.forEach((previousRow, key) => {
+      if (!currentMap.has(key)) deletes.push(previousRow);
+    });
+
+    if (!upserts.length && !deletes.length) return;
+    try {
+      await upsertVisibilityRows(client, userId, upserts);
+      await deleteVisibilityRows(client, userId, deletes);
+    } catch (error) {
+      const message = isMissingVisibilityTableError(error)
+        ? "Visibility table is missing. Setup visibility was not synced; progress sync can still continue."
+        : "Visibility sync failed. Progress sync can still continue.";
+      console.warn(message, error);
+    }
   }
 
   async function syncSets(client, userId, currentState, previousState) {
@@ -803,9 +899,13 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return {
       kind: "supabase",
       async loadAppData() {
-        const [docs, events] = await Promise.all([loadRemoteDocs(state.client, userId), loadRemoteEvents(state.client, userId)]);
-        if (!docs.length && !events.length) return null;
-        return buildRemoteRawState(docs, events);
+        const [docs, events, visibilityRows] = await Promise.all([
+          loadRemoteDocs(state.client, userId),
+          loadRemoteEvents(state.client, userId),
+          loadRemoteVisibilityRows(state.client, userId)
+        ]);
+        if (!docs.length && !events.length && !visibilityRows.length) return null;
+        return buildRemoteRawState(docs, events, visibilityRows);
       },
       async saveAppData(payload, previousPayload) {
         try {

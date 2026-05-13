@@ -250,27 +250,27 @@
     render();
   }
 
+  function getSetupDeckCardIdList(deck) {
+    const selected = deck || getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
+    return getSetupDeckCards(selected.id).map((card) => getSetupActionCardId(card, selected)).filter(Boolean);
+  }
+
+  function ensureSetupVisibilityReady() {
+    const db = getDb();
+    if (db.builtinVisibility?.version === 46 && db.builtinVisibility.byDeck) return db.builtinVisibility;
+    db.builtinVisibility = ns.store && typeof ns.store.normalizeBuiltinVisibility === "function"
+      ? ns.store.normalizeBuiltinVisibility(db.builtinVisibility)
+      : { version: 46, byDeck: {} };
+    return db.builtinVisibility;
+  }
+
   function setBuiltInCardFlag(deckId, localCardId, mode, value) {
     const id = String(deckId || "").trim();
     const card = String(localCardId || "").trim();
-    if (!id || !card || !MODES.includes(mode)) return false;
-    const db = getDb();
-    const normalized = ns.store && typeof ns.store.normalizeBuiltinVisibility === "function"
-      ? ns.store.normalizeBuiltinVisibility(db.builtinVisibility)
-      : { version: 2, vocabMigrated: false, byDeck: db.builtinVisibility?.byDeck || {} };
-    if (id === ALL_SET_ID) normalized.vocabMigrated = true;
-    const deck = normalized.byDeck[id] || { learn: true, practice: true, cards: {} };
-    const current = ns.store && typeof ns.store.getBuiltinCardVisibility === "function"
-      ? ns.store.getBuiltinCardVisibility(normalized, id, card)
-      : { learn: true, practice: true };
-    const next = { ...current, [mode]: value !== false };
-    if (current.learn === next.learn && current.practice === next.practice) return false;
-    deck.cards = deck.cards || {};
-    if (next.learn !== false && next.practice !== false) delete deck.cards[card];
-    else deck.cards[card] = next;
-    normalized.byDeck[id] = deck;
-    db.builtinVisibility = normalized;
-    return true;
+    if (!id || !card || !MODES.includes(mode) || !ns.visibilityBits) return false;
+    const deck = getSetupDeckById(id) || { id, kind: id === ALL_SET_ID ? "vocab" : "sentence" };
+    const cardIds = getSetupDeckCardIdList(deck);
+    return ns.visibilityBits.setCardMode(ensureSetupVisibilityReady(), id, card, mode, value !== false, cardIds);
   }
 
   function getSetupActionCardId(card, deck) {
@@ -292,16 +292,17 @@
   function applyRangeToMode(mode, include) {
     const input = state.elements[`range${mode.charAt(0).toUpperCase()}${mode.slice(1)}`];
     const ranges = parseRangeInput(input?.value || "");
-    if (!ranges.size) return;
+    if (!ranges.size || !MODES.includes(mode) || !ns.visibilityBits) return;
     const deck = getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
     const cards = getSetupDeckCards(deck.id);
-    let changed = 0;
+    const allIds = getSetupDeckCardIdList(deck);
+    const targetIds = [];
 
     cards.forEach((card) => {
       const position = card.setupIndex || card.index;
-      if (!ranges.has(position)) return;
-      if (setBuiltInCardFlag(deck.id, getSetupActionCardId(card, deck), mode, include)) changed += 1;
+      if (ranges.has(position)) targetIds.push(getSetupActionCardId(card, deck));
     });
+    const changed = ns.visibilityBits.setCardsMode(ensureSetupVisibilityReady(), deck.id, targetIds, mode, include !== false, allIds);
     if (!changed) return;
     ensureOrder(mode);
     resetRoundState();
@@ -312,13 +313,10 @@
   }
 
   function setAllForMode(mode, value) {
+    if (!MODES.includes(mode) || !ns.visibilityBits) return;
     const deck = getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
-    const cards = getSetupDeckCards(deck.id);
-    let changed = 0;
-
-    cards.forEach((card) => {
-      if (setBuiltInCardFlag(deck.id, getSetupActionCardId(card, deck), mode, value)) changed += 1;
-    });
+    const allIds = getSetupDeckCardIdList(deck);
+    const changed = ns.visibilityBits.setModeDefault(ensureSetupVisibilityReady(), deck.id, mode, value !== false, allIds);
     if (!changed) return;
     ensureOrder(mode);
     resetRoundState();
@@ -388,7 +386,7 @@
   }
 
   async function handleSetupDeckVisibilityChange() {
-    // Kept as a no-op for compatibility with older markup. v44 uses per-card
+    // Kept as a no-op for compatibility with older markup. v46 uses per-card
     // Learn/Practice flags in the manage list instead of deck-level visibility.
   }
 

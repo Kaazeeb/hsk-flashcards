@@ -60,86 +60,48 @@
     };
   }
 
-  function normalizeBuiltinVisibility(raw) {
-    const output = { version: 2, vocabMigrated: raw?.vocabMigrated === true, byDeck: {} };
-    const source = raw?.byDeck && typeof raw.byDeck === "object" ? raw.byDeck : raw;
-    if (!source || typeof source !== "object") return output;
-    Object.entries(source).forEach(([deckId, flags]) => {
-      const id = String(deckId || "").trim();
-      if (!id || !flags || typeof flags !== "object") return;
-      const cards = {};
-      const rawCards = flags.cards && typeof flags.cards === "object" ? flags.cards : {};
-      Object.entries(rawCards).forEach(([cardId, cardFlags]) => {
-        const localId = String(cardId || "").trim();
-        if (!localId || !cardFlags || typeof cardFlags !== "object") return;
-        cards[localId] = {
-          learn: cardFlags.learn !== false,
-          practice: cardFlags.practice !== false
-        };
-      });
-      output.byDeck[id] = {
-        // Kept for backwards compatibility with v42 data, but deck-level
-        // visibility is no longer used by the Setup UI. Visibility is controlled
-        // per card for every built-in deck.
-        learn: flags.learn !== false,
-        practice: flags.practice !== false,
-        cards
-      };
+  function normalizeIdList(ids) {
+    const seen = new Set();
+    const output = [];
+    (Array.isArray(ids) ? ids : []).forEach((id) => {
+      const value = String(id || "").trim();
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      output.push(value);
     });
     return output;
   }
 
-  function getDeckVisibility(visibility, deckId) {
-    const flags = visibility?.byDeck?.[String(deckId || "")] || {};
-    return {
-      learn: flags.learn !== false,
-      practice: flags.practice !== false
-    };
+  function buildVisibilityDeckIdMap(vocab, sentenceCards) {
+    const byDeck = { [ALL_SET_ID]: normalizeIdList((Array.isArray(vocab) ? vocab : []).map((card) => cardId(card))) };
+    (Array.isArray(sentenceCards) ? sentenceCards : []).forEach((card) => {
+      const deckId = String(card?.deckId || "").trim();
+      const id = String(card?.id || "").trim();
+      if (!deckId || !id) return;
+      if (!byDeck[deckId]) byDeck[deckId] = [];
+      byDeck[deckId].push(id);
+    });
+    Object.keys(byDeck).forEach((deckId) => { byDeck[deckId] = normalizeIdList(byDeck[deckId]); });
+    return byDeck;
+  }
+
+  function normalizeBuiltinVisibility(raw, deckIdMap = {}) {
+    if (ns.visibilityBits && typeof ns.visibilityBits.normalizeVisibility === "function") {
+      return ns.visibilityBits.normalizeVisibility(raw, deckIdMap);
+    }
+    return { version: 46, byDeck: {} };
+  }
+
+  function getDeckVisibility() {
+    // Deck-level visibility is intentionally unused. Visibility is per card/mode.
+    return { learn: true, practice: true };
   }
 
   function getBuiltinCardVisibility(visibility, deckId, cardId) {
-    const deck = visibility?.byDeck?.[String(deckId || "")] || {};
-    const card = deck.cards?.[String(cardId || "")] || {};
-    return {
-      learn: card.learn !== false,
-      practice: card.practice !== false
-    };
-  }
-
-  function applyLegacyVocabFlagsToBuiltinVisibility(visibility, vocab, rawVocab) {
-    const normalized = normalizeBuiltinVisibility(visibility);
-    if (normalized.vocabMigrated) return normalized;
-
-    const existingDeck = normalized.byDeck[ALL_SET_ID];
-    if (existingDeck?.cards && Object.keys(existingDeck.cards).length) {
-      normalized.vocabMigrated = true;
-      return normalized;
+    if (ns.visibilityBits && typeof ns.visibilityBits.getCardVisibility === "function") {
+      return ns.visibilityBits.getCardVisibility(visibility, deckId, cardId);
     }
-
-    const legacyCards = Array.isArray(rawVocab) ? rawVocab : [];
-    if (!legacyCards.length) return normalized;
-
-    const validIds = new Set((Array.isArray(vocab) ? vocab : []).map((card) => cardId(card)).filter(Boolean));
-    const cards = {};
-    legacyCards.forEach((rawCard, index) => {
-      const normalizedCard = normalizeCard(rawCard, index + 1);
-      const id = cardId(normalizedCard);
-      if (!id || (validIds.size && !validIds.has(id))) return;
-      const flags = {
-        learn: rawCard?.learn !== false,
-        practice: rawCard?.practice !== false
-      };
-      if (flags.learn !== false && flags.practice !== false) return;
-      cards[id] = flags;
-    });
-
-    normalized.byDeck[ALL_SET_ID] = {
-      learn: true,
-      practice: true,
-      cards
-    };
-    normalized.vocabMigrated = true;
-    return normalized;
+    return { learn: true, practice: true };
   }
 
   function bumpReviewEpoch(db, reason = "manual") {
@@ -387,7 +349,7 @@
   }
 
   // All card catalogs are standard app content. Remote data may still carry legacy
-  // custom vocab/image/sentence docs, but v38 ignores those definitions and only
+  // custom vocab/image/sentence docs, but v46 ignores those definitions and only
   // applies user progress plus per-card Learn/Practice visibility flags.
   function normalizeDb(raw, builtinCards, builtinImageCards = [], builtinSentenceCards = []) {
     const vocab = normalizeVocab(builtinCards);
@@ -402,7 +364,8 @@
     const sentenceSmartByDeck = normalizeSmartBySet(raw?.sentenceSmartByDeck);
     const imageUi = normalizeImageUiState(raw?.imageUi);
     const meta = normalizeMeta(raw?.meta);
-    const builtinVisibility = applyLegacyVocabFlagsToBuiltinVisibility(normalizeBuiltinVisibility(raw?.builtinVisibility), vocab, raw?.vocab);
+    const visibilityDeckIds = buildVisibilityDeckIdMap(vocab, sentenceCards);
+    const builtinVisibility = normalizeBuiltinVisibility(raw?.builtinVisibility, visibilityDeckIds);
 
     const db = {
       schemaVersion: SCHEMA_VERSION,
@@ -472,7 +435,7 @@
         return this.state;
       },
 
-      // User-created/imported card catalogs are disabled in v38. Keep these API
+      // User-created/imported card catalogs are disabled in v46. Keep these API
       // stubs so old call sites or browser console calls cannot mutate the deck.
       async replaceVocabulary() { return false; },
       async restoreBuiltIn() { return { resetProgress: false, disabled: true }; },
@@ -491,15 +454,16 @@
 
       async setBuiltInDeckVisibility(deckId, flags) {
         const id = String(deckId || "").trim();
-        if (!id) return false;
-        this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility);
-        if (id === ALL_SET_ID) this.state.builtinVisibility.vocabMigrated = true;
-        const current = this.state.builtinVisibility.byDeck[id] || { cards: {} };
-        this.state.builtinVisibility.byDeck[id] = {
-          learn: flags?.learn === undefined ? current.learn !== false : flags.learn !== false,
-          practice: flags?.practice === undefined ? current.practice !== false : flags.practice !== false,
-          cards: current.cards || {}
-        };
+        if (!id || !ns.visibilityBits) return false;
+        const deckIdMap = buildVisibilityDeckIdMap(this.state.vocab, this.state.sentenceCards);
+        const cardIds = deckIdMap[id] || [];
+        this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility, deckIdMap);
+        let changed = false;
+        MODES.forEach((mode) => {
+          if (flags?.[mode] === undefined) return;
+          changed = ns.visibilityBits.setModeDefault(this.state.builtinVisibility, id, mode, flags[mode] !== false, cardIds) || changed;
+        });
+        if (!changed) return false;
         await this.persist();
         return true;
       },
@@ -507,20 +471,16 @@
       async setBuiltInCardVisibility(deckId, cardId, flags) {
         const id = String(deckId || "").trim();
         const localCardId = String(cardId || "").trim();
-        if (!id || !localCardId) return false;
-        this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility);
-        if (id === ALL_SET_ID) this.state.builtinVisibility.vocabMigrated = true;
-        const currentDeck = this.state.builtinVisibility.byDeck[id] || { learn: true, practice: true, cards: {} };
-        const current = getBuiltinCardVisibility(this.state.builtinVisibility, id, localCardId);
-        currentDeck.cards = currentDeck.cards || {};
-        const next = {
-          learn: flags?.learn === undefined ? current.learn : flags.learn !== false,
-          practice: flags?.practice === undefined ? current.practice : flags.practice !== false
-        };
-        // Do not persist default-visible cards; keep the remote document small.
-        if (next.learn !== false && next.practice !== false) delete currentDeck.cards[localCardId];
-        else currentDeck.cards[localCardId] = next;
-        this.state.builtinVisibility.byDeck[id] = currentDeck;
+        if (!id || !localCardId || !ns.visibilityBits) return false;
+        const deckIdMap = buildVisibilityDeckIdMap(this.state.vocab, this.state.sentenceCards);
+        const cardIds = deckIdMap[id] || [];
+        this.state.builtinVisibility = normalizeBuiltinVisibility(this.state.builtinVisibility, deckIdMap);
+        let changed = false;
+        MODES.forEach((mode) => {
+          if (flags?.[mode] === undefined) return;
+          changed = ns.visibilityBits.setCardMode(this.state.builtinVisibility, id, localCardId, mode, flags[mode] !== false, cardIds) || changed;
+        });
+        if (!changed) return false;
         await this.persist();
         return true;
       },
