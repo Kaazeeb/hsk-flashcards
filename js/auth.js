@@ -605,6 +605,11 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     };
   }
 
+  function normalizeVisibilityMutation(row) {
+    const normalized = normalizeVisibilityRow(row);
+    return { ...normalized, _delete: row?._delete === true || (normalized.z !== false && !normalized.x) };
+  }
+
   function visibilityRowsMap(rows) {
     const map = new Map();
     (Array.isArray(rows) ? rows : []).forEach((row) => {
@@ -669,6 +674,30 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     });
 
     if (!upserts.length && !deletes.length) return;
+    try {
+      await upsertVisibilityRows(client, userId, upserts);
+      await deleteVisibilityRows(client, userId, deletes);
+    } catch (error) {
+      const message = isMissingVisibilityTableError(error)
+        ? "Visibility table is missing. Setup visibility was not synced; progress sync can still continue."
+        : "Visibility sync failed. Progress sync can still continue.";
+      console.warn(message, error);
+    }
+  }
+
+  async function saveVisibilityRowsDirect(client, userId, rows) {
+    const mutations = (Array.isArray(rows) ? rows : [])
+      .map(normalizeVisibilityMutation)
+      .filter((row) => row.d > 0 && [0, 1].includes(row.m));
+    if (!mutations.length) return;
+
+    const upserts = [];
+    const deletes = [];
+    mutations.forEach((row) => {
+      if (row._delete) deletes.push(row);
+      else upserts.push(row);
+    });
+
     try {
       await upsertVisibilityRows(client, userId, upserts);
       await deleteVisibilityRows(client, userId, deletes);
@@ -911,7 +940,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         try {
           await syncVocabDoc(state.client, userId, payload, previousPayload || {});
           await syncCardFlags(state.client, userId, payload, previousPayload || {});
-          await syncBuiltinVisibility(state.client, userId, payload, previousPayload || {});
           await syncSets(state.client, userId, payload, previousPayload || {});
           await syncReviewReset(state.client, userId, payload, previousPayload || {});
           await syncProgress(state.client, userId, payload, previousPayload || {});
@@ -926,6 +954,9 @@ window.HSKFlashcards = window.HSKFlashcards || {};
           }
           throw error;
         }
+      },
+      async saveVisibilityRows(rows) {
+        await saveVisibilityRowsDirect(state.client, userId, rows);
       }
     };
   }

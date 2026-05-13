@@ -264,13 +264,21 @@
     return db.builtinVisibility;
   }
 
-  function setBuiltInCardFlag(deckId, localCardId, mode, value) {
+  function saveSetupVisibilityMode(deckId, mode, cardIds = []) {
+    if (!state.store || typeof state.store.saveVisibilityMode !== "function") return;
+    const result = state.store.saveVisibilityMode(deckId, mode, cardIds);
+    if (result && typeof result.catch === "function") {
+      result.catch((error) => console.warn("Setup visibility save failed.", error));
+    }
+  }
+
+  function setBuiltInCardFlag(deckId, localCardId, mode, value, cardIds = null) {
     const id = String(deckId || "").trim();
     const card = String(localCardId || "").trim();
     if (!id || !card || !MODES.includes(mode) || !ns.visibilityBits) return false;
     const deck = getSetupDeckById(id) || { id, kind: id === ALL_SET_ID ? "vocab" : "sentence" };
-    const cardIds = getSetupDeckCardIdList(deck);
-    return ns.visibilityBits.setCardMode(ensureSetupVisibilityReady(), id, card, mode, value !== false, cardIds);
+    const ids = Array.isArray(cardIds) ? cardIds : getSetupDeckCardIdList(deck);
+    return ns.visibilityBits.setCardMode(ensureSetupVisibilityReady(), id, card, mode, value !== false, ids);
   }
 
   function getSetupActionCardId(card, deck) {
@@ -280,13 +288,15 @@
   function updateCardMode(id, mode, checked) {
     if (!MODES.includes(mode)) return;
     const deck = getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
-    if (!setBuiltInCardFlag(deck.id, id, mode, checked)) return;
-    ensureOrder(mode);
+    const allIds = getSetupDeckCardIdList(deck);
+    if (!setBuiltInCardFlag(deck.id, id, mode, checked, allIds)) return;
     resetRoundState();
     clearSmartSessionDeferrals();
-    markManageListDirty();
-    persist();
-    render();
+    saveSetupVisibilityMode(deck.id, mode, allIds);
+    // The clicked checkbox already reflects the change. Avoid rebuilding the
+    // whole Setup DOM list for a one-card toggle.
+    renderSelectionSummary();
+    renderOrderStatus();
   }
 
   function applyRangeToMode(mode, include) {
@@ -308,7 +318,7 @@
     resetRoundState();
     clearSmartSessionDeferrals();
     markManageListDirty();
-    persist();
+    saveSetupVisibilityMode(deck.id, mode, allIds);
     render();
   }
 
@@ -322,7 +332,7 @@
     resetRoundState();
     clearSmartSessionDeferrals();
     markManageListDirty();
-    persist();
+    saveSetupVisibilityMode(deck.id, mode, allIds);
     render();
   }
 

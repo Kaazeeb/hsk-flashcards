@@ -250,7 +250,10 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   function getDeckCardIds(visibility, deckId, fallbackIds = []) {
     const id = normalizeId(deckId);
     const fromMap = visibility?._deckIdMap?.[id];
-    return normalizeIdList(fromMap && fromMap.length ? fromMap : fallbackIds);
+    // _deckIdMap is already normalized by attachDeckMaps(). Do not rebuild a
+    // Set/list on every per-card visibility lookup; that made Setup render O(n²).
+    if (Array.isArray(fromMap)) return fromMap;
+    return normalizeIdList(fallbackIds);
   }
 
   function getCardIndex(visibility, deckId, cardId, fallbackIds = []) {
@@ -369,6 +372,27 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return changed;
   }
 
+
+  function buildModeRow(visibility, deckId, mode, fallbackIds = []) {
+    const id = normalizeId(deckId);
+    const d = getDeckKey(id);
+    const m = getModeKey(mode);
+    if (!id || d == null || m == null) return null;
+    const cardCount = getDeckCardIds(visibility, id, fallbackIds).length;
+    const modeState = normalizeModeState(visibility?.byDeck?.[id]?.[mode], cardCount);
+    const row = { d, m, z: modeState.z !== false, n: modeState.n, x: cleanBase64(modeState.x) };
+    // Default visible + no exceptions is represented by absence of a row.
+    // Callers should delete the row for this deck/mode in that case.
+    return row.z !== false && !row.x ? null : row;
+  }
+
+  function buildModeDeleteRow(deckId, mode) {
+    const d = getDeckKey(deckId);
+    const m = getModeKey(mode);
+    if (d == null || m == null) return null;
+    return { d, m, _delete: true };
+  }
+
   function buildRows(visibility, deckIdMap = {}) {
     const normalized = normalizeVisibility(visibility, deckIdMap);
     const rows = [];
@@ -399,6 +423,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     setModeDefault,
     setCardMode,
     setCardsMode,
+    buildModeRow,
+    buildModeDeleteRow,
     buildRows,
     bytesToBase64,
     base64ToBytes,

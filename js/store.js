@@ -397,6 +397,28 @@
     return JSON.parse(JSON.stringify(db));
   }
 
+  function buildVisibilityMutationForMode(state, deckId, mode, fallbackIds = []) {
+    const id = String(deckId || "").trim();
+    if (!id || !MODES.includes(mode) || !ns.visibilityBits) return null;
+
+    let cardIds = normalizeIdList(fallbackIds);
+    if (!state.builtinVisibility?._deckIdMap || !state.builtinVisibility?._indexByDeck) {
+      const deckIdMap = buildVisibilityDeckIdMap(state.vocab, state.sentenceCards);
+      state.builtinVisibility = normalizeBuiltinVisibility(state.builtinVisibility, deckIdMap);
+      if (!cardIds.length) cardIds = deckIdMap[id] || [];
+    } else if (!cardIds.length) {
+      cardIds = state.builtinVisibility._deckIdMap[id] || [];
+    }
+
+    const row = typeof ns.visibilityBits.buildModeRow === "function"
+      ? ns.visibilityBits.buildModeRow(state.builtinVisibility, id, mode, cardIds)
+      : null;
+    if (row) return row;
+    return typeof ns.visibilityBits.buildModeDeleteRow === "function"
+      ? ns.visibilityBits.buildModeDeleteRow(id, mode)
+      : null;
+  }
+
   function createAppStore(adapter, builtinCards, builtinImageCards = [], builtinSentenceCards = []) {
     const store = {
       adapter,
@@ -429,6 +451,16 @@
 
       async persist() {
         await this.adapter.saveAppData(this.state);
+      },
+
+      async saveVisibilityMode(deckId, mode, fallbackIds = []) {
+        const mutation = buildVisibilityMutationForMode(this.state, deckId, mode, fallbackIds);
+        if (!mutation) return false;
+        if (this.adapter && typeof this.adapter.saveVisibilityRows === "function") {
+          await this.adapter.saveVisibilityRows([mutation]);
+          return true;
+        }
+        return false;
       },
 
       getState() {
@@ -464,7 +496,9 @@
           changed = ns.visibilityBits.setModeDefault(this.state.builtinVisibility, id, mode, flags[mode] !== false, cardIds) || changed;
         });
         if (!changed) return false;
-        await this.persist();
+        await Promise.all(MODES
+          .filter((mode) => flags?.[mode] !== undefined)
+          .map((mode) => this.saveVisibilityMode(id, mode)));
         return true;
       },
 
@@ -481,7 +515,9 @@
           changed = ns.visibilityBits.setCardMode(this.state.builtinVisibility, id, localCardId, mode, flags[mode] !== false, cardIds) || changed;
         });
         if (!changed) return false;
-        await this.persist();
+        await Promise.all(MODES
+          .filter((mode) => flags?.[mode] !== undefined)
+          .map((mode) => this.saveVisibilityMode(id, mode)));
         return true;
       },
 
