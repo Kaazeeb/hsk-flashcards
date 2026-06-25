@@ -149,6 +149,31 @@
   const bindEvents = proxy("bindEvents");
   const bootstrap = proxy("bootstrap");
 
+  const MANAGE_LIST_MIN_ROWS_PER_FRAME = 8;
+  const MANAGE_LIST_MAX_ROWS_PER_FRAME = 48;
+  const MANAGE_LIST_FRAME_BUDGET_MS = 8;
+  let manageListRenderGeneration = 0;
+  let manageListRenderFrameId = 0;
+  let manageListRenderActive = false;
+
+  function nowMs() {
+    return window.performance && typeof window.performance.now === "function"
+      ? window.performance.now()
+      : Date.now();
+  }
+
+  function cancelManageListRender(markDirtyIfActive = false) {
+    const wasActive = manageListRenderActive;
+    manageListRenderGeneration += 1;
+    manageListRenderActive = false;
+    if (manageListRenderFrameId) {
+      window.cancelAnimationFrame(manageListRenderFrameId);
+      manageListRenderFrameId = 0;
+    }
+    if (state.elements?.manageList) state.elements.manageList.removeAttribute("aria-busy");
+    if (markDirtyIfActive && wasActive) state.manageListDirty = true;
+  }
+
   function updateModeButtons() {
     const ui = getUi();
     state.elements.modeButtons.forEach((button) => {
@@ -175,6 +200,7 @@
   }
 
   function renderStats() {
+    if (state.currentPage !== "setup") return;
     const scopedCards = getReviewScopedCards();
     const totalCards = scopedCards.length;
     const practiceTranslation = getModeTotals("practice", "translation");
@@ -219,6 +245,7 @@
   }
 
   function renderSelectionSummary() {
+    if (state.currentPage !== "setup") return;
     const deck = getSelectedSetupDeck();
     const cards = getSelectedSetupCards();
     let learn = 0;
@@ -242,6 +269,7 @@
   }
 
   function renderSetupPanel() {
+    if (state.currentPage !== "setup") return;
     const collapsed = !!getUi().setupCollapsed;
     state.elements.setupBody.classList.toggle("hidden", collapsed);
     state.elements.setupToggleBtn.textContent = collapsed ? "Show setup" : "Hide setup";
@@ -320,97 +348,149 @@
     return `${card.pinyin} · ${card.translation}`;
   }
 
-  function getSetupSmartMeta(card, deck) {
+  function getSetupSmartMeta(card, deck, renderDate = new Date()) {
     if (!deck || !card) return "smart new";
     const localId = getSetupCardLocalId(card, deck);
     const bucket = deck.kind === "sentence" ? (getDb().sentenceSmartByDeck?.[deck.id] || {}) : getSmartBucketForSet(deck.id);
-    const entry = bucket[localId] || smart.createSmartEntry(new Date());
+    const entry = bucket[localId] || smart.createSmartEntry(renderDate);
     if (smart.isStarted(entry)) {
-      const due = smart.getDueDay(entry, new Date());
+      const due = smart.getDueDay(entry, renderDate);
       return `smart due ${formatReviewDateLabel(due)}`;
     }
     return "smart new";
   }
 
+  function createManageRow(card, deck, renderDate, vocabSmartBucket) {
+    const localCardId = getSetupCardLocalId(card, deck);
+    const current = getSetupCardVisibility(card, deck);
+    const row = document.createElement("div");
+    row.className = "manage-row";
+
+    const meta = document.createElement("div");
+    meta.className = "manage-meta";
+
+    const title = document.createElement("div");
+    title.className = "manage-title";
+    title.textContent = getSetupCardTitle(card, deck);
+
+    const sub = document.createElement("div");
+    sub.className = "manage-sub";
+    sub.textContent = getSetupCardSub(card, deck);
+
+    const stats = document.createElement("div");
+    stats.className = "manage-mini muted";
+    if (deck?.kind === "sentence") {
+      stats.textContent = getSetupSmartMeta(card, deck, renderDate);
+    } else {
+      const summary = getPracticeCardSummaryText(card);
+      let smartMeta = "smart inactive";
+      if (current.practice !== false) {
+        const smartEntry = vocabSmartBucket[localCardId] || smart.createSmartEntry(renderDate);
+        if (smart.isStarted(smartEntry)) {
+          const due = smart.getDueDay(smartEntry, renderDate);
+          smartMeta = `smart due ${formatReviewDateLabel(due)}`;
+        } else {
+          smartMeta = "smart new";
+        }
+      }
+      stats.textContent = `${summary.translation} · ${summary.pinyin} · ${smartMeta}`;
+    }
+
+    meta.append(title, sub, stats);
+
+    const flags = document.createElement("div");
+    flags.className = "manage-flags";
+    MODES.forEach((mode) => {
+      const label = document.createElement("label");
+      label.className = "flag-check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = current[mode] !== false;
+      input.dataset.cardId = localCardId;
+      input.dataset.cardMode = mode;
+      input.dataset.deckId = deck?.id || ALL_SET_ID;
+      const span = document.createElement("span");
+      span.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+      label.append(input, span);
+      flags.appendChild(label);
+    });
+
+    row.append(meta, flags);
+    return row;
+  }
+
+  // Build the continuous 1000+ card list over multiple animation frames. This
+  // lets the Setup shell paint first while preserving one uninterrupted list.
   function renderManageList() {
-    clearNode(state.elements.manageList);
+    cancelManageListRender();
+    const list = state.elements.manageList;
+    clearNode(list);
+    list.scrollTop = 0;
+
     const deck = getSelectedSetupDeck();
     const cards = getFilteredManageCards();
     if (!cards.length) {
       const empty = document.createElement("p");
-      empty.className = "muted";
+      empty.className = "manage-empty";
       empty.textContent = "No cards match the current filter / deck.";
-      state.elements.manageList.appendChild(empty);
+      list.appendChild(empty);
+      state.manageListDirty = false;
       return;
     }
 
-    cards.forEach((card) => {
-      const row = document.createElement("div");
-      row.className = "manage-row";
+    const generation = manageListRenderGeneration;
+    const renderDate = new Date();
+    const vocabSmartBucket = deck?.kind === "sentence"
+      ? {}
+      : getSmartBucketForSet(deck?.id || getActiveSet().id);
+    let index = 0;
 
-      const meta = document.createElement("div");
-      meta.className = "manage-meta";
+    state.manageListDirty = false;
+    manageListRenderActive = true;
+    list.setAttribute("aria-busy", "true");
 
-      const title = document.createElement("div");
-      title.className = "manage-title";
-      title.textContent = getSetupCardTitle(card, deck);
-
-      const sub = document.createElement("div");
-      sub.className = "manage-sub";
-      sub.textContent = getSetupCardSub(card, deck);
-
-      const stats = document.createElement("div");
-      stats.className = "manage-mini muted";
-      if (deck?.kind === "sentence") {
-        stats.textContent = getSetupSmartMeta(card, deck);
-      } else {
-        const summary = getPracticeCardSummaryText(card);
-        const currentFlags = getSetupCardVisibility(card, deck);
-        let smartMeta = "smart inactive";
-        if (currentFlags.practice !== false) {
-          const smartEntry = getSmartBucketForSet(deck?.id || getActiveSet().id)[cardId(card)] || smart.createSmartEntry(new Date());
-          if (smart.isStarted(smartEntry)) {
-            const due = smart.getDueDay(smartEntry, new Date());
-            smartMeta = `smart due ${formatReviewDateLabel(due)}`;
-          } else {
-            smartMeta = "smart new";
-          }
-        }
-        stats.textContent = `${summary.translation} · ${summary.pinyin} · ${smartMeta}`;
+    const renderBatch = () => {
+      manageListRenderFrameId = 0;
+      if (generation !== manageListRenderGeneration) return;
+      if (state.currentPage !== "setup" || getUi().setupCollapsed || state.manageListDirty) {
+        cancelManageListRender(true);
+        return;
       }
 
-      meta.append(title, sub, stats);
+      const fragment = document.createDocumentFragment();
+      const frameStartedAt = nowMs();
+      let renderedThisFrame = 0;
 
-      const flags = document.createElement("div");
-      flags.className = "manage-flags";
-      const current = getSetupCardVisibility(card, deck);
-      MODES.forEach((mode) => {
-        const label = document.createElement("label");
-        label.className = "flag-check";
-        const input = document.createElement("input");
-        input.type = "checkbox";
-        input.checked = current[mode] !== false;
-        input.dataset.cardId = getSetupCardLocalId(card, deck);
-        input.dataset.cardMode = mode;
-        input.dataset.deckId = deck?.id || ALL_SET_ID;
-        const span = document.createElement("span");
-        span.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
-        label.append(input, span);
-        flags.appendChild(label);
-      });
+      while (index < cards.length && renderedThisFrame < MANAGE_LIST_MAX_ROWS_PER_FRAME) {
+        fragment.appendChild(createManageRow(cards[index], deck, renderDate, vocabSmartBucket));
+        index += 1;
+        renderedThisFrame += 1;
+        if (renderedThisFrame >= MANAGE_LIST_MIN_ROWS_PER_FRAME
+          && nowMs() - frameStartedAt >= MANAGE_LIST_FRAME_BUDGET_MS) break;
+      }
 
-      row.append(meta, flags);
-      state.elements.manageList.appendChild(row);
-    });
+      list.appendChild(fragment);
+      if (index < cards.length) {
+        manageListRenderFrameId = window.requestAnimationFrame(renderBatch);
+        return;
+      }
+
+      manageListRenderActive = false;
+      list.removeAttribute("aria-busy");
+    };
+
+    manageListRenderFrameId = window.requestAnimationFrame(renderBatch);
   }
 
-  // The manage list can contain 1000+ rows, so it is rendered lazily. Do not call
-  // renderManageList from ordinary quiz progress updates.
+  // Setup rendering is page-scoped. Hidden pages never rebuild this large DOM
+  // tree, and an in-progress build is paused/cancelled when the user leaves.
   function renderManageListIfNeeded(force = false) {
-    if (getUi().setupCollapsed) return;
+    if (state.currentPage !== "setup" || getUi().setupCollapsed) {
+      cancelManageListRender(true);
+      return;
+    }
     if (!force && !state.manageListDirty) return;
     renderManageList();
-    state.manageListDirty = false;
   }
 
   function renderScheduleRows(container, items, emptyText, options = {}) {

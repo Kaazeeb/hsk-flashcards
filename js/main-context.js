@@ -479,7 +479,6 @@
     if (!signedIn && page !== "login") return;
     state.currentPage = page;
     render();
-    if (page === "setup") renderManageListIfNeeded(true);
   }
 
   function renderPageShell() {

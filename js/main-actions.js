@@ -146,21 +146,31 @@
 
   function render() {
     renderPageShell();
-    updateModeButtons();
     updateStorageModeBadge();
     renderAuthPanel();
-    renderStats();
-    renderSetPanel();
-    renderReviewScopePanel();
-    renderSelectionSummary();
-    renderOrderStatus();
-    renderSetupPanel();
-    renderManageListIfNeeded();
 
-    if (state.currentPage === "images" && typeof runtime.renderImagePage === "function") {
-      runtime.renderImagePage();
+    // Render only the widgets that belong to the visible page. Previously the
+    // expensive Smart review menu and hidden flashcard were rebuilt while the
+    // user was on Setup, and Setup could also be rebuilt from other pages.
+    if (state.currentPage === "setup") {
+      renderStats();
+      renderSetPanel();
+      renderSelectionSummary();
+      renderSetupPanel();
+      renderManageListIfNeeded();
       return;
     }
+
+    if (state.currentPage === "images") {
+      if (typeof runtime.renderImagePage === "function") runtime.renderImagePage();
+      return;
+    }
+
+    if (state.currentPage !== "flashcards") return;
+
+    updateModeButtons();
+    renderReviewScopePanel();
+    renderOrderStatus();
 
     if (isSmartPracticeActive()) {
       const now = new Date();

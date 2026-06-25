@@ -338,6 +338,8 @@ button:disabled {
   padding: 12px 14px;
   border-bottom: 1px solid #ececec;
   align-items: center;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 82px;
 }
 
 .manage-row:last-child {
@@ -563,6 +565,7 @@ button:disabled {
 
   .manage-row {
     grid-template-columns: 1fr;
+    contain-intrinsic-size: auto 124px;
   }
 
   .manage-word strong {
