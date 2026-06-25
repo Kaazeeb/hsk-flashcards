@@ -317,6 +317,8 @@
       cardPrompt: document.getElementById("cardPrompt"),
       cardHanzi: document.getElementById("cardHanzi"),
       cardPinyin: document.getElementById("cardPinyin"),
+      cardPartOfSpeech: document.getElementById("cardPartOfSpeech"),
+      cardExample: document.getElementById("cardExample"),
       cardTranslation: document.getElementById("cardTranslation"),
       cardStats: document.getElementById("cardStats"),
       resultText: document.getElementById("resultText"),

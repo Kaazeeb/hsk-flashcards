@@ -11,6 +11,8 @@
     const pinyin = String(card.pinyin || "").trim();
     const pinyinNumeric = String(card.pinyinNumeric || card.pinyin_numeric || card.numericPinyin || "").trim();
     const translation = String(card.translation || card.traducao || card.meaning || "").trim();
+    const partOfSpeech = String(card.partOfSpeech || card.part_of_speech || card.pos || "").trim();
+    const example = String(card.example || card.exampleSentence || card.example_sentence || "").trim();
     return {
       id: String(card.id || createLegacyId(hanzi, pinyin, translation)),
       index,
@@ -18,6 +20,8 @@
       pinyin,
       pinyinNumeric,
       translation,
+      ...(partOfSpeech ? { partOfSpeech } : {}),
+      ...(example ? { example } : {}),
       learn: card.learn !== false,
       practice: card.practice !== false
     };

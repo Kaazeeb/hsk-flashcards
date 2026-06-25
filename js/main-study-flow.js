@@ -132,12 +132,21 @@
   const bindEvents = proxy("bindEvents");
   const bootstrap = proxy("bootstrap");
 
+  function getComparablePinyin(card) {
+    return String(card?.pinyinNumeric || card?.pinyin || "").trim().toLowerCase();
+  }
+
   function buildTranslationOptionsForCard(card, mode = getUi().mode) {
     const modeCards = getModeCards(mode);
+    const targetHanzi = String(card?.hanzi || "").trim();
+    const targetPinyin = getComparablePinyin(card);
     const uniqueDistractors = [];
     modeCards.forEach((candidateCard) => {
       const translation = String(candidateCard.translation || "").trim();
       if (!translation || translation === card.translation) return;
+      const sameHanzi = String(candidateCard.hanzi || "").trim() === targetHanzi;
+      const samePinyin = getComparablePinyin(candidateCard) === targetPinyin;
+      if (sameHanzi && samePinyin) return;
       if (!uniqueDistractors.includes(translation)) uniqueDistractors.push(translation);
     });
     const optionCount = Math.min(4, uniqueDistractors.length + 1);
@@ -327,20 +336,6 @@
     setSmartRating(SMART_RATINGS[nextIndex]);
   }
 
-  function saveVocabularySmartReview(card, setId, entry) {
-    const events = Array.isArray(entry?.reviewEvents) ? entry.reviewEvents : [];
-    const event = events[events.length - 1];
-    if (!event || !ns.auth || typeof ns.auth.saveSmartReviewEvent !== "function") return;
-    void ns.auth.saveSmartReviewEvent({
-      card,
-      setId,
-      event,
-      epochId: String(getDb().meta?.reviewEpochId || "")
-    }).catch((error) => {
-      console.warn("Direct Smart FSRS event save failed. This review was not queued for retry.", error);
-    });
-  }
-
   // This is the moment a Smart review becomes durable: the selected FSRS rating
   // updates local scheduling state and produces an append-only sync event.
   function acceptSmartFsrsFeedback() {
@@ -351,12 +346,11 @@
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
     const selectedRating = state.round.smartSelectedRating;
     const bucket = getSmartBucketForReviewSourceId(smartSetId);
-    const entry = smart.reviewCard(bucket, card, selectedRating, new Date());
+    smart.reviewCard(bucket, card, selectedRating, new Date());
     if (selectedRating === 1) {
       deferSmartCardToSessionTail(smartSetId, card);
     }
-    if (isSentenceCard(card)) persist();
-    else saveVocabularySmartReview(card, smartSetId, entry);
+    persist();
     nextSmartCard();
   }
 
@@ -467,7 +461,29 @@
     scheduleStudyAreaFocus(state.elements, { preferAnswer: true });
   }
 
+  function setOptionalCardField(element, value) {
+    if (!element) return;
+    const text = String(value || "").trim();
+    element.textContent = text;
+    element.classList.toggle("hidden", !text);
+  }
+
+  function renderVocabularySupport(card, { showPartOfSpeech = true, showExample = true } = {}) {
+    const partOfSpeech = showPartOfSpeech ? String(card?.partOfSpeech || "").trim() : "";
+    const example = showExample ? String(card?.example || "").trim() : "";
+    setOptionalCardField(
+      state.elements.cardPartOfSpeech,
+      partOfSpeech ? `Part of speech · ${partOfSpeech}` : ""
+    );
+    setOptionalCardField(state.elements.cardExample, example);
+  }
+
+  function clearVocabularySupport() {
+    renderVocabularySupport(null, { showPartOfSpeech: false, showExample: false });
+  }
+
   function renderStudyLearn(card, queueIndex, total) {
+    clearVocabularySupport();
     const isStrokeCard = card.direction === "stroke_sequence";
     state.elements.cardPrompt.textContent = `Study card · ${getSentenceFrontLabel(card)}`;
     state.elements.cardHanzi.textContent = card.front || card.chinese || "—";
@@ -508,6 +524,7 @@
     state.elements.cardPrompt.textContent = "Vocabulary";
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = card.pinyin;
+    renderVocabularySupport(card);
     state.elements.cardTranslation.textContent = card.translation;
     clearNode(state.elements.answerArea);
     updateResult(state.elements.resultText, "Press Enter for the next card.", "");
@@ -538,6 +555,7 @@
   }
 
   function renderTranslationQuiz(card, queueIndex, total) {
+    clearVocabularySupport();
     state.elements.cardPrompt.textContent = "Choose the English translation";
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = state.round.answered ? card.pinyin : "";
@@ -563,6 +581,7 @@
 
   function renderPinyinQuiz(card, queueIndex, total) {
     const { reviewText } = getReviewPinyinText(card);
+    renderVocabularySupport(card);
     state.elements.cardPrompt.textContent = "Type the exact numeric pinyin";
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = state.round.answered ? reviewText : "";
@@ -685,6 +704,7 @@
   }
 
   function renderSmartSentenceIntroduction(card, newCount, startedCount) {
+    clearVocabularySupport();
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
     const sourceName = getReviewScopeName();
     state.round.smartStage = "intro";
@@ -724,6 +744,7 @@
   }
 
   function renderSmartSentencePractice(card, dueCount, activeCount) {
+    clearVocabularySupport();
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
     if (state.round.smartForceNew) {
       renderSmartSentenceIntroduction(card, dueCount, activeCount);
@@ -801,9 +822,8 @@
     if (!card || !state.round.smartForceNew || !setId || state.round.smartIntroCommitted) return;
     state.round.smartIntroCommitted = true;
     const bucket = getSmartBucketForReviewSourceId(setId);
-    const entry = smart.reviewCard(bucket, card, 3, new Date());
-    if (isSentenceCard(card)) persist();
-    else saveVocabularySmartReview(card, setId, entry);
+    smart.reviewCard(bucket, card, 3, new Date());
+    persist();
     nextSmartCard();
   }
 
@@ -821,6 +841,7 @@
     state.elements.cardPrompt.textContent = `Smart · first view · ${setName}`;
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = reviewText;
+    renderVocabularySupport(card);
     state.elements.cardTranslation.textContent = card.translation;
     state.elements.positionLabel.textContent = `New ${newCount} / Started ${startedCount}`;
     updateResult(
@@ -862,6 +883,10 @@
 
     state.elements.cardHanzi.textContent = card.hanzi;
     state.elements.cardPinyin.textContent = state.round.smartStage === "pinyin" ? "" : reviewText;
+    renderVocabularySupport(card, {
+      showPartOfSpeech: true,
+      showExample: state.round.smartStage === "pinyin" || state.round.smartStage === "feedback"
+    });
     state.elements.cardTranslation.textContent = state.round.smartStage === "feedback" ? card.translation : "";
 
     if (state.round.smartStage === "pinyin") {
@@ -941,6 +966,7 @@
   // A blocked Smart review is a valid state: no due cards today and the user has
   // not chosen the explicit new-card introduction flow.
   function renderSmartBlocked() {
+    clearVocabularySupport();
     const summary = getReviewScheduleSummary();
     const practiceCount = getReviewPracticeIds().length;
     const inNewFlow = !!state.round.smartForceNew;

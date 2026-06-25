@@ -37,14 +37,20 @@ window.HSKFlashcards = window.HSKFlashcards || {};
 
   ns.getBuiltInCards = function getBuiltInCards() {
     const raw = Array.isArray(window.HSK1_BUILTIN_CARDS) ? window.HSK1_BUILTIN_CARDS : [];
-    return raw.map((card) => ({
-      hanzi: String(card.hanzi || "").trim(),
-      pinyin: String(card.pinyin || "").trim(),
-      pinyinNumeric: String(card.pinyinNumeric || card.pinyin_numeric || card.numericPinyin || "").trim(),
-      translation: String(card.translation || "").trim(),
-      learn: card.learn !== false,
-      practice: card.practice !== false
-    })).filter((card) => card.hanzi && card.pinyin && card.translation);
+    return raw.map((card) => {
+      const partOfSpeech = String(card.partOfSpeech || card.part_of_speech || card.pos || "").trim();
+      const example = String(card.example || card.exampleSentence || card.example_sentence || "").trim();
+      return {
+        hanzi: String(card.hanzi || "").trim(),
+        pinyin: String(card.pinyin || "").trim(),
+        pinyinNumeric: String(card.pinyinNumeric || card.pinyin_numeric || card.numericPinyin || "").trim(),
+        translation: String(card.translation || "").trim(),
+        ...(partOfSpeech ? { partOfSpeech } : {}),
+        ...(example ? { example } : {}),
+        learn: card.learn !== false,
+        practice: card.practice !== false
+      };
+    }).filter((card) => card.hanzi && card.pinyin && card.translation);
   };
 
   ns.getBuiltInImageCards = function getBuiltInImageCards() {

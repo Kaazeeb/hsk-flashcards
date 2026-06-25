@@ -285,6 +285,8 @@
         card.pinyin,
         card.pinyinNumeric,
         card.translation,
+        card.partOfSpeech,
+        card.example,
         card.front,
         card.back,
         card.chinese,
@@ -682,6 +684,14 @@
     state.elements.cardPrompt.textContent = prompt;
     state.elements.cardHanzi.textContent = "—";
     state.elements.cardPinyin.textContent = subtitle;
+    if (state.elements.cardPartOfSpeech) {
+      state.elements.cardPartOfSpeech.textContent = "";
+      state.elements.cardPartOfSpeech.classList.add("hidden");
+    }
+    if (state.elements.cardExample) {
+      state.elements.cardExample.textContent = "";
+      state.elements.cardExample.classList.add("hidden");
+    }
     state.elements.cardTranslation.textContent = "";
     clearNode(state.elements.cardStats);
     updateResult(state.elements.resultText, "", "");

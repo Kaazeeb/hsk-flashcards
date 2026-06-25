@@ -430,6 +430,18 @@ button:disabled {
   min-height: 32px;
 }
 
+.card-part-of-speech {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.card-example {
+  margin-top: 8px;
+  font-size: 20px;
+  line-height: 1.45;
+}
+
 .translation {
   font-size: 18px;
   min-height: 28px;
