@@ -336,6 +336,20 @@
     setSmartRating(SMART_RATINGS[nextIndex]);
   }
 
+  function saveVocabularySmartReview(card, setId, entry) {
+    const events = Array.isArray(entry?.reviewEvents) ? entry.reviewEvents : [];
+    const event = events[events.length - 1];
+    if (!event || !ns.auth || typeof ns.auth.saveSmartReviewEvent !== "function") return;
+    void ns.auth.saveSmartReviewEvent({
+      card,
+      setId,
+      event,
+      epochId: String(getDb().meta?.reviewEpochId || "")
+    }).catch((error) => {
+      console.warn("Direct Smart FSRS event save failed. This review was not queued for retry.", error);
+    });
+  }
+
   // This is the moment a Smart review becomes durable: the selected FSRS rating
   // updates local scheduling state and produces an append-only sync event.
   function acceptSmartFsrsFeedback() {
@@ -346,11 +360,12 @@
     const smartSetId = state.round.smartSetId || getPrimaryReviewSet().id;
     const selectedRating = state.round.smartSelectedRating;
     const bucket = getSmartBucketForReviewSourceId(smartSetId);
-    smart.reviewCard(bucket, card, selectedRating, new Date());
+    const entry = smart.reviewCard(bucket, card, selectedRating, new Date());
     if (selectedRating === 1) {
       deferSmartCardToSessionTail(smartSetId, card);
     }
-    persist();
+    if (isSentenceCard(card)) persist();
+    else saveVocabularySmartReview(card, smartSetId, entry);
     nextSmartCard();
   }
 
@@ -822,8 +837,9 @@
     if (!card || !state.round.smartForceNew || !setId || state.round.smartIntroCommitted) return;
     state.round.smartIntroCommitted = true;
     const bucket = getSmartBucketForReviewSourceId(setId);
-    smart.reviewCard(bucket, card, 3, new Date());
-    persist();
+    const entry = smart.reviewCard(bucket, card, 3, new Date());
+    if (isSentenceCard(card)) persist();
+    else saveVocabularySmartReview(card, setId, entry);
     nextSmartCard();
   }
 
