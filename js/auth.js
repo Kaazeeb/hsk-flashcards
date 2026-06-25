@@ -328,34 +328,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return events;
   }
 
-  function buildSmartEvents(currentSmartBySet, previousSmartBySet) {
-    const events = [];
-    const next = deepClone(currentSmartBySet || {}) || {};
-    const prev = deepClone(previousSmartBySet || {}) || {};
-    Object.keys(next).forEach((setId) => {
-      const nextBucket = next[setId] || {};
-      const prevBucket = prev[setId] || {};
-      Object.keys(nextBucket).forEach((cardId) => {
-        const currentEvents = ns.smart?.normalizeReviewEvents(nextBucket[cardId]?.reviewEvents) || [];
-        const previousEvents = ns.smart?.normalizeReviewEvents(prevBucket[cardId]?.reviewEvents) || [];
-        const previousIds = new Set(previousEvents.map((event) => String(event.id)));
-        currentEvents.forEach((event) => {
-          if (!event.id || previousIds.has(event.id)) return;
-          events.push({
-            event_id: event.id,
-            kind: SMART_EVENT_KIND,
-            set_id: String(setId),
-            card_id: String(cardId),
-            occurred_at: toIso(event.occurredAt),
-            payload: { rating: event.rating }
-          });
-        });
-      });
-    });
-    return events;
-  }
-
-
   function buildImageLearnEvents(currentProgress, previousProgress) {
     const events = [];
     const nextSeen = currentProgress?.seen || {};
@@ -796,29 +768,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     await insertEvents(client, rows);
   }
 
-  async function syncSmart(client, userId, currentState, previousState) {
-    const epochId = getReviewEpochId(currentState);
-    const previousSmartBySet = reviewEpochChanged(currentState, previousState) ? {} : previousState?.smartBySet;
-    const events = buildSmartEvents(currentState?.smartBySet, previousSmartBySet);
-    if (!events.length) return;
-    const cardCodec = codec().createCardRefCodec(currentState?.vocab || []);
-    const rows = events.map((event) => {
-      const remoteCardId = cardCodec.toRef(event.card_id);
-      if (!remoteCardId) return null;
-      return {
-        user_id: userId,
-        event_id: makeEpochScopedEventId(event.event_id, epochId),
-        kind: event.kind,
-        card_id: remoteCardId,
-        set_id: event.set_id || null,
-        payload: payloadWithEpoch(event.payload || {}, epochId),
-        occurred_at: event.occurred_at || new Date().toISOString()
-      };
-    }).filter(Boolean);
-    await insertEvents(client, rows);
-  }
-
-
   async function syncImageLearn(client, userId, currentState, previousState) {
     const epochId = getReviewEpochId(currentState);
     const previousImageProgress = reviewEpochChanged(currentState, previousState) ? createEmptyImageProgress() : previousState?.imageProgress;
@@ -922,6 +871,29 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   function getClient() { return state.client; }
   function getCacheScope() { return state.user?.id || "anon"; }
 
+  // Vocabulary FSRS reviews are already concrete append-only events when the
+  // user accepts a rating. Persist that event directly instead of cloning and
+  // diffing the complete application state to rediscover it.
+  async function saveSmartReviewEvent({ card, setId, event, epochId = "" } = {}) {
+    if (!state.client || !state.user) return false;
+    const localCardId = String(card?.id || "");
+    const remoteCardId = codec().createCardRefCodec(card ? [card] : []).toRef(localCardId);
+    const reviewEventId = String(event?.id || "");
+    const reviewSetId = String(setId || "");
+    if (!remoteCardId || !reviewEventId || !reviewSetId) return false;
+
+    await insertEvents(state.client, [{
+      user_id: state.user.id,
+      event_id: makeEpochScopedEventId(reviewEventId, epochId),
+      kind: SMART_EVENT_KIND,
+      card_id: remoteCardId,
+      set_id: reviewSetId,
+      payload: payloadWithEpoch({ rating: Number(event?.rating) || 3 }, epochId),
+      occurred_at: toIso(event?.occurredAt)
+    }]);
+    return true;
+  }
+
   function getRemoteAdapter() {
     if (!state.client || !state.user) return null;
     const userId = state.user.id;
@@ -943,7 +915,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
           await syncSets(state.client, userId, payload, previousPayload || {});
           await syncReviewReset(state.client, userId, payload, previousPayload || {});
           await syncProgress(state.client, userId, payload, previousPayload || {});
-          await syncSmart(state.client, userId, payload, previousPayload || {});
           await syncImageLearn(state.client, userId, payload, previousPayload || {});
           await syncImageSmart(state.client, userId, payload, previousPayload || {});
           await syncSentenceSmart(state.client, userId, payload, previousPayload || {});
@@ -991,5 +962,5 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return () => state.listeners.delete(listener);
   }
 
-  ns.auth = { init, getStatus, getClient, getRemoteAdapter, getCacheScope, signUp, signIn, signOut, subscribe };
+  ns.auth = { init, getStatus, getClient, getRemoteAdapter, getCacheScope, saveSmartReviewEvent, signUp, signIn, signOut, subscribe };
 })(window.HSKFlashcards);
