@@ -10,7 +10,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   const HARDCODED_SUPABASE_URL = "https://vfivrshzlhmocjoozawx.supabase.co";
   const HARDCODED_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmaXZyc2h6bGhtb2Nqb296YXd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyMTQwMDMsImV4cCI6MjA5Mjc5MDAwM30.DHTy3vI2aQBUSygvIhALMxdslAPItzwV7Dspv0ElE8A";
 
-  const DOC_TABLE = "app_sync_documents";
   const EVENT_TABLE = "app_review_events";
   const VISIBILITY_TABLE = "app_card_visibility_bits";
   const SMART_EVENT_KIND = "smart_fsrs";
@@ -19,13 +18,9 @@ window.HSKFlashcards = window.HSKFlashcards || {};
   const SENTENCE_SMART_EVENT_KIND = "sentence_smart_fsrs";
   const REVIEW_RESET_EVENT_KIND = "review_reset";
   const MAX_WRITE_JSON_BYTES = 60000;
-  const MAX_DOC_WRITE_ROWS = 100;
   const MAX_EVENT_WRITE_ROWS = 100;
-  const MAX_FILTER_URL_CHARS = 1200;
+  const MAX_VISIBILITY_WRITE_ROWS = 100;
   const SELECT_PAGE_SIZE = 1000;
-
-  const DOC_NS = { VOCAB: "vocab", CARD_FLAGS_BUNDLE: "card_flags_bundle", SET: "set", META: "meta" };
-  const DOC_ID = { CURRENT: "current", SET_ORDER: "set_order", CARD_FLAGS: "current" };
 
   const state = {
     config: { url: HARDCODED_SUPABASE_URL, key: HARDCODED_SUPABASE_KEY },
@@ -162,15 +157,8 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return epochId ? ["epoch", epochId, base].join("::") : base;
   }
 
-  function stableStringify(value) {
-    if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-    if (value && typeof value === "object") {
-      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
-    }
-    return JSON.stringify(value);
-  }
 
-  function chunkRowsByJsonBytes(rows, maxBytes = MAX_WRITE_JSON_BYTES, maxRows = MAX_DOC_WRITE_ROWS) {
+  function chunkRowsByJsonBytes(rows, maxBytes = MAX_WRITE_JSON_BYTES, maxRows = MAX_EVENT_WRITE_ROWS) {
     const chunks = [];
     let current = [];
     let bytes = 2;
@@ -188,23 +176,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return chunks;
   }
 
-  function chunkFilterValuesByUrl(values, maxEncodedChars = MAX_FILTER_URL_CHARS) {
-    const chunks = [];
-    let current = [];
-    let chars = 0;
-    (values || []).map(String).filter(Boolean).forEach((value) => {
-      const encoded = encodeURIComponent(value).length + 1;
-      if (current.length && chars + encoded > maxEncodedChars) {
-        chunks.push(current);
-        current = [];
-        chars = 0;
-      }
-      current.push(value);
-      chars += encoded;
-    });
-    if (current.length) chunks.push(current);
-    return chunks;
-  }
 
   async function selectAll(builderFactory) {
     const rows = [];
@@ -217,23 +188,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return rows;
   }
 
-  async function upsertDocs(client, rows) {
-    for (const chunk of chunkRowsByJsonBytes(rows || [])) {
-      const { error } = await client.from(DOC_TABLE).upsert(chunk, { onConflict: "user_id,namespace,doc_id" });
-      if (error) throw error;
-    }
-  }
 
-  async function deleteDocs(client, userId, namespace, docIds) {
-    for (const chunk of chunkFilterValuesByUrl(docIds || [])) {
-      const { error } = await client.from(DOC_TABLE)
-        .delete()
-        .eq("user_id", userId)
-        .eq("namespace", namespace)
-        .in("doc_id", chunk);
-      if (error) throw error;
-    }
-  }
 
   async function insertEvents(client, rows) {
     for (const chunk of chunkRowsByJsonBytes(rows || [], MAX_WRITE_JSON_BYTES, MAX_EVENT_WRITE_ROWS)) {
@@ -242,15 +197,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     }
   }
 
-  function groupDocs(rows) {
-    const namespaces = {};
-    (rows || []).forEach((row) => {
-      if (!row || !row.namespace || row.doc_id == null) return;
-      if (!namespaces[row.namespace]) namespaces[row.namespace] = {};
-      namespaces[row.namespace][String(row.doc_id)] = row.payload || {};
-    });
-    return namespaces;
-  }
 
   function createEmptyProgress() {
     return ns.store && typeof ns.store.createEmptyProgress === "function"
@@ -280,8 +226,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     const safe = progress || createEmptyProgress();
     if (kind === "practice_translation") return safe.practice?.translation || {};
     if (kind === "practice_pinyin") return safe.practice?.pinyin || {};
-    if (kind === "test_translation") return safe.test?.translation || {};
-    if (kind === "test_pinyin") return safe.test?.pinyin || {};
     return null;
   }
 
@@ -416,18 +360,16 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     ].join("::");
   }
 
-  function buildRemoteRawState(docRows, eventRows, visibilityRows = []) {
-    const docs = groupDocs(docRows);
+  function buildRemoteRawState(eventRows, visibilityRows = []) {
     const builtinCards = typeof ns.getBuiltInCards === "function" ? ns.getBuiltInCards() : [];
     const builtinImageCards = typeof ns.getBuiltInImageCards === "function" ? ns.getBuiltInImageCards() : [];
     const builtinSentenceCards = typeof ns.getBuiltInSentenceCards === "function" ? ns.getBuiltInSentenceCards() : [];
     // Vocabulary is standard built-in content only. Existing remote custom
     // vocabulary documents are ignored so app updates cannot be overridden by
-    // old user imports. v46 Setup visibility is loaded from app_card_visibility_bits.
+    // old user imports. Setup visibility is loaded from app_card_visibility_bits.
     const baseDb = ns.store.normalizeDb({ vocab: builtinCards, imageCards: builtinImageCards, sentenceCards: builtinSentenceCards }, builtinCards, builtinImageCards, builtinSentenceCards);
-    const flagsBundle = docs[DOC_NS.CARD_FLAGS_BUNDLE]?.[DOC_ID.CARD_FLAGS];
     const builtinVisibility = { version: 46, rows: Array.isArray(visibilityRows) ? visibilityRows : [] };
-    const vocab = codec().applyFlagsBundleToVocab(baseDb.vocab || [], flagsBundle);
+    const vocab = baseDb.vocab || [];
     const cardCodec = codec().createCardRefCodec(vocab);
     const progress = createEmptyProgress();
     const smartBySet = {};
@@ -477,16 +419,9 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         if (localCardId) applyProgressEvent(progress, { ...event, card_id: localCardId });
       });
 
-    return { vocab, sets: codec().buildSetsRaw(docs, vocab, ns.constants.ALL_SET_ID), progress, smartBySet, imageCards, imageProgress, imageSmartByDeck, sentenceCards, sentenceSmartByDeck, meta, builtinVisibility };
+    return { vocab, progress, smartBySet, imageCards, imageProgress, imageSmartByDeck, sentenceCards, sentenceSmartByDeck, meta, builtinVisibility };
   }
 
-  async function loadRemoteDocs(client, userId) {
-    return selectAll(() => client.from(DOC_TABLE)
-      .select("namespace, doc_id, payload, updated_at")
-      .eq("user_id", userId)
-      .order("namespace", { ascending: true })
-      .order("doc_id", { ascending: true }));
-  }
 
   async function loadRemoteEvents(client, userId) {
     const resetRows = await selectAll(() => client.from(EVENT_TABLE)
@@ -537,35 +472,15 @@ window.HSKFlashcards = window.HSKFlashcards || {};
         .order("m", { ascending: true }));
     } catch (error) {
       const message = isMissingVisibilityTableError(error)
-        ? "Visibility table is missing. Apply the v46 Supabase SQL before relying on Setup sync."
+        ? "Visibility table is missing. Apply the current Supabase SQL before relying on Setup sync."
         : "Visibility table could not be read. Built-in default visibility will be used for this session.";
       console.warn(message, error);
       return [];
     }
   }
 
-  async function syncVocabDoc(client, userId, currentState, previousState) {
-    // v46: users cannot import or edit vocabulary content. Keep this as a no-op
-    // so legacy vocab/current documents are neither written nor used by the app.
-    return;
-  }
 
-  async function syncCardFlags(client, userId, currentState, previousState) {
-    // v46: setup visibility no longer writes card_flags_bundle JSON.
-    return;
-  }
 
-  function visibilityRowsFromState(snapshot) {
-    if (!ns.visibilityBits || typeof ns.visibilityBits.buildRows !== "function") return [];
-    const deckIds = typeof codec().buildVisibilityDeckIdMap === "function"
-      ? codec().buildVisibilityDeckIdMap(snapshot || {})
-      : {};
-    return ns.visibilityBits.buildRows(snapshot?.builtinVisibility, deckIds);
-  }
-
-  function visibilityRowKey(row) {
-    return `${Number(row?.d)}:${Number(row?.m)}`;
-  }
 
   function normalizeVisibilityRow(row) {
     return {
@@ -582,25 +497,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return { ...normalized, _delete: row?._delete === true || (normalized.z !== false && !normalized.x) };
   }
 
-  function visibilityRowsMap(rows) {
-    const map = new Map();
-    (Array.isArray(rows) ? rows : []).forEach((row) => {
-      const normalized = normalizeVisibilityRow(row);
-      if (normalized.d <= 0 || ![0, 1].includes(normalized.m)) return;
-      map.set(visibilityRowKey(normalized), normalized);
-    });
-    return map;
-  }
 
-  function sameVisibilityRow(a, b) {
-    if (!a && !b) return true;
-    if (!a || !b) return false;
-    return Number(a.d) === Number(b.d)
-      && Number(a.m) === Number(b.m)
-      && (a.z !== false) === (b.z !== false)
-      && Number(a.n) === Number(b.n)
-      && String(a.x || "") === String(b.x || "");
-  }
 
   async function upsertVisibilityRows(client, userId, rows) {
     if (!rows.length) return;
@@ -614,7 +511,7 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       x: String(row.x || ""),
       t: now
     }));
-    for (const chunk of chunkRowsByJsonBytes(payload, MAX_WRITE_JSON_BYTES, MAX_DOC_WRITE_ROWS)) {
+    for (const chunk of chunkRowsByJsonBytes(payload, MAX_WRITE_JSON_BYTES, MAX_VISIBILITY_WRITE_ROWS)) {
       const { error } = await client.from(VISIBILITY_TABLE).upsert(chunk, { onConflict: "u,d,m" });
       if (error) throw error;
     }
@@ -631,31 +528,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     }
   }
 
-  async function syncBuiltinVisibility(client, userId, currentState, previousState) {
-    const currentMap = visibilityRowsMap(visibilityRowsFromState(currentState || {}));
-    const previousMap = visibilityRowsMap(visibilityRowsFromState(previousState || {}));
-    const upserts = [];
-    const deletes = [];
-
-    currentMap.forEach((currentRow, key) => {
-      const previousRow = previousMap.get(key);
-      if (!sameVisibilityRow(currentRow, previousRow)) upserts.push(currentRow);
-    });
-    previousMap.forEach((previousRow, key) => {
-      if (!currentMap.has(key)) deletes.push(previousRow);
-    });
-
-    if (!upserts.length && !deletes.length) return;
-    try {
-      await upsertVisibilityRows(client, userId, upserts);
-      await deleteVisibilityRows(client, userId, deletes);
-    } catch (error) {
-      const message = isMissingVisibilityTableError(error)
-        ? "Visibility table is missing. Setup visibility was not synced; progress sync can still continue."
-        : "Visibility sync failed. Progress sync can still continue.";
-      console.warn(message, error);
-    }
-  }
 
   async function saveVisibilityRowsDirect(client, userId, rows) {
     const mutations = (Array.isArray(rows) ? rows : [])
@@ -681,45 +553,6 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     }
   }
 
-  async function syncSets(client, userId, currentState, previousState) {
-    const currentSets = codec().getNamedSetsMap(currentState?.sets);
-    const previousSets = codec().getNamedSetsMap(previousState?.sets);
-    const ids = new Set([...Object.keys(currentSets), ...Object.keys(previousSets)]);
-    const upserts = [];
-    const deletes = [];
-    ids.forEach((id) => {
-      const current = currentSets[id] || null;
-      const previous = previousSets[id] || null;
-      if (codec().sameSetDoc(current, previous)) return;
-      if (!current) {
-        deletes.push(id);
-        return;
-      }
-      upserts.push({
-        user_id: userId,
-        namespace: DOC_NS.SET,
-        doc_id: id,
-        payload: {
-          id: current.id,
-          name: current.name,
-          cardRefs: codec().compactCardIdList(current.cardIds || [], currentState?.vocab || []),
-          createdAt: current.createdAt,
-          updatedAt: current.updatedAt,
-          version: 1,
-          idEncoding: "idx-v1"
-        },
-        updated_at: new Date().toISOString()
-      });
-    });
-
-    const currentOrder = Array.isArray(currentState?.sets?.order) ? currentState.sets.order.filter((id) => id && id !== ns.constants.ALL_SET_ID) : [];
-    const previousOrder = Array.isArray(previousState?.sets?.order) ? previousState.sets.order.filter((id) => id && id !== ns.constants.ALL_SET_ID) : [];
-    if (JSON.stringify(currentOrder) !== JSON.stringify(previousOrder)) {
-      upserts.push({ user_id: userId, namespace: DOC_NS.META, doc_id: DOC_ID.SET_ORDER, payload: { order: currentOrder }, updated_at: new Date().toISOString() });
-    }
-    await upsertDocs(client, upserts);
-    await deleteDocs(client, userId, DOC_NS.SET, deletes);
-  }
 
   async function syncReviewReset(client, userId, currentState, previousState) {
     const currentMeta = getReviewMeta(currentState);
@@ -900,19 +733,15 @@ window.HSKFlashcards = window.HSKFlashcards || {};
     return {
       kind: "supabase",
       async loadAppData() {
-        const [docs, events, visibilityRows] = await Promise.all([
-          loadRemoteDocs(state.client, userId),
+        const [events, visibilityRows] = await Promise.all([
           loadRemoteEvents(state.client, userId),
           loadRemoteVisibilityRows(state.client, userId)
         ]);
-        if (!docs.length && !events.length && !visibilityRows.length) return null;
-        return buildRemoteRawState(docs, events, visibilityRows);
+        if (!events.length && !visibilityRows.length) return null;
+        return buildRemoteRawState(events, visibilityRows);
       },
       async saveAppData(payload, previousPayload) {
         try {
-          await syncVocabDoc(state.client, userId, payload, previousPayload || {});
-          await syncCardFlags(state.client, userId, payload, previousPayload || {});
-          await syncSets(state.client, userId, payload, previousPayload || {});
           await syncReviewReset(state.client, userId, payload, previousPayload || {});
           await syncProgress(state.client, userId, payload, previousPayload || {});
           await syncImageLearn(state.client, userId, payload, previousPayload || {});

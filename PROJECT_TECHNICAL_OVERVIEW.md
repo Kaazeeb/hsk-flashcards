@@ -1,72 +1,116 @@
 # HSK Flashcards technical overview
 
-## Structure
+Version: 2.0.0
 
-Root files:
+## Runtime model
 
-- `index.html`: Login, Setup, Flash cards, and Image cards views.
-- `styles.css`: all current styling and mobile layout.
-- `app.js`: tiny bootstrap that calls `main.bootstrap()`.
-- `hsk1-data.js`: tiny aggregator for the built-in HSK 1-3 vocabulary chunks in `js/data/`.
+This is a static browser app. There is no build step, package manager, bundler, or server-side application code in this repository. `index.html` loads classic scripts in dependency order and all modules attach to the shared `window.HSKFlashcards` namespace.
+
+Main entry path:
+
+1. `index.html` loads data, libraries, and app modules.
+2. `app.js` calls `window.HSKFlashcards.main.bootstrap()`.
+3. `js/main.js` forwards bootstrap to the split runtime implementation.
+4. `js/main-actions.js` owns the final bootstrap, render cycle, event binding, and top-level UI actions.
+
+## Root files
+
+- `index.html`: page markup for auth, setup, vocabulary flashcards, review, stats, and image-card panels.
+- `styles.css`: all app styling and responsive/mobile layout.
+- `app.js`: tiny bootstrap wrapper.
+- `hsk1-data.js`: tiny aggregator marker for the split HSK vocabulary chunks under `js/data/`.
 - `fsrs-lib.js`: browser FSRS scheduler build.
-- Supabase schema is maintained outside the app zip; v38 requires no schema migration.
+- `supabase_starter.sql`: current database starter script.
+- `SUPABASE.md`: current Supabase schema and API-call documentation.
+- `VERSION.txt`: release marker; current value is `2.0.0`.
+- `JS_LINE_COUNTS.txt`: current JavaScript line-count snapshot.
+- `PROJECT_IMPORTANT_UPDATES.md`: consolidated high-signal project updates only.
 
-JavaScript modules:
+## JavaScript modules
 
-- `js/constants.js`: shared constants and built-in vocabulary loader.
-- `js/image-cards-data.js`: built-in image-card catalog scaffold.
-- `js/sentence-cards-data.js`: built-in sentence decks.
-- `js/utils.js`: range/date/shuffle/card helpers.
-- `js/pinyin.js`: strict pinyin numeric answer checking from hardcoded `pinyinNumeric`.
-- `js/sync-codec.js`: compact remote card refs and visibility flag bundles.
-- `js/auth.js`: Supabase auth and remote persistence adapter.
-- `js/storage-adapters.js`: remote persistence wrapper; app data has no offline backlog.
-- `js/store.js`: normalized app state and mutations.
-- `js/smart-fsrs.js`: Smart FSRS scheduling, due/new queues and review events.
-- `js/ui-helpers.js`: small DOM/UI helpers.
-- `js/main-context.js`: shared runtime context, auth UI, and page shell.
-- `js/main-model.js`: card scopes, Smart queues, schedule summaries, and stats helpers.
-- `js/main-setup-view.js`: setup/review-scope rendering and shared card display helpers.
-- `js/main-study-flow.js`: answer flow and flashcard renderers.
-- `js/main-image-flow.js`: image-card learn/review flow.
-- `js/main-actions.js`: top-level render, setup actions, event binding, and bootstrap.
+Data/catalog modules:
+
+- `js/data/hsk1-data-part-1.js` through `js/data/hsk1-data-part-5.js`: built-in HSK vocabulary chunks.
+- `js/sentence-cards-data-part-1.js` through `js/sentence-cards-data-part-5.js`: built-in sentence cards.
+- `js/hanzi-cards-data-part-1.js` through `js/hanzi-cards-data-part-3.js`: hardcoded hanzi metadata used to generate pinyin and stroke-sequence study cards.
+- `js/measure-word-cards-data-part-1.js` through `js/measure-word-cards-data-part-3.js`: hardcoded measure-word study-card metadata.
+- `js/image-cards-data.js`: image-card catalog scaffold. It is currently empty, so the app loads zero image cards until entries/assets are added.
+
+Core modules:
+
+- `js/constants.js`: shared constants and built-in catalog normalization/generation.
+- `js/utils.js`: card normalization, ID helpers, ranges, dates, shuffling, and shared utility functions.
+- `js/pinyin.js`: strict numeric-pinyin answer validation based on hardcoded `pinyinNumeric` fields.
+- `js/visibility-bitset.js`: compact per-card Learn/Practice visibility encoding.
+- `js/sync-codec.js`: compact vocabulary card reference codec for Supabase review rows.
+- `js/auth.js`: Supabase Auth plus remote persistence adapter.
+- `js/storage-adapters.js`: remote-first persistence wrapper with no business-data offline replay queue.
+- `js/store.js`: normalized app state, migrations/normalizers, mutations, and reset handling.
+- `js/smart-fsrs.js`: Smart review scheduling, FSRS rating handling, and review-event normalization.
+- `js/ui-helpers.js`: small DOM helper utilities.
+- `js/main-context.js`: shared runtime context, DOM references, page/auth shell helpers.
+- `js/main-model.js`: derived card scopes, deck summaries, schedule summaries, and stats helpers.
+- `js/main-setup-view.js`: Setup card-visibility rendering and shared flashcard display helpers.
+- `js/main-study-flow.js`: vocabulary/sentence answer flow and flashcard renderers.
+- `js/main-image-flow.js`: image-card learn/review flow scaffold.
+- `js/main-actions.js`: render orchestration, setup actions, reset/navigation actions, and event binding.
 - `js/main.js`: tiny facade that exposes `main.bootstrap()`.
 
 ## Current content model
 
-- Vocabulary cards are standard built-in content only.
-- Users cannot import vocabulary, create cards, or create custom vocabulary sets.
-- Users can still control each built-in vocabulary card's Learn/Practice visibility in Setup.
-- Sentence decks are built-in and separate from vocabulary.
-- Image-card support is scaffolded through a built-in catalog and static image paths.
+- Vocabulary is built-in only: 1,000 cards loaded from the split HSK chunks.
+- User-created/imported vocabulary catalogs are disabled. Legacy remote custom-vocabulary data is ignored by the current normalizer.
+- Custom vocabulary sets are disabled. The standard vocabulary scope is `All cards`; per-card Learn/Practice visibility is managed in Setup.
+- Sentence/study content totals 2,178 cards:
+  - 600 sentence cards: 200 each for HSK 1, HSK 2, and HSK 3.
+  - 1,578 generated study cards.
+- Sentence/study direction breakdown:
+  - `zh_to_en`: 210
+  - `en_to_zh`: 210
+  - `zh_qa`: 180
+  - `hanzi_to_pinyin`: 655
+  - `measure_word`: 268
+  - `stroke_sequence`: 655
+- Image cards are scaffolded but the current catalog has 0 active cards.
 
-## Current persistence model
+## Main learning flows
 
-- Setup/config data is stored in `app_sync_documents`.
-- Card visibility is stored as one compact `card_flags_bundle/current` document.
-- Review/progress data is stored as append-only rows in `app_review_events`.
-- Legacy custom vocabulary documents are ignored by v38.
-- Legacy custom vocabulary-set documents are ignored by v38.
-- Remote card ids are compact refs such as `idx:123`; long local ids are not sent through Supabase query strings.
+Vocabulary cards support:
 
-## Smart practice
+- Learn mode with seen-card progress.
+- Practice translation.
+- Practice pinyin.
+- Smart FSRS review with ratings `1=Again`, `2=Hard`, `3=Good`, `4=Easy`.
 
-Smart uses FSRS with user feedback:
+Sentence/study decks support a flip-and-rate Smart flow. Image cards have a separate learn/review scaffold with a softer image spacing factor.
 
-- `1` Again
-- `2` Hard
-- `3` Good
-- `4` Easy
+## State and persistence model
 
-Vocabulary cards use the original guided flow: hanzi, typed numeric pinyin, translation, then rating.
-Sentence cards use a simple flip-and-rate flow.
-Image cards use a child-friendly learn/review flow.
+The store keeps one normalized in-memory state for UI simplicity. Persistence is remote-first:
 
-New cards are introduced separately from scheduled due reviews. Cards only enter FSRS after the first Smart introduction/review.
+- Supabase Auth can persist its own login session.
+- App/business data is not cached to `localStorage` for offline replay.
+- If Supabase is unavailable, the app can continue from built-in state for the current page session, but failed app-data writes are not queued.
 
-## Important limitations
+Remote persistence currently uses:
 
-- There is no Supabase Realtime subscription; other devices refresh on load/focus.
-- Reset creates a review epoch marker in the append-only event stream, so older review events are ignored after destructive progress resets.
-- The old large main controller has been split into responsibility-focused `js/main-*.js` files.
-- No full sync-status UI yet; failed remote saves are warned in the console and are not queued for offline replay.
+- `app_review_events`: append-only progress and FSRS events.
+- `app_card_visibility_bits`: compact per-user Learn/Practice visibility rows.
+- `profiles`: user profile metadata linked to `auth.users`.
+
+`app_sync_documents` and the old `card_flags_bundle/current` document format are no longer part of the active app path.
+
+## Reset and review epochs
+
+Progress reset does not edit old review rows. Instead, the app writes a `review_reset` event with a new epoch id. Current load logic applies only events belonging to the active epoch, which keeps destructive resets deterministic while preserving an append-only review table.
+
+## Supabase security model
+
+The browser includes the Supabase URL and anon key. That is acceptable only because all private data isolation depends on Supabase Auth plus Row Level Security policies. The current SQL enforces that users can only read or write rows where the owner column matches `auth.uid()`.
+
+## Operational limitations
+
+- No Supabase Realtime subscription; other devices refresh on load/focus rather than streaming every event live.
+- No business-data offline replay queue.
+- No automated browser test suite is included in the repository.
+- Image cards require catalog entries plus image assets before the image flow has real content.

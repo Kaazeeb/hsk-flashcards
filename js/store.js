@@ -303,7 +303,7 @@
     return createAllCardsSet(vocab.map((card) => cardId(card)));
   }
 
-  function normalizeSets(rawSets, vocab) {
+  function normalizeSets(vocab) {
     return {
       byId: { [ALL_SET_ID]: buildAllSet(vocab) },
       order: [ALL_SET_ID]
@@ -349,13 +349,13 @@
   }
 
   // All card catalogs are standard app content. Remote data may still carry legacy
-  // custom vocab/image/sentence docs, but v46 ignores those definitions and only
-  // applies user progress plus per-card Learn/Practice visibility flags.
+  // custom vocab/image/sentence docs, but the current app ignores those definitions
+  // and only applies user progress plus per-card Learn/Practice visibility flags.
   function normalizeDb(raw, builtinCards, builtinImageCards = [], builtinSentenceCards = []) {
     const vocab = normalizeVocab(builtinCards);
     const imageCards = normalizeImageCards(builtinImageCards);
     const sentenceCards = normalizeSentenceCards(builtinSentenceCards);
-    const sets = normalizeSets(raw?.sets, vocab);
+    const sets = normalizeSets(vocab);
     const ui = normalizeUiState(raw?.ui);
     const progress = normalizeProgress(raw?.progress);
     const smartBySet = normalizeSmartBySet(raw?.smartBySet);
@@ -467,8 +467,8 @@
         return this.state;
       },
 
-      // User-created/imported card catalogs are disabled in v46. Keep these API
-      // stubs so old call sites or browser console calls cannot mutate the deck.
+      // User-created/imported card catalogs are disabled. Keep these API stubs so
+      // old call sites or browser console calls cannot mutate the deck.
       async replaceVocabulary() { return false; },
       async restoreBuiltIn() { return { resetProgress: false, disabled: true }; },
 

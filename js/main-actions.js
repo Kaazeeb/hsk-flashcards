@@ -8,23 +8,17 @@
     if (typeof fn !== "function") throw new Error(`Main runtime function not loaded: ${name}`);
     return fn(...args);
   };
-  const { MODES, PRACTICE_QUIZ_TYPES, TEST_QUIZ_TYPES, ALL_SET_ID, REVIEW_ALL_SETS_ID, SMART_RATINGS, normalizeCard, cardId, clamp, shuffle, parseCSV, mapRowsToCards, parseRangeInput, formatReviewDateLabel, formatLongDate, hashStringToUnitInterval, getLocalDayStamp, checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, getPinyinDisplay, createPersistenceAdapter, createAppStore, createButton, clearNode, setBar, updateResult, scheduleStudyAreaFocus, smart, state } = runtime;
-  const createSmartSessionSeed = proxy("createSmartSessionSeed");
-  const createEmptyRound = proxy("createEmptyRound");
+  const { MODES, ALL_SET_ID, cardId, shuffle, parseRangeInput, createPersistenceAdapter, createAppStore, state } = runtime;
   const getElements = proxy("getElements");
   const getDb = proxy("getDb");
   const persist = proxy("persist");
   const getUi = proxy("getUi");
   const getAuthStatus = proxy("getAuthStatus");
-  const setAuthMessage = proxy("setAuthMessage");
   const updateStorageModeBadge = proxy("updateStorageModeBadge");
-  const syncStoreToAuthScope = proxy("syncStoreToAuthScope");
   const refreshRemoteState = proxy("refreshRemoteState");
   const renderAuthPanel = proxy("renderAuthPanel");
-  const ensureCurrentPageAllowed = proxy("ensureCurrentPageAllowed");
   const setPage = proxy("setPage");
   const renderPageShell = proxy("renderPageShell");
-  const getAuthCredentials = proxy("getAuthCredentials");
   const handleAuthSignUp = proxy("handleAuthSignUp");
   const handleAuthSignIn = proxy("handleAuthSignIn");
   const handleAuthSignOut = proxy("handleAuthSignOut");
@@ -32,114 +26,47 @@
   const resetRoundState = proxy("resetRoundState");
   const markManageListDirty = proxy("markManageListDirty");
   const getActiveSet = proxy("getActiveSet");
-  const getNamedSets = proxy("getNamedSets");
   const getSetupDeckById = proxy("getSetupDeckById");
   const getSetupDeckCards = proxy("getSetupDeckCards");
   const getSelectedSetupDeckId = proxy("getSelectedSetupDeckId");
-  const getReviewScopeId = proxy("getReviewScopeId");
-  const getReviewScopeSets = proxy("getReviewScopeSets");
-  const getPrimaryReviewSet = proxy("getPrimaryReviewSet");
-  const getReviewScopeName = proxy("getReviewScopeName");
-  const getCardsForSet = proxy("getCardsForSet");
-  const getScopedCards = proxy("getScopedCards");
-  const getReviewScopedCards = proxy("getReviewScopedCards");
-  const getScopedCardMap = proxy("getScopedCardMap");
-  const getAllCardMap = proxy("getAllCardMap");
-  const getPracticeScopedIdsForSet = proxy("getPracticeScopedIdsForSet");
-  const getPracticeScopedCardsForSet = proxy("getPracticeScopedCardsForSet");
-  const getReviewPracticeIds = proxy("getReviewPracticeIds");
-  const getModeCards = proxy("getModeCards");
   const getModeIds = proxy("getModeIds");
   const getAllowedQuizTypes = proxy("getAllowedQuizTypes");
   const getQuizType = proxy("getQuizType");
   const isSmartPracticeActive = proxy("isSmartPracticeActive");
-  const getSmartBucketForSet = proxy("getSmartBucketForSet");
-  const getSmartBucketForActiveSet = proxy("getSmartBucketForActiveSet");
-  const getSmartQueueKey = proxy("getSmartQueueKey");
   const clearSmartSessionDeferrals = proxy("clearSmartSessionDeferrals");
-  const deferSmartCardToSessionTail = proxy("deferSmartCardToSessionTail");
-  const decorateSmartItems = proxy("decorateSmartItems");
-  const sortSmartReviewItems = proxy("sortSmartReviewItems");
-  const getSmartDueItems = proxy("getSmartDueItems");
-  const getSmartNewItems = proxy("getSmartNewItems");
-  const getSmartDueQueue = proxy("getSmartDueQueue");
-  const getSmartNewQueue = proxy("getSmartNewQueue");
   const getSmartItems = proxy("getSmartItems");
-  const getSmartQueue = proxy("getSmartQueue");
-  const getSmartScheduleForSet = proxy("getSmartScheduleForSet");
-  const mergeScheduleSummaries = proxy("mergeScheduleSummaries");
   const getReviewScheduleSummary = proxy("getReviewScheduleSummary");
-  const getAllSetsScheduleByDay = proxy("getAllSetsScheduleByDay");
-  const getSmartStatsForSet = proxy("getSmartStatsForSet");
-  const getReviewSmartStats = proxy("getReviewSmartStats");
-  const buildOrderedIds = proxy("buildOrderedIds");
   const ensureOrder = proxy("ensureOrder");
   const getOrderedIds = proxy("getOrderedIds");
-  const getOrderedCards = proxy("getOrderedCards");
   const getCurrentIndex = proxy("getCurrentIndex");
   const getSmartCurrentItem = proxy("getSmartCurrentItem");
-  const getSmartCurrentCard = proxy("getSmartCurrentCard");
   const getCurrentCard = proxy("getCurrentCard");
-  const markSeenById = proxy("markSeenById");
-  const recordQuizResult = proxy("recordQuizResult");
-  const recordCardAppearanceById = proxy("recordCardAppearanceById");
-  const prepareRoundAppearance = proxy("prepareRoundAppearance");
-  const finalizeRoundAppearance = proxy("finalizeRoundAppearance");
-  const getTouchedIds = proxy("getTouchedIds");
-  const getSeenCount = proxy("getSeenCount");
-  const getModeTotals = proxy("getModeTotals");
-  const getModeTouchedAcrossTypes = proxy("getModeTouchedAcrossTypes");
-  const getPracticeCardStats = proxy("getPracticeCardStats");
-  const getPracticeCardSummaryText = proxy("getPracticeCardSummaryText");
   const updateModeButtons = proxy("updateModeButtons");
   const renderStats = proxy("renderStats");
-  const getEditModeIds = proxy("getEditModeIds");
   const renderSelectionSummary = proxy("renderSelectionSummary");
   const renderOrderStatus = proxy("renderOrderStatus");
   const renderSetupPanel = proxy("renderSetupPanel");
-  const getFilteredManageCards = proxy("getFilteredManageCards");
-  const renderManageList = proxy("renderManageList");
   const renderManageListIfNeeded = proxy("renderManageListIfNeeded");
-  const renderBuiltInDeckVisibilityPanel = proxy("renderBuiltInDeckVisibilityPanel");
-  const renderScheduleRows = proxy("renderScheduleRows");
   const renderReviewScopePanel = proxy("renderReviewScopePanel");
-  const appendScheduleChips = proxy("appendScheduleChips");
-  const makeSetScheduleRow = proxy("makeSetScheduleRow");
   const renderSetPanel = proxy("renderSetPanel");
-  const renderCurrentCardStats = proxy("renderCurrentCardStats");
   const clearCard = proxy("clearCard");
-  const setPositionLabel = proxy("setPositionLabel");
-  const setSmartPositionLabel = proxy("setSmartPositionLabel");
-  const buildTranslationOptionsForCard = proxy("buildTranslationOptionsForCard");
-  const updateTranslationSelectionUI = proxy("updateTranslationSelectionUI");
   const selectTranslationOption = proxy("selectTranslationOption");
   const moveTranslationSelection = proxy("moveTranslationSelection");
   const answerTranslation = proxy("answerTranslation");
-  const retryPinyinWithoutPenalty = proxy("retryPinyinWithoutPenalty");
   const acceptPendingPinyinWrong = proxy("acceptPendingPinyinWrong");
-  const submitPinyinAnswer = proxy("submitPinyinAnswer");
-  const retrySmartPinyinWithoutPenalty = proxy("retrySmartPinyinWithoutPenalty");
   const acceptPendingSmartPinyinWrong = proxy("acceptPendingSmartPinyinWrong");
-  const submitSmartPinyinAnswer = proxy("submitSmartPinyinAnswer");
   const setSmartRating = proxy("setSmartRating");
-  const updateSmartRatingUI = proxy("updateSmartRatingUI");
   const moveSmartRatingSelection = proxy("moveSmartRatingSelection");
   const acceptSmartFsrsFeedback = proxy("acceptSmartFsrsFeedback");
   const answerSmartTranslation = proxy("answerSmartTranslation");
-  const moveInOrderedMode = proxy("moveInOrderedMode");
   const nextCard = proxy("nextCard");
-  const prevCard = proxy("prevCard");
   const startSmartForSet = proxy("startSmartForSet");
   const startDueReviewCards = proxy("startDueReviewCards");
   const startNewCardIntroduction = proxy("startNewCardIntroduction");
-  const startNextNewSmartCard = proxy("startNextNewSmartCard");
-  const nextSmartCard = proxy("nextSmartCard");
   const renderLearn = proxy("renderLearn");
-  const renderTranslationButtons = proxy("renderTranslationButtons");
   const renderTranslationQuiz = proxy("renderTranslationQuiz");
   const renderPinyinQuiz = proxy("renderPinyinQuiz");
   const introduceCurrentSmartCard = proxy("introduceCurrentSmartCard");
-  const renderSmartIntroduction = proxy("renderSmartIntroduction");
   const renderSmartPractice = proxy("renderSmartPractice");
   const showSmartSentenceAnswer = proxy("showSmartSentenceAnswer");
   const renderSmartBlocked = proxy("renderSmartBlocked");
@@ -364,7 +291,7 @@
     return getDb().vocab.filter((card) => ranges.has(card.index));
   }
 
-  async function handleSetRangeAction(action) {
+  async function handleSetRangeAction() {
     state.elements.statusText.textContent = "Custom user sets are disabled. Use Card setup visibility instead.";
   }
 
@@ -406,8 +333,8 @@
   }
 
   async function handleSetupDeckVisibilityChange() {
-    // Kept as a no-op for compatibility with older markup. v46 uses per-card
-    // Learn/Practice flags in the manage list instead of deck-level visibility.
+    // Kept as a no-op for compatibility with older markup. Current setup uses
+    // per-card Learn/Practice flags instead of deck-level visibility.
   }
 
   function handleManageListChange(event) {

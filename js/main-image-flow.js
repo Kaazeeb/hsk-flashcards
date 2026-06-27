@@ -7,20 +7,7 @@
 (function (ns) {
   const runtime = ns.mainRuntime = ns.mainRuntime || {};
   const {
-    IMAGE_ALL_DECK_ID,
-    IMAGE_SMART_SPACING_FACTOR,
-    IMAGE_SMART_RATING_LABELS,
-    SMART_RATINGS,
-    state,
-    smart,
-    createButton,
-    clearNode,
-    updateResult,
-    scheduleStudyAreaFocus,
-    formatReviewDateLabel,
-    hashStringToUnitInterval,
-    getLocalDayStamp,
-    shuffle
+    IMAGE_ALL_DECK_ID, IMAGE_SMART_SPACING_FACTOR, SMART_RATINGS, state, smart, createButton, clearNode, updateResult, scheduleStudyAreaFocus, hashStringToUnitInterval, shuffle
   } = runtime;
 
   function getDb() { return runtime.getDb(); }

@@ -90,7 +90,7 @@
     };
   }
 
-  function createSmartEntry(now = new Date()) {
+  function createSmartEntry() {
     return {
       shown: 0,
       correct: 0,
