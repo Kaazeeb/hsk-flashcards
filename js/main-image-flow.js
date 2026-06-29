@@ -231,7 +231,7 @@
     }
   }
 
-  function clearImageCard(title = "No image cards configured yet", detail = "Add image files under images/flashcards/ and records in js/image-cards-data.js.") {
+  function clearImageCard(title = "No image cards configured yet", detail = "Add image files under images/flashcards/ and records in js/data/flashcards/image-cards-data.js.") {
     if (state.elements.imagePrompt) state.elements.imagePrompt.textContent = title;
     if (state.elements.imageFrame) state.elements.imageFrame.classList.add("empty-image-frame");
     if (state.elements.imageCardImg) {

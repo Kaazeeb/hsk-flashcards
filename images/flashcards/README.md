@@ -1,6 +1,6 @@
 # Image flashcards assets
 
-Place small image assets here for the Image cards page. The current catalog is defined in `js/image-cards-data.js`; each entry should reference `imagePath` relative to this folder.
+Place small image assets here for the Image cards page. The current catalog is defined in `js/data/flashcards/image-cards-data.js`; each entry should reference `imagePath` relative to this folder.
 
 Recommended:
 
