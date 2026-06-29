@@ -1,0 +1,6 @@
+# Python dependencies for repository utility scripts and container PDF tooling.
+# Existing flashcard analysis scripts use the Python standard library only.
+# These PDF packages are installed so container tasks can read, inspect, and write PDFs.
+pypdf>=6.14.2
+pdfplumber>=0.11.7
+reportlab>=4.4.2
