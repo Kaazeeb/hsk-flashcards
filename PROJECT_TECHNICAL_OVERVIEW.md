@@ -30,11 +30,11 @@ Main entry path:
 
 Data/catalog modules:
 
-- `js/data/hsk1-data-part-1.js` through `js/data/hsk1-data-part-5.js`: built-in HSK vocabulary chunks.
-- `js/sentence-cards-data-part-1.js` through `js/sentence-cards-data-part-5.js`: built-in sentence cards.
-- `js/hanzi-cards-data-part-1.js` through `js/hanzi-cards-data-part-3.js`: hardcoded hanzi metadata used to generate pinyin and stroke-sequence study cards.
-- `js/measure-word-cards-data-part-1.js` through `js/measure-word-cards-data-part-3.js`: hardcoded measure-word study-card metadata.
-- `js/image-cards-data.js`: image-card catalog scaffold. It is currently empty, so the app loads zero image cards until entries/assets are added.
+- `js/data/flashcards/hsk1-data-part-1.js` through `js/data/flashcards/hsk1-data-part-5.js`: built-in HSK vocabulary chunks.
+- `js/data/flashcards/sentence-cards-data-part-1.js` through `js/data/flashcards/sentence-cards-data-part-5.js`: built-in sentence cards.
+- `js/data/flashcards/hanzi-cards-data-part-1.js` through `js/data/flashcards/hanzi-cards-data-part-3.js`: hardcoded hanzi metadata used to generate pinyin and stroke-sequence study cards.
+- `js/data/flashcards/measure-word-cards-data-part-1.js` through `js/data/flashcards/measure-word-cards-data-part-3.js`: hardcoded measure-word study-card metadata.
+- `js/data/flashcards/image-cards-data.js`: image-card catalog scaffold. It is currently empty, so the app loads zero image cards until entries/assets are added.
 
 Core modules:
 
