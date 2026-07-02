@@ -1,0 +1,28 @@
+{
+  "existingPatchedCards": 600,
+  "seedCardsAdded": 379,
+  "denseCoverageCardsAdded": 583,
+  "totalSentenceCards": 1562,
+  "sentenceDataParts": 7,
+  "coverageMethod": "longest-match segmentation plus component-surface count for 们、子、室、园、员",
+  "sameLevelCoverage": {
+    "1": {
+      "vocabularyCards": 300,
+      "minSameLevelCoverageCount": 3,
+      "averageSameLevelCoverageCount": 7.31,
+      "belowThree": 0
+    },
+    "2": {
+      "vocabularyCards": 200,
+      "minSameLevelCoverageCount": 3,
+      "averageSameLevelCoverageCount": 4.15,
+      "belowThree": 0
+    },
+    "3": {
+      "vocabularyCards": 500,
+      "minSameLevelCoverageCount": 3,
+      "averageSameLevelCoverageCount": 3.99,
+      "belowThree": 0
+    }
+  }
+}

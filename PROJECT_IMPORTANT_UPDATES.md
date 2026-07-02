@@ -2,6 +2,17 @@
 
 This document replaces the previous collection of granular project-review and patch notes. It keeps only changes that affect current architecture, data compatibility, deployment, or future maintenance.
 
+## 2.2.0 sentence-card coverage update
+
+- Updated `VERSION.txt` to `2.2.0` by advancing only the middle version number from the prior `2.1.0` sentence-card update line.
+- Rebuilt the sentence expansion without artificial quoted-vocabulary fallback frames such as `请写“X”。`, `请读这个词：“X”。`, or `请复习这个词：“X”。`.
+- Reduced the expanded sentence set to 1,562 sentence cards, split across `sentence-cards-data-part-1.js` through `sentence-cards-data-part-7.js`.
+- Updated `index.html` to load the seven sentence-card parts.
+- Recomputed sentence `vocabTags` from Chinese text using longest-match vocabulary segmentation plus natural component/suffix surface coverage for `们`, `子`, `室`, `园`, and `员`.
+- Added `scripts/augment_sentence_flashcards.py` so the sentence-card expansion can be regenerated idempotently.
+- Updated `scripts/analyze_flashcards.py` so the audit reports same-level coverage, including the component/surface metric used for suffix and compound-component entries.
+- Added current coverage reports under `tests/reports/`. Every vocabulary card in 1–1000 now has at least 3 same-level sentence appearances under the updated coverage metric.
+
 ## 2.0.0 cleanup
 
 - Removed obsolete review/patch documents and replaced them with this high-signal update log plus the current technical overview.
@@ -23,12 +34,12 @@ This document replaces the previous collection of granular project-review and pa
 - Smart review uses FSRS ratings. Vocabulary uses the guided hanzi/pinyin/translation flow; sentence/study decks use flip-and-rate; image cards are scaffolded separately.
 - App/business data intentionally has no offline replay queue. Failed remote writes are logged and dropped after the in-memory diff baseline advances.
 
-## Content baseline after cleanup
+## Content baseline after 2.2.0
 
 - Vocabulary: 1,000 built-in cards.
-- Sentence cards: 600 total, split evenly across HSK 1, HSK 2, and HSK 3.
+- Sentence cards: 1,562 total across HSK 1, HSK 2, and HSK 3 sentence decks.
 - Generated study cards: 1,578 total.
-- Sentence/study total: 2,178 cards.
+- Sentence/study total: 3,047 cards.
 - Image-card catalog: 0 active cards until entries/assets are added.
 
 ## Supabase baseline after cleanup

@@ -5,96 +5,84 @@
 | Field | Value |
 | --- | --- |
 | Document | Sentence flashcards audit |
-| Current revision | 2026-06-29 |
+| Current revision | 2026-07-01 |
 | Revision author | OpenAI GPT-5.5 coding agent |
 | Data location | `js/data/flashcards/` |
-| Analysis command | `python3 scripts/analyze_flashcards.py --report all --low-frequency-threshold 1 --format json` |
+| Analysis command | `python3 scripts/analyze_flashcards.py --report sentence-frequency --low-frequency-threshold 2 --format json` |
 | Vocabulary level convention | Cards 1–300 = HSK 1; cards 301–500 = HSK 2; cards 501–1000 = HSK 3 |
 
-## Revision History
+## Revision history
 
 | Date | Revision | Summary |
 | --- | --- | --- |
 | 2026-06-29 | Initial audit | Added inventory, sentence coverage/frequency findings, inferred HSK-level coverage, quality risks, and recommended improvements after consolidating flashcard data files. |
 | 2026-06-29 | Frequency audit revision | Added longest-match vocabulary segmentation so sentence coverage is cross-checked against actual Chinese sentence text instead of relying only on `vocabTags`. |
+| 2026-07-01 | Sentence coverage update | Rebuilt the sentence expansion without quoted-vocabulary fallback frames, reduced the generated sentence count, and raised every vocabulary item in cards 1–1000 to at least 3 same-level sentence appearances under the updated coverage metric. |
 
 ## Scope
 
-This audit covers the built-in vocabulary and sentence flashcards loaded from `js/data/flashcards/` after consolidating all JavaScript flashcard data files into that directory.
+This audit covers the built-in vocabulary and sentence flashcards loaded from `js/data/flashcards/`.
 
 Vocabulary cards do not store an explicit `level` field, so this report uses the project ordering convention supplied for the audit: vocabulary cards 1–300 are inferred as HSK 1, cards 301–500 are inferred as HSK 2, and cards 501–1000 are inferred as HSK 3.
 
-## Inventory
+## Inventory after update
 
 | Card family | Count | Notes |
 | --- | ---: | --- |
 | Vocabulary | 1,000 | Inferred as 300 HSK 1 cards, 200 HSK 2 cards, and 500 HSK 3 cards by card order. |
-| Sentence cards | 600 | 200 cards each for levels 1, 2, and 3. |
+| Sentence cards | 1,562 | Split into `sentence-cards-data-part-1.js` through `sentence-cards-data-part-7.js`. |
 | Hanzi study cards | 655 | Static hanzi metadata cards. |
 | Measure-word cards | 268 | Static measure-word metadata cards. |
 | Image cards | 0 | Catalog scaffold is empty. |
 
-Sentence-card direction balance is good: 210 Chinese-to-English cards, 210 English-to-Chinese cards, and 180 Chinese Q&A cards. Each sentence level has the same distribution: 70 Chinese-to-English, 70 English-to-Chinese, and 60 Chinese Q&A cards.
+Sentence/study content now totals 3,047 cards: 1,562 sentence cards, 655 hanzi-to-pinyin cards, 655 stroke-sequence cards, and 268 measure-word cards.
 
-## Coverage and Frequency Findings
+## Coverage metric
 
-- All 600 sentence `vocabTags` match a vocabulary-card `hanzi` value. This means the sentence cards do not tag unknown vocabulary.
-- The audit now cross-checks two coverage signals: explicit `vocabTags` and a longest-match vocabulary segmentation pass over each sentence's Chinese text. The segmentation pass builds a dictionary from vocabulary-card `hanzi` values, walks each sentence from left to right, and records the longest vocabulary word found at each character offset.
-- Tag-based vocabulary coverage is incomplete: 288 of 1,000 vocabulary cards have zero tagged sentence cards, and another 178 have only one tagged sentence card.
-- Segmented-text coverage is even weaker: 350 of 1,000 vocabulary cards have zero segmented sentence appearances, and another 194 have only one segmented sentence appearance.
-- Tag-based counts show 534 vocabulary cards in two or more sentence cards and 383 in three or more sentence cards; segmented-text counts show 456 vocabulary cards in two or more sentence cards and 304 in three or more sentence cards.
-- The median tag-based sentence count is 2, while the median segmented sentence count is 1. The difference confirms that tags sometimes overstate actual word-level sentence coverage.
-- Frequency is highly skewed. Common function words and high-utility words appear very often, while many content words have no sentence support.
+The report uses three related signals:
 
-### Inferred level coverage
+1. explicit `vocabTags` stored on each sentence card;
+2. longest-match segmentation over the Chinese sentence text using the 1,000-card vocabulary list;
+3. component-surface coverage for entries that are unnatural or misleading when forced to appear alone: `们`, `子`, `室`, `园`, and `员`.
 
-| Inferred level | Vocabulary cards | Zero tagged | Zero segmented | One segmented | Two or more segmented | Three or more segmented | Avg segmented sentence count |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| HSK 1 | 300 | 39 | 52 | 46 | 202 | 161 | 8.85 |
-| HSK 2 | 200 | 33 | 50 | 41 | 109 | 79 | 2.32 |
-| HSK 3 | 500 | 216 | 248 | 107 | 145 | 64 | 1.22 |
+The third signal is deliberate. These items are best practiced in natural surface forms such as `我们`, `他们`, `桌子`, `孩子`, `教室`, `办公室`, `公园`, `花园`, and `运动员`. The previous fallback approach could force items into frames such as “read/write/review this word: X”; this update removes that pattern and counts these component/suffix entries only when they occur inside natural learner-level words.
 
-Answer to “Are all the flashcards of the level covered?”: no. Using the inferred levels, every sentence-card level has exactly 200 cards, but vocabulary coverage is uneven. HSK 1 has the strongest sentence support, HSK 2 is partially covered, and HSK 3 is under-covered. The segmentation cross-check finds 248 inferred HSK 3 vocabulary cards with no actual word-level sentence appearance, and only 64 of 500 inferred HSK 3 cards appear in at least three segmented sentence cards.
+## Before/after same-level coverage
 
-Examples of zero-segmented inferred HSK 1 vocabulary cards include `白天`, `百`, `不客气`, `大家`, `第`, `儿子`, `非常`, `好听`, `好玩儿`, `饺子`, `零`, and `哪个`.
+The target is at least 3 same-level sentence appearances for every vocabulary card in its own inferred level.
 
-Examples of zero-segmented inferred HSK 2 vocabulary cards include `啊`, `不好意思`, `出去`, `高中`, `个子`, `过年`, `后面`, `花`, `记得`, `开学`, and `里面`.
+| Level | Vocab cards | Original cards below 3 | Original deficit to reach 3 | Updated cards below 3 | Updated minimum | Updated average |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| HSK 1 | 300 | 184 | 415 | 0 | 3 | 7.31 |
+| HSK 2 | 200 | 142 | 304 | 0 | 3 | 4.15 |
+| HSK 3 | 500 | 434 | 1,040 | 0 | 3 | 3.99 |
 
-Examples of zero-segmented inferred HSK 3 vocabulary cards include `爱人`, `安全`, `搬家`, `半天`, `饱`, `报纸`, `比如`, `必须`, `遍`, `变成`, `表演`, and `别的`.
+The current `low_same_level_coverage_frequency_cards` list is empty, meaning no vocabulary card is below the threshold under the updated same-level coverage metric.
 
-## Correctness and Quality Findings
+## Content changes
 
-The sentence set is generally usable and well structured:
+- Patched original sentences that used out-of-level or out-of-vocabulary items such as standalone `没`, `杯`, `瓶`, `张`, `棋`, `度`, `答案`, `矮`, `放`, `先`, and `辆` in levels where those words were not yet available.
+- Recomputed `vocabTags` from the Chinese sentence text plus the explicit component-surface coverage list.
+- Added a natural seed bank and a curated dense coverage bank. Dense cards intentionally combine multiple target words in one sentence where possible, reducing the number of generated cards compared with the first expansion pass.
+- Removed quoted-vocabulary fallback cards and avoided patterns such as `请写“X”。`, `请读这个词：“X”。`, and `请复习这个词：“X”。`.
+- Replaced character-label examples such as “the character 子 is common” with ordinary usage, for example `运动员在公园里跑步很常见。` and `这种事很常见。`.
 
-- Cards have clear `front`, `back`, `chinese`, and `english` fields.
-- Directions are intentionally varied, which supports both recognition and production practice.
-- Q&A cards model positive and negative answers, which is pedagogically useful.
-- Grammar tags cover important beginner and lower-intermediate patterns such as `吗 question`, `把`, `比 comparison`, `得 complement`, `了/没`, `在 + place`, `一边...一边`, and `不但...而且`.
-- The sampled sentences are mostly natural, concise, and suitable for learner flashcards.
+## Remaining review notes
 
-Issues and risks:
+This update is script-validated for coverage, level alignment, unknown Chinese characters, and syntax. It is not a full expert linguistic review of all 1,562 sentences. A future human pass should still review style, translation nuance, and whether a smaller number of especially dense HSK3 cards can preserve the same coverage without making sentences too overloaded.
 
-- Some grammar tags are inaccurate or too broad. For example, `我从小喜欢画。` is tagged with `verb reduplication`, but the sentence does not contain reduplication.
-- Many `vocabTags` include component characters as well as full words, such as tagging both `学生` and `学`, or both `信用卡` and `信`/`用`/`卡`. The segmentation cross-check reduces this overcounting by preferring longer vocabulary words when the sentence text supports them.
-- The current audit checks tagged coverage and static consistency, but it does not perform a complete expert linguistic review of every Chinese sentence and English translation. A human Chinese-language review is still recommended before treating the set as publication-quality.
-- Vocabulary ambiguity is present by design in some cases, but the app/reporting should distinguish homographs and different parts of speech more clearly. Ambiguous entries include `只`, `地`, `得`, `过`, `还`, `长`, `会`, `点`, `站`, `花`, and `过去`.
-- Image cards are referenced by the app, but the image-card catalog is empty.
-
-## Necessary Improvements
-
-1. Persist the inferred level as explicit `level` metadata on vocabulary cards so future reports do not depend on card ordering.
-2. Add sentence cards for zero-segmented vocabulary entries, prioritizing inferred HSK 3 first because it has the largest gap, then the zero-segmented HSK 1/2 high-utility words such as `不客气`, `大家`, `非常`, `哪里`, `呢`, `你好`, `您`, `同学`, and `五`.
-3. Raise the target minimum frequency to at least three segmented sentence appearances per vocabulary entry, with mixed recognition, production, and Q&A contexts. This requires the most work for inferred HSK 3, where only 64 of 500 vocabulary cards currently meet that target by segmented sentence count.
-4. Separate word-level tags from character/component tags, for example with fields such as `vocabTags` and `componentTags`, so coverage reports do not overcount incidental character appearances.
-5. Review grammar tags for each sentence and remove tags that are not actually exemplified by the sentence.
-6. Add stable IDs or sense IDs for ambiguous vocabulary entries so sentence tags can point to the intended meaning and pronunciation.
-7. Run a human linguistic review focused on naturalness, translation fidelity, learner level, and whether each sentence teaches the intended vocabulary item.
-8. Add image-card entries or remove/update image-card placeholder copy if image cards are not planned.
+The main remaining edge cases are homographs and component/suffix vocabulary entries. For normal free words, strict longest-match same-level segmentation reaches the target. For `们`, `子`, `室`, `园`, and `员`, the validated target uses component-surface coverage because natural usage is usually embedded in larger words.
 
 ## Reproduction
 
-Run:
+Regenerate the sentence expansion:
 
 ```bash
-python3 scripts/analyze_flashcards.py --report all --low-frequency-threshold 1 --format json
+python3 scripts/augment_sentence_flashcards.py
+```
+
+Run the coverage audit:
+
+```bash
+python3 scripts/analyze_flashcards.py --report sentence-frequency --low-frequency-threshold 2 --format json > tests/reports/sentence_frequency_report_after.json
 ```
