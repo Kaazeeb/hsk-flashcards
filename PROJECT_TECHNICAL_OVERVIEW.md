@@ -1,6 +1,6 @@
 # HSK Flashcards technical overview
 
-Version: 2.0.0
+Version: 2.2.0
 
 ## Runtime model
 
@@ -22,7 +22,7 @@ Main entry path:
 - `fsrs-lib.js`: browser FSRS scheduler build.
 - `supabase_starter.sql`: current database starter script.
 - `SUPABASE.md`: current Supabase schema and API-call documentation.
-- `VERSION.txt`: release marker; current value is `2.0.0`.
+- `VERSION.txt`: release marker; current value is `2.2.0`.
 - `JS_LINE_COUNTS.txt`: current JavaScript line-count snapshot.
 - `PROJECT_IMPORTANT_UPDATES.md`: consolidated high-signal project updates only.
 
@@ -31,7 +31,7 @@ Main entry path:
 Data/catalog modules:
 
 - `js/data/flashcards/hsk1-data-part-1.js` through `js/data/flashcards/hsk1-data-part-5.js`: built-in HSK vocabulary chunks.
-- `js/data/flashcards/sentence-cards-data-part-1.js` through `js/data/flashcards/sentence-cards-data-part-5.js`: built-in sentence cards.
+- `js/data/flashcards/sentence-cards-data-part-1.js` through `js/data/flashcards/sentence-cards-data-part-7.js`: built-in sentence cards.
 - `js/data/flashcards/hanzi-cards-data-part-1.js` through `js/data/flashcards/hanzi-cards-data-part-3.js`: hardcoded hanzi metadata used to generate pinyin and stroke-sequence study cards.
 - `js/data/flashcards/measure-word-cards-data-part-1.js` through `js/data/flashcards/measure-word-cards-data-part-3.js`: hardcoded measure-word study-card metadata.
 - `js/data/flashcards/image-cards-data.js`: image-card catalog scaffold. It is currently empty, so the app loads zero image cards until entries/assets are added.
@@ -61,16 +61,10 @@ Core modules:
 - Vocabulary is built-in only: 1,000 cards loaded from the split HSK chunks.
 - User-created/imported vocabulary catalogs are disabled. Legacy remote custom-vocabulary data is ignored by the current normalizer.
 - Custom vocabulary sets are disabled. The standard vocabulary scope is `All cards`; per-card Learn/Practice visibility is managed in Setup.
-- Sentence/study content totals 2,178 cards:
-  - 600 sentence cards: 200 each for HSK 1, HSK 2, and HSK 3.
+- Sentence/study content totals 3,047 cards:
+  - 1,562 sentence cards across HSK 1, HSK 2, and HSK 3 sentence decks.
   - 1,578 generated study cards.
-- Sentence/study direction breakdown:
-  - `zh_to_en`: 210
-  - `en_to_zh`: 210
-  - `zh_qa`: 180
-  - `hanzi_to_pinyin`: 655
-  - `measure_word`: 268
-  - `stroke_sequence`: 655
+- Sentence/study direction breakdown is generated from the loaded card data. Sentence cards include Chinese-to-English, English-to-Chinese, and Chinese Q&A directions; generated study cards include `hanzi_to_pinyin`, `measure_word`, and `stroke_sequence`.
 - Image cards are scaffolded but the current catalog has 0 active cards.
 
 ## Main learning flows

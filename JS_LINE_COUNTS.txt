@@ -15,11 +15,13 @@
     81 ./js/data/flashcards/measure-word-cards-data-part-1.js
     50 ./js/data/flashcards/measure-word-cards-data-part-2.js
    152 ./js/data/flashcards/measure-word-cards-data-part-3.js
-   138 ./js/data/flashcards/sentence-cards-data-part-1.js
-   138 ./js/data/flashcards/sentence-cards-data-part-2.js
-   139 ./js/data/flashcards/sentence-cards-data-part-3.js
-   137 ./js/data/flashcards/sentence-cards-data-part-4.js
-    73 ./js/data/flashcards/sentence-cards-data-part-5.js
+   255 ./js/data/flashcards/sentence-cards-data-part-1.js
+   255 ./js/data/flashcards/sentence-cards-data-part-2.js
+   255 ./js/data/flashcards/sentence-cards-data-part-3.js
+   255 ./js/data/flashcards/sentence-cards-data-part-4.js
+   255 ./js/data/flashcards/sentence-cards-data-part-5.js
+   255 ./js/data/flashcards/sentence-cards-data-part-6.js
+    67 ./js/data/flashcards/sentence-cards-data-part-7.js
    592 ./js/main-actions.js
    486 ./js/main-context.js
    566 ./js/main-image-flow.js
