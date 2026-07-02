@@ -207,19 +207,47 @@ def segment_chinese_with_vocab(text: str, vocab_words: set[str], max_word_length
     return tokens
 
 
+
+
+BOUND_SURFACE_WORDS = {"们", "子", "室", "园", "员"}
+
+
+def coverage_tokens_with_bound_morphemes(text: str, vocab_words: set[str], max_word_length: int) -> set[str]:
+    """Return tokens used for sentence-coverage checks.
+
+    Normal lexical items are counted with longest-match segmentation. A very
+    small set of bound morphemes is counted by surface occurrence because using
+    them as standalone words would create artificial sentences. For example,
+    们 is correctly used inside 我们/你们/他们, 子 inside nouns such as 桌子,
+    and 室 inside words such as 教室/办公室.
+    """
+    tokens = set(segment_chinese_with_vocab(text, vocab_words, max_word_length))
+    for word in BOUND_SURFACE_WORDS:
+        if word in text:
+            tokens.add(word)
+    return tokens
+
 def report_sentence_frequency(vocab: list[dict[str, Any]], sentences: list[dict[str, Any]], threshold: int) -> dict[str, Any]:
     tag_counts: Counter[str] = Counter()
     segmented_sentence_counts: Counter[str] = Counter()
     segmented_token_counts: Counter[str] = Counter()
+    coverage_sentence_counts: Counter[str] = Counter()
+    same_level_tag_counts: dict[int, Counter[str]] = {1: Counter(), 2: Counter(), 3: Counter()}
+    same_level_segmented_sentence_counts: dict[int, Counter[str]] = {1: Counter(), 2: Counter(), 3: Counter()}
+    same_level_coverage_sentence_counts: dict[int, Counter[str]] = {1: Counter(), 2: Counter(), 3: Counter()}
     sentence_examples: dict[str, list[str]] = defaultdict(list)
     segmented_sentence_examples: dict[str, list[str]] = defaultdict(list)
+    coverage_sentence_examples: dict[str, list[str]] = defaultdict(list)
     vocab_words, max_word_length = build_vocab_index(vocab)
 
     for sentence in sentences:
         sentence_id = str(sentence.get("id", ""))
+        sentence_level = int(sentence.get("level") or 0)
         chinese = str(sentence.get("chinese") or sentence.get("front") or "")
         for tag in set(sentence.get("vocabTags") or []):
             tag_counts[str(tag)] += 1
+            if sentence_level in same_level_tag_counts:
+                same_level_tag_counts[sentence_level][str(tag)] += 1
             if len(sentence_examples[str(tag)]) < 3:
                 sentence_examples[str(tag)].append(sentence_id)
 
@@ -227,8 +255,18 @@ def report_sentence_frequency(vocab: list[dict[str, Any]], sentences: list[dict[
         segmented_token_counts.update(segmented_tokens)
         for token in set(segmented_tokens):
             segmented_sentence_counts[token] += 1
+            if sentence_level in same_level_segmented_sentence_counts:
+                same_level_segmented_sentence_counts[sentence_level][token] += 1
             if len(segmented_sentence_examples[token]) < 3:
                 segmented_sentence_examples[token].append(sentence_id)
+
+        coverage_tokens = coverage_tokens_with_bound_morphemes(chinese, vocab_words, max_word_length)
+        for token in coverage_tokens:
+            coverage_sentence_counts[token] += 1
+            if sentence_level in same_level_coverage_sentence_counts:
+                same_level_coverage_sentence_counts[sentence_level][token] += 1
+            if len(coverage_sentence_examples[token]) < 3:
+                coverage_sentence_examples[token].append(sentence_id)
 
     rows = []
     for index, card in enumerate(vocab):
@@ -247,8 +285,10 @@ def report_sentence_frequency(vocab: list[dict[str, Any]], sentences: list[dict[
             "taggedSentenceCount": tagged,
             "segmentedSentenceCount": segmented_sentences,
             "segmentedTokenOccurrences": segmented_tokens,
+            "coverageSentenceCount": coverage_sentence_counts[hanzi],
             "exampleSentenceIds": sentence_examples.get(hanzi, []),
             "segmentedExampleSentenceIds": segmented_sentence_examples.get(hanzi, []),
+            "coverageExampleSentenceIds": coverage_sentence_examples.get(hanzi, []),
         })
 
     level_summary = {}
@@ -274,7 +314,58 @@ def report_sentence_frequency(vocab: list[dict[str, Any]], sentences: list[dict[
             "averageSegmentedSentenceCount": round(
                 sum(row["segmentedSentenceCount"] for row in level_rows) / len(level_rows), 2
             ) if level_rows else 0,
+            "minCoverageSentenceCount": min((row["coverageSentenceCount"] for row in level_rows), default=0),
+            "averageCoverageSentenceCount": round(
+                sum(row["coverageSentenceCount"] for row in level_rows) / len(level_rows), 2
+            ) if level_rows else 0,
         }
+
+    same_level_summary = {}
+    same_level_low_segmented = []
+    same_level_low_coverage = []
+    for level in (1, 2, 3):
+        level_rows = [row for row in rows if row["inferredLevel"] == level]
+        same_segmented_values = [same_level_segmented_sentence_counts[level][row["hanzi"]] for row in level_rows]
+        same_coverage_values = [same_level_coverage_sentence_counts[level][row["hanzi"]] for row in level_rows]
+        same_tag_values = [same_level_tag_counts[level][row["hanzi"]] for row in level_rows]
+        same_level_summary[str(level)] = {
+            "vocabularyCards": len(level_rows),
+            "zeroSameLevelTaggedCards": sum(value == 0 for value in same_tag_values),
+            "oneSameLevelTaggedCards": sum(value == 1 for value in same_tag_values),
+            "twoOrMoreSameLevelTaggedCards": sum(value >= 2 for value in same_tag_values),
+            "threeOrMoreSameLevelTaggedCards": sum(value >= 3 for value in same_tag_values),
+            "zeroSameLevelSegmentedCards": sum(value == 0 for value in same_segmented_values),
+            "oneSameLevelSegmentedCards": sum(value == 1 for value in same_segmented_values),
+            "twoOrMoreSameLevelSegmentedCards": sum(value >= 2 for value in same_segmented_values),
+            "threeOrMoreSameLevelSegmentedCards": sum(value >= 3 for value in same_segmented_values),
+            "minSameLevelTaggedSentenceCount": min(same_tag_values, default=0),
+            "minSameLevelSegmentedSentenceCount": min(same_segmented_values, default=0),
+            "zeroSameLevelCoverageCards": sum(value == 0 for value in same_coverage_values),
+            "oneSameLevelCoverageCards": sum(value == 1 for value in same_coverage_values),
+            "twoOrMoreSameLevelCoverageCards": sum(value >= 2 for value in same_coverage_values),
+            "threeOrMoreSameLevelCoverageCards": sum(value >= 3 for value in same_coverage_values),
+            "minSameLevelCoverageSentenceCount": min(same_coverage_values, default=0),
+            "averageSameLevelTaggedSentenceCount": round(sum(same_tag_values) / len(same_tag_values), 2) if same_tag_values else 0,
+            "averageSameLevelSegmentedSentenceCount": round(sum(same_segmented_values) / len(same_segmented_values), 2) if same_segmented_values else 0,
+            "averageSameLevelCoverageSentenceCount": round(sum(same_coverage_values) / len(same_coverage_values), 2) if same_coverage_values else 0,
+        }
+        for row in level_rows:
+            same_count = same_level_segmented_sentence_counts[level][row["hanzi"]]
+            if same_count <= threshold:
+                same_level_low_segmented.append({
+                    **row,
+                    "sameLevelSegmentedSentenceCount": same_count,
+                    "sameLevelTaggedSentenceCount": same_level_tag_counts[level][row["hanzi"]],
+                    "sameLevelCoverageSentenceCount": same_level_coverage_sentence_counts[level][row["hanzi"]],
+                })
+            same_coverage_count = same_level_coverage_sentence_counts[level][row["hanzi"]]
+            if same_coverage_count <= threshold:
+                same_level_low_coverage.append({
+                    **row,
+                    "sameLevelSegmentedSentenceCount": same_count,
+                    "sameLevelTaggedSentenceCount": same_level_tag_counts[level][row["hanzi"]],
+                    "sameLevelCoverageSentenceCount": same_coverage_count,
+                })
 
     low = [row for row in rows if row["taggedSentenceCount"] <= threshold]
     low_segmented = [row for row in rows if row["segmentedSentenceCount"] <= threshold]
@@ -293,9 +384,12 @@ def report_sentence_frequency(vocab: list[dict[str, Any]], sentences: list[dict[
             "unmatchedSentenceVocabTags": len(unmatched_tags),
             "segmentationMethod": "longest vocabulary match over sentence Chinese text",
             "inferredLevelSummary": level_summary,
+            "sameLevelInferredSummary": same_level_summary,
         },
         "low_frequency_cards": low,
         "low_segmented_frequency_cards": low_segmented,
+        "low_same_level_segmented_frequency_cards": same_level_low_segmented,
+        "low_same_level_coverage_frequency_cards": same_level_low_coverage,
         "all_cards_by_frequency": rows,
         "unmatched_sentence_vocab_tags": unmatched_tags,
     }
@@ -317,6 +411,8 @@ def print_markdown(results: dict[str, Any]) -> None:
             print(json.dumps(result["low_frequency_cards"], ensure_ascii=False, indent=2))
             print("\n## low_segmented_frequency_cards\n")
             print(json.dumps(result["low_segmented_frequency_cards"], ensure_ascii=False, indent=2))
+            print("\n## low_same_level_segmented_frequency_cards\n")
+            print(json.dumps(result.get("low_same_level_segmented_frequency_cards", []), ensure_ascii=False, indent=2))
             print("\n## unmatched_sentence_vocab_tags\n")
             print(json.dumps(result["unmatched_sentence_vocab_tags"], ensure_ascii=False, indent=2))
         print()
