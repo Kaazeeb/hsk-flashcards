@@ -8,7 +8,7 @@
     if (typeof fn !== "function") throw new Error(`Main runtime function not loaded: ${name}`);
     return fn(...args);
   };
-  const { SMART_RATINGS, cardId, clamp, shuffle, checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, createButton, clearNode, updateResult, scheduleStudyAreaFocus, smart, state } = runtime;
+  const { SMART_RATINGS, cardId, clamp, shuffle, formatReviewDateLabel, checkPinyinAnswer, getReviewPinyinText, shouldAutoFocusPinyinInput, getPinyinInputPlaceholder, createButton, clearNode, updateResult, scheduleStudyAreaFocus, smart, state } = runtime;
   const getDb = proxy("getDb");
   const persist = proxy("persist");
   const getUi = proxy("getUi");
