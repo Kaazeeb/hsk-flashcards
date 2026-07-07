@@ -53,7 +53,9 @@
   const selectTranslationOption = proxy("selectTranslationOption");
   const moveTranslationSelection = proxy("moveTranslationSelection");
   const answerTranslation = proxy("answerTranslation");
+  const retryPinyinWithoutPenalty = proxy("retryPinyinWithoutPenalty");
   const acceptPendingPinyinWrong = proxy("acceptPendingPinyinWrong");
+  const retrySmartPinyinWithoutPenalty = proxy("retrySmartPinyinWithoutPenalty");
   const acceptPendingSmartPinyinWrong = proxy("acceptPendingSmartPinyinWrong");
   const setSmartRating = proxy("setSmartRating");
   const moveSmartRatingSelection = proxy("moveSmartRatingSelection");
@@ -441,6 +443,20 @@
     if (state.currentPage !== "flashcards") return;
     const active = document.activeElement;
     const isTextInput = active && active.tagName === "INPUT" && active.type === "text";
+
+    if (event.key === "Backspace" && state.round.pendingWrong) {
+      if (isSmartPracticeActive() && state.round.smartStage === "pinyin") {
+        event.preventDefault();
+        retrySmartPinyinWithoutPenalty();
+        return;
+      }
+      if (getQuizType() === "pinyin") {
+        event.preventDefault();
+        retryPinyinWithoutPenalty();
+        return;
+      }
+    }
+
     if (event.key !== "Enter") return;
 
     if (isSmartPracticeActive() && state.round.smartForceNew && state.round.smartStage === "intro") {
