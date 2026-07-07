@@ -534,7 +534,7 @@
     if (state.round.pendingWrong) {
       const pendingRow = document.createElement("div");
       pendingRow.className = "answer-pending-row";
-      pendingRow.appendChild(createButton("Retry without error", retryPinyinWithoutPenalty, "secondary"));
+      pendingRow.appendChild(createButton("Retry without error (Backspace)", retryPinyinWithoutPenalty, "secondary"));
       state.elements.answerArea.appendChild(pendingRow);
     }
 
@@ -831,7 +831,7 @@
       if (state.round.pendingWrong) {
         const pendingRow = document.createElement("div");
         pendingRow.className = "answer-pending-row";
-        pendingRow.appendChild(createButton("Retry without error", retrySmartPinyinWithoutPenalty, "secondary"));
+        pendingRow.appendChild(createButton("Retry without error (Backspace)", retrySmartPinyinWithoutPenalty, "secondary"));
         state.elements.answerArea.appendChild(pendingRow);
       }
       if (!state.round.pendingWrong && shouldAutoFocusPinyinInput()) {
