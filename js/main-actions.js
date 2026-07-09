@@ -189,6 +189,10 @@
     render();
   }
 
+  async function handleStartSession() {
+    await refreshRemoteState(true);
+  }
+
   function getSetupDeckCardIdList(deck) {
     const selected = deck || getSetupDeckById(getSelectedSetupDeckId()) || { id: ALL_SET_ID, kind: "vocab" };
     return getSetupDeckCards(selected.id).map((card) => getSetupActionCardId(card, selected)).filter(Boolean);
@@ -519,6 +523,7 @@
     state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
     state.elements.shuffleBtn.addEventListener("click", shuffleCurrentMode);
     state.elements.resetOrderBtn.addEventListener("click", resetCurrentModeOrder);
+    if (state.elements.startSessionBtn) state.elements.startSessionBtn.addEventListener("click", handleStartSession);
     state.elements.setupToggleBtn.addEventListener("click", toggleSetupPanel);
     if (state.elements.setupDeckSelect) state.elements.setupDeckSelect.addEventListener("change", handleSetupDeckSelectChange);
     if (state.elements.setupDeckLearnToggle) state.elements.setupDeckLearnToggle.addEventListener("change", handleSetupDeckVisibilityChange);
@@ -547,10 +552,6 @@
     if (typeof runtime.bindImageEvents === "function") runtime.bindImageEvents();
     window.addEventListener("keydown", handleTranslationKeyboard);
     window.addEventListener("keydown", handlePinyinKeyboard);
-    window.addEventListener("focus", () => { refreshRemoteState(false); });
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible") refreshRemoteState(false);
-    });
   }
 
   // App startup order matters: auth first, then remote-capable store load, then render.
@@ -599,6 +600,7 @@
     handleSetupDeckVisibilityChange,
     handleManageListChange,
     handleRangeButtonClick,
+    handleStartSession,
     handleTranslationKeyboard,
     handlePinyinKeyboard,
     toggleSetupPanel,

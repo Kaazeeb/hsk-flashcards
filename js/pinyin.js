@@ -6,8 +6,8 @@
  * boundaries are ambiguous in strings such as kěnéng.
  *
  * Rules:
- * - comparison is direct;
- * - lowercase only;
+ * - comparison is case-insensitive;
+ * - hardcoded answers remain lowercase;
  * - no spaces;
  * - no tone 5; neutral tone has no number;
  * - ü is represented by v in the hardcoded answer;
@@ -38,19 +38,21 @@
     const raw = String(value || "");
     return {
       raw,
-      canonical: raw
+      canonical: raw.toLowerCase()
     };
   }
 
   function checkPinyinAnswer(input, cardOrAnswer) {
     const guess = String(input || "");
     const expected = getExpectedPinyinNumeric(cardOrAnswer);
+    const normalizedGuess = guess.toLowerCase();
+    const normalizedExpected = expected.toLowerCase();
     const formatValid = !!expected;
     return {
       guess,
       accepted: expected ? [expected] : [],
       formatValid,
-      correct: !!expected && guess === expected
+      correct: !!expected && normalizedGuess === normalizedExpected
     };
   }
 

@@ -92,6 +92,7 @@
   function getElements() {
     return {
       resetProgressBtn: document.getElementById("resetProgressBtn"),
+      startSessionBtn: document.getElementById("startSessionBtn"),
       storageModeBadge: document.getElementById("storageModeBadge"),
       statusText: document.getElementById("statusText"),
       authBadge: document.getElementById("authBadge"),
