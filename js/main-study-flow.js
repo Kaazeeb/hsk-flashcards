@@ -525,6 +525,9 @@
     input.placeholder = getPinyinInputPlaceholder();
     input.value = state.round.answerText;
     input.autocomplete = "off";
+    input.autocapitalize = "none";
+    input.setAttribute("autocapitalize", "none");
+    input.setAttribute("autocorrect", "off");
     input.spellcheck = false;
     input.disabled = state.round.answered || state.round.pendingWrong;
     const submitBtn = createButton(state.round.pendingWrong ? "Pending" : state.round.answered ? "Checked" : "Submit", null, state.round.answered || state.round.pendingWrong ? "secondary" : "", { type: "submit", disabled: state.round.answered || state.round.pendingWrong });
@@ -823,6 +826,9 @@
       input.placeholder = getPinyinInputPlaceholder();
       input.value = state.round.answerText;
       input.autocomplete = "off";
+      input.autocapitalize = "none";
+      input.setAttribute("autocapitalize", "none");
+      input.setAttribute("autocorrect", "off");
       input.spellcheck = false;
       input.disabled = state.round.pendingWrong;
       const submitBtn = createButton(state.round.pendingWrong ? "Pending" : "Submit", null, state.round.pendingWrong ? "secondary" : "", { type: "submit", disabled: state.round.pendingWrong });
