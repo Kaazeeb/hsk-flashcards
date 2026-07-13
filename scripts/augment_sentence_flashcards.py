@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Regenerate the HSK sentence-card expansion.
+"""Legacy direct-runtime sentence generator.
+
+DEPRECATED: the canonical content source is `language/data/catalog/`. New
+curation must use the language pipeline. This script is retained only to
+reproduce the pre-catalog migration and requires an explicit destructive flag.
 
 Design goals:
 - Keep every sentence at or below its card level's cumulative vocabulary
@@ -16,6 +20,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -280,6 +285,12 @@ def write_summary(cards: list[dict[str, Any]], patched_count: int, seed_count: i
 
 
 def main() -> None:
+    if "--legacy-direct-write" not in sys.argv[1:]:
+        raise SystemExit(
+            "This legacy tool writes generated JavaScript directly. Use "
+            "language/scripts/audit_catalog.py and compile_runtime_catalog.py, "
+            "or pass --legacy-direct-write only for an intentional historical rebuild."
+        )
     data = af.load_all()
     vocab = data["vocabulary"]
     rows, min_level, _levels_by_word, _by_word = build_vocab_meta(vocab)

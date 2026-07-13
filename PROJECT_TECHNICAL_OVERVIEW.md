@@ -36,6 +36,17 @@ Data/catalog modules:
 - `js/data/flashcards/measure-word-cards-data-part-1.js` through `js/data/flashcards/measure-word-cards-data-part-3.js`: hardcoded measure-word study-card metadata.
 - `js/data/flashcards/image-cards-data.js`: image-card catalog scaffold. It is currently empty, so the app loads zero image cards until entries/assets are added.
 
+Language source modules:
+
+- `language/data/catalog/`: canonical Chinese linguistic content and normalized relationships.
+- `language/data/product_bindings/`: product-owned card direction, deck, activation, and compatibility order.
+- `language/reference/`: audited Chinese HSK syllabus plus its aligned English reference translation.
+- `language/scripts/audit_catalog.py`: schema, reference, HSK-level, coverage, and compatibility audit.
+- `language/scripts/compile_runtime_catalog.py`: deterministic compiler from CSV sources to the classic JavaScript files above.
+
+Do not edit the generated flashcard JavaScript as the content source. Chinese-language changes start in `language/` and must follow `language/AGENTS.md`.
+The compiler is an offline maintenance tool; generated JavaScript remains committed, so the browser runtime still has no build-step dependency.
+
 Core modules:
 
 - `js/constants.js`: shared constants and built-in catalog normalization/generation.
@@ -61,7 +72,7 @@ Core modules:
 - Vocabulary is built-in only: 1,000 cards loaded from the split HSK chunks.
 - User-created/imported vocabulary catalogs are disabled. Legacy remote custom-vocabulary data is ignored by the current normalizer.
 - Custom vocabulary sets are disabled. The standard vocabulary scope is `All cards`; per-card Learn/Practice visibility is managed in Setup.
-- Sentence/study content totals 3,047 cards:
+- Sentence/study content totals 3,140 cards:
   - 1,562 sentence cards across HSK 1, HSK 2, and HSK 3 sentence decks.
   - 1,578 generated study cards.
 - Sentence/study direction breakdown is generated from the loaded card data. Sentence cards include Chinese-to-English, English-to-Chinese, and Chinese Q&A directions; generated study cards include `hanzi_to_pinyin`, `measure_word`, and `stroke_sequence`.

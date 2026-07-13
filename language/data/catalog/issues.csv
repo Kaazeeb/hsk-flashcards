@@ -1,0 +1,12 @@
+issue_id,severity,entity_type,entity_id,rule_id,status,summary,details,created_at,resolved_at,notes
+lang-0001,high,sentence,hsk2_sent_aug_dense_0083,translation_equivalence,open,Translation introduces sweetness,好喝 means pleasant/good to drink; the English adds the narrower meaning 'sweet'.,2026-07-12,,
+lang-0002,high,sentence,hsk2_sent_aug_dense_0086,translation_equivalence,open,电影 is translated as story,"The Chinese says movie/film, while the English says story.",2026-07-12,,
+lang-0003,medium,sentence,hsk2_sent_aug_dense_0100,naturalness,open,Sentence needs a natural motion construction,学生出房间了 is marked natural but should be reviewed against forms such as 从房间出来 or 离开房间.,2026-07-12,,
+lang-0004,high,sentence,hsk3_sent_aug_dense_0247,semantic_coherence,open,Sentence is semantically contradictory,"Beer is a beverage, and placing it on a plate is an implausible default context.",2026-07-12,,
+lang-0005,medium,sentence,hsk3_sent_aug_dense_0241,naturalness,open,Coverage sentence is awkward,一斤香蕉不少 and its literal English require a more natural context or replacement.,2026-07-12,,
+lang-0006,medium,sentence,hsk3_sent_aug_dense_0295,naturalness,open,起 is incomplete in this context,他从床上起 should be reviewed against the intended 起床/起来 construction.,2026-07-12,,
+lang-0007,medium,sentence,hsk3_sent_aug_dense_0304,translation_equivalence,open,收邮件 gloss is misleading,Please collect the email is not an idiomatic equivalent; intended receive/check/collect meaning is unclear.,2026-07-12,,
+lang-0008,high,hanzi_reading,hanzi_706b-legacy-reading,character_gloss,open,火 inherits a compound gloss,"The character 火 is glossed as train, apparently inherited from 火车.",2026-07-12,,
+lang-0009,high,hanzi_reading,hanzi_679c-legacy-reading,character_gloss,open,果 inherits a compound gloss,"The character 果 is glossed as apple, apparently inherited from 苹果.",2026-07-12,,
+lang-0010,high,hanzi_reading,hanzi_9053-legacy-reading,character_gloss,open,道 inherits an unrelated word gloss,The character 道 is glossed as to know and requires sense-specific review.,2026-07-12,,
+lang-0011,medium,translation_backlog,zh_qa_model_answers,missing_translation,open,Q&A model answers lack utterance translations,All 180 migrated Q&A cards translate the question only; 360 positive/negative model answers need locale-keyed translations.,2026-07-12,,

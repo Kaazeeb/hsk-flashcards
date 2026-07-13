@@ -1,0 +1,6 @@
+exception_id,vocab_id,surface_form,coverage_type,allowed_surface_pattern,reason,review_status
+legacy-bound-4eec,hsk26-v00124,们,bound_surface,.*们.*,Migrated legacy coverage rule; natural use is normally embedded in a larger word.,legacy_unreviewed
+legacy-bound-5458,hsk26-v00956,员,bound_surface,.*员.*,Migrated legacy coverage rule; natural use is normally embedded in a larger word.,legacy_unreviewed
+legacy-bound-56ed,hsk26-v00955,园,bound_surface,.*园.*,Migrated legacy coverage rule; natural use is normally embedded in a larger word.,legacy_unreviewed
+legacy-bound-5b50,hsk26-v00992,子,bound_surface,.*子.*,Migrated legacy coverage rule; natural use is normally embedded in a larger word.,legacy_unreviewed
+legacy-bound-5ba4,hsk26-v00834,室,bound_surface,.*室.*,Migrated legacy coverage rule; natural use is normally embedded in a larger word.,legacy_unreviewed

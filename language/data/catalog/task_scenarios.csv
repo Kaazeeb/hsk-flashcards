@@ -1,0 +1,4 @@
+scenario_id,level_min,level_max,scenario_order,title_zh,title_en,source_id,source_locator_zh,source_locator_en
+hsk26-scenario79-1,7,9,1,生活和社交场景,Life and social scenarios,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1069,reference/HSK_SYLLABUS_EN.md:1071
+hsk26-scenario79-2,7,9,2,工作和职业场景,Work and professional scenarios,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1155,reference/HSK_SYLLABUS_EN.md:1157
+hsk26-scenario79-3,7,9,3,教育和学术场景,Education and academic scenarios,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1204,reference/HSK_SYLLABUS_EN.md:1206

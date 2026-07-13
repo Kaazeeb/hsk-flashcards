@@ -1,0 +1,1060 @@
+{
+  "schema_version": 1,
+  "encoding": "UTF-8",
+  "dialect": {
+    "delimiter": ",",
+    "line_ending": "LF",
+    "quoting": "RFC 4180",
+    "null": ""
+  },
+  "list_separator": "|",
+  "list_fields": [
+    "additional_levels",
+    "candidate_grammar_point_ids",
+    "tags"
+  ],
+  "enums": {
+    "editorial_status": [
+      "approved",
+      "in_review",
+      "legacy_unreviewed",
+      "rejected",
+      "retired",
+      "syllabus_only"
+    ],
+    "sentence_direction": [
+      "en_to_zh",
+      "zh_qa",
+      "zh_to_en"
+    ],
+    "resolution_status": [
+      "ambiguous",
+      "component_only",
+      "exact",
+      "out_of_level",
+      "unmatched"
+    ],
+    "coverage_type": [
+      "bound_surface",
+      "exact"
+    ],
+    "mapping_status": [
+      "auto_candidates",
+      "mapped",
+      "non_grammar_label",
+      "unmapped_legacy"
+    ],
+    "utterance_role": [
+      "negative_answer",
+      "positive_answer",
+      "question",
+      "statement"
+    ],
+    "response_style": [
+      "direction_default",
+      "labeled_ab_lines"
+    ],
+    "reviewer_type": [
+      "agent",
+      "human"
+    ],
+    "issue_severity": [
+      "critical",
+      "high",
+      "medium",
+      "low"
+    ],
+    "issue_status": [
+      "open",
+      "resolved",
+      "wont_fix"
+    ]
+  },
+  "tables": {
+    "sources.csv": {
+      "path": "language/data/catalog/sources.csv",
+      "owner": "language_content",
+      "description": "Provenance and checksums for normative, reference, and legacy inputs.",
+      "primary_key": [
+        "source_id"
+      ],
+      "required": [
+        "source_id",
+        "source_kind",
+        "path",
+        "sha256"
+      ],
+      "fields": [
+        "source_id",
+        "authority",
+        "source_kind",
+        "title",
+        "edition",
+        "published_at",
+        "effective_at",
+        "language",
+        "path",
+        "sha256",
+        "notes"
+      ],
+      "types": {
+        "source_id": "string",
+        "authority": "string",
+        "source_kind": "string",
+        "title": "string",
+        "edition": "string",
+        "published_at": "string",
+        "effective_at": "string",
+        "language": "string",
+        "path": "string",
+        "sha256": "string",
+        "notes": "string"
+      }
+    },
+    "vocabulary.csv": {
+      "path": "language/data/catalog/vocabulary.csv",
+      "owner": "language_content",
+      "description": "One row per official HSK vocabulary sense; active legacy metadata is retained as unreviewed.",
+      "primary_key": [
+        "vocab_id"
+      ],
+      "required": [
+        "vocab_id",
+        "syllabus_order",
+        "level_min",
+        "level_max",
+        "hanzi",
+        "syllabus_form",
+        "syllabus_pinyin",
+        "pinyin",
+        "source_id"
+      ],
+      "fields": [
+        "vocab_id",
+        "syllabus_order",
+        "level_min",
+        "level_max",
+        "level_raw",
+        "additional_levels",
+        "hanzi",
+        "syllabus_form",
+        "sense_number",
+        "syllabus_pinyin",
+        "pinyin",
+        "pinyin_search",
+        "pinyin_numeric",
+        "syllabus_part_of_speech_zh",
+        "part_of_speech_zh",
+        "example_zh",
+        "example_review_status",
+        "curation_status",
+        "source_id",
+        "source_locator",
+        "notes"
+      ],
+      "types": {
+        "vocab_id": "string",
+        "syllabus_order": "integer",
+        "level_min": "integer",
+        "level_max": "integer",
+        "level_raw": "string",
+        "additional_levels": "string",
+        "hanzi": "string",
+        "syllabus_form": "string",
+        "sense_number": "string",
+        "syllabus_pinyin": "string",
+        "pinyin": "string",
+        "pinyin_search": "string",
+        "pinyin_numeric": "string",
+        "syllabus_part_of_speech_zh": "string",
+        "part_of_speech_zh": "string",
+        "example_zh": "string",
+        "example_review_status": "editorial_status",
+        "curation_status": "editorial_status",
+        "source_id": "string",
+        "source_locator": "string",
+        "notes": "string"
+      }
+    },
+    "vocabulary_translations.csv": {
+      "path": "language/data/catalog/vocabulary_translations.csv",
+      "owner": "language_content",
+      "description": "Locale-keyed vocabulary translations.",
+      "primary_key": [
+        "vocab_id",
+        "locale"
+      ],
+      "required": [
+        "vocab_id",
+        "locale",
+        "text",
+        "review_status"
+      ],
+      "fields": [
+        "vocab_id",
+        "locale",
+        "text",
+        "review_status",
+        "source_id",
+        "notes"
+      ],
+      "types": {
+        "vocab_id": "string",
+        "locale": "string",
+        "text": "string",
+        "review_status": "editorial_status",
+        "source_id": "string",
+        "notes": "string"
+      }
+    },
+    "grammar_points.csv": {
+      "path": "language/data/catalog/grammar_points.csv",
+      "owner": "language_content",
+      "description": "Aligned official grammar rows with filled hierarchy.",
+      "primary_key": [
+        "grammar_point_id"
+      ],
+      "required": [
+        "grammar_point_id",
+        "level_min",
+        "row_order",
+        "category_zh",
+        "source_id"
+      ],
+      "fields": [
+        "grammar_point_id",
+        "level_min",
+        "level_max",
+        "row_order",
+        "category_zh",
+        "category_en",
+        "category_name_zh",
+        "category_name_en",
+        "subitem_zh",
+        "subitem_en",
+        "content_zh",
+        "content_en",
+        "review_status",
+        "source_id",
+        "source_locator_zh",
+        "source_locator_en",
+        "notes"
+      ],
+      "types": {
+        "grammar_point_id": "string",
+        "level_min": "integer",
+        "level_max": "integer",
+        "row_order": "integer",
+        "category_zh": "string",
+        "category_en": "string",
+        "category_name_zh": "string",
+        "category_name_en": "string",
+        "subitem_zh": "string",
+        "subitem_en": "string",
+        "content_zh": "string",
+        "content_en": "string",
+        "review_status": "editorial_status",
+        "source_id": "string",
+        "source_locator_zh": "string",
+        "source_locator_en": "string",
+        "notes": "string"
+      }
+    },
+    "tasks.csv": {
+      "path": "language/data/catalog/tasks.csv",
+      "owner": "language_content",
+      "description": "Official communicative tasks.",
+      "primary_key": [
+        "task_id"
+      ],
+      "required": [
+        "task_id",
+        "level_min",
+        "task_number",
+        "title_zh",
+        "title_en"
+      ],
+      "fields": [
+        "task_id",
+        "level_min",
+        "level_max",
+        "scenario_id",
+        "task_number",
+        "title_zh",
+        "title_en",
+        "source_id",
+        "source_locator_zh",
+        "source_locator_en"
+      ],
+      "types": {
+        "task_id": "string",
+        "level_min": "integer",
+        "level_max": "integer",
+        "scenario_id": "string",
+        "task_number": "integer",
+        "title_zh": "string",
+        "title_en": "string",
+        "source_id": "string",
+        "source_locator_zh": "string",
+        "source_locator_en": "string"
+      }
+    },
+    "task_scenarios.csv": {
+      "path": "language/data/catalog/task_scenarios.csv",
+      "owner": "language_content",
+      "description": "Official Level 7-9 life, work, and academic task scenarios.",
+      "primary_key": [
+        "scenario_id"
+      ],
+      "required": [
+        "scenario_id",
+        "level_min",
+        "scenario_order",
+        "title_zh",
+        "title_en"
+      ],
+      "fields": [
+        "scenario_id",
+        "level_min",
+        "level_max",
+        "scenario_order",
+        "title_zh",
+        "title_en",
+        "source_id",
+        "source_locator_zh",
+        "source_locator_en"
+      ],
+      "types": {
+        "scenario_id": "string",
+        "level_min": "integer",
+        "level_max": "integer",
+        "scenario_order": "integer",
+        "title_zh": "string",
+        "title_en": "string",
+        "source_id": "string",
+        "source_locator_zh": "string",
+        "source_locator_en": "string"
+      }
+    },
+    "task_capabilities.csv": {
+      "path": "language/data/catalog/task_capabilities.csv",
+      "owner": "language_content",
+      "description": "Atomic can-do bullets linked to tasks.",
+      "primary_key": [
+        "task_id",
+        "capability_number"
+      ],
+      "required": [
+        "task_id",
+        "capability_number",
+        "statement_zh",
+        "statement_en"
+      ],
+      "fields": [
+        "task_id",
+        "capability_number",
+        "statement_zh",
+        "statement_en",
+        "source_id",
+        "source_locator_zh",
+        "source_locator_en"
+      ],
+      "types": {
+        "task_id": "string",
+        "capability_number": "integer",
+        "statement_zh": "string",
+        "statement_en": "string",
+        "source_id": "string",
+        "source_locator_zh": "string",
+        "source_locator_en": "string"
+      }
+    },
+    "topics.csv": {
+      "path": "language/data/catalog/topics.csv",
+      "owner": "language_content",
+      "description": "Official third-level topics with their filled hierarchy.",
+      "primary_key": [
+        "topic_id"
+      ],
+      "required": [
+        "topic_id",
+        "level_min",
+        "row_order",
+        "topic_l3_zh",
+        "topic_l3_en"
+      ],
+      "fields": [
+        "topic_id",
+        "level_min",
+        "level_max",
+        "row_order",
+        "topic_l1_zh",
+        "topic_l1_en",
+        "topic_l2_zh",
+        "topic_l2_en",
+        "topic_l3_zh",
+        "topic_l3_en",
+        "source_id",
+        "source_locator_zh",
+        "source_locator_en",
+        "notes"
+      ],
+      "types": {
+        "topic_id": "string",
+        "level_min": "integer",
+        "level_max": "integer",
+        "row_order": "integer",
+        "topic_l1_zh": "string",
+        "topic_l1_en": "string",
+        "topic_l2_zh": "string",
+        "topic_l2_en": "string",
+        "topic_l3_zh": "string",
+        "topic_l3_en": "string",
+        "source_id": "string",
+        "source_locator_zh": "string",
+        "source_locator_en": "string",
+        "notes": "string"
+      }
+    },
+    "hanzi.csv": {
+      "path": "language/data/catalog/hanzi.csv",
+      "owner": "language_content",
+      "description": "Official recognition and writing levels for each hanzi.",
+      "primary_key": [
+        "hanzi_id"
+      ],
+      "required": [
+        "hanzi_id",
+        "hanzi",
+        "recognition_level_min",
+        "source_id"
+      ],
+      "fields": [
+        "hanzi_id",
+        "hanzi",
+        "recognition_level_min",
+        "recognition_level_max",
+        "writing_level_min",
+        "writing_level_max",
+        "curation_status",
+        "source_id",
+        "source_locator",
+        "writing_source_locator",
+        "notes"
+      ],
+      "types": {
+        "hanzi_id": "string",
+        "hanzi": "string",
+        "recognition_level_min": "integer",
+        "recognition_level_max": "integer",
+        "writing_level_min": "integer",
+        "writing_level_max": "integer",
+        "curation_status": "editorial_status",
+        "source_id": "string",
+        "source_locator": "string",
+        "writing_source_locator": "string",
+        "notes": "string"
+      }
+    },
+    "hanzi_readings.csv": {
+      "path": "language/data/catalog/hanzi_readings.csv",
+      "owner": "language_content",
+      "description": "Curated or migrated reading, gloss, and stroke-sequence records.",
+      "primary_key": [
+        "reading_id"
+      ],
+      "required": [
+        "reading_id",
+        "hanzi_id",
+        "pinyin",
+        "pinyin_numeric",
+        "meaning_en",
+        "stroke_sequence",
+        "review_status"
+      ],
+      "fields": [
+        "reading_id",
+        "hanzi_id",
+        "pinyin",
+        "pinyin_numeric",
+        "meaning_en",
+        "stroke_sequence",
+        "review_status",
+        "source_id",
+        "notes"
+      ],
+      "types": {
+        "reading_id": "string",
+        "hanzi_id": "string",
+        "pinyin": "string",
+        "pinyin_numeric": "string",
+        "meaning_en": "string",
+        "stroke_sequence": "string",
+        "review_status": "editorial_status",
+        "source_id": "string",
+        "notes": "string"
+      }
+    },
+    "sentences.csv": {
+      "path": "language/data/catalog/sentences.csv",
+      "owner": "language_content",
+      "description": "Direction-neutral sentence/example entities.",
+      "primary_key": [
+        "sentence_id"
+      ],
+      "required": [
+        "sentence_id",
+        "level",
+        "full_zh",
+        "curation_status",
+        "linguistic_review_status"
+      ],
+      "fields": [
+        "sentence_id",
+        "level",
+        "full_zh",
+        "topic_id",
+        "register",
+        "curation_status",
+        "linguistic_review_status",
+        "source_id",
+        "notes"
+      ],
+      "types": {
+        "sentence_id": "string",
+        "level": "integer",
+        "full_zh": "string",
+        "topic_id": "string",
+        "register": "string",
+        "curation_status": "editorial_status",
+        "linguistic_review_status": "editorial_status",
+        "source_id": "string",
+        "notes": "string"
+      }
+    },
+    "sentence_utterances.csv": {
+      "path": "language/data/catalog/sentence_utterances.csv",
+      "owner": "language_content",
+      "description": "Ordered statements, questions, and model answers belonging to a sentence/example.",
+      "primary_key": [
+        "sentence_id",
+        "turn_order"
+      ],
+      "required": [
+        "sentence_id",
+        "turn_order",
+        "role",
+        "zh_text",
+        "review_status"
+      ],
+      "fields": [
+        "sentence_id",
+        "turn_order",
+        "role",
+        "zh_text",
+        "pinyin",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "sentence_id": "string",
+        "turn_order": "integer",
+        "role": "utterance_role",
+        "zh_text": "string",
+        "pinyin": "string",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "sentence_translations.csv": {
+      "path": "language/data/catalog/sentence_translations.csv",
+      "owner": "language_content",
+      "description": "Locale-keyed translations of sentence/example entities.",
+      "primary_key": [
+        "sentence_id",
+        "locale"
+      ],
+      "required": [
+        "sentence_id",
+        "locale",
+        "text",
+        "review_status"
+      ],
+      "fields": [
+        "sentence_id",
+        "locale",
+        "text",
+        "review_status",
+        "source_id",
+        "notes"
+      ],
+      "types": {
+        "sentence_id": "string",
+        "locale": "string",
+        "text": "string",
+        "review_status": "editorial_status",
+        "source_id": "string",
+        "notes": "string"
+      }
+    },
+    "sentence_utterance_translations.csv": {
+      "path": "language/data/catalog/sentence_utterance_translations.csv",
+      "owner": "language_content",
+      "description": "Locale-keyed translations of individual statements, questions, and answers.",
+      "primary_key": [
+        "sentence_id",
+        "turn_order",
+        "locale"
+      ],
+      "required": [
+        "sentence_id",
+        "turn_order",
+        "locale",
+        "text",
+        "review_status"
+      ],
+      "fields": [
+        "sentence_id",
+        "turn_order",
+        "locale",
+        "text",
+        "review_status",
+        "source_id",
+        "notes"
+      ],
+      "types": {
+        "sentence_id": "string",
+        "turn_order": "integer",
+        "locale": "string",
+        "text": "string",
+        "review_status": "editorial_status",
+        "source_id": "string",
+        "notes": "string"
+      }
+    },
+    "sentence_vocabulary.csv": {
+      "path": "language/data/catalog/sentence_vocabulary.csv",
+      "owner": "language_content",
+      "description": "Sense-aware sentence-to-vocabulary relationships.",
+      "primary_key": [
+        "sentence_id",
+        "position"
+      ],
+      "required": [
+        "sentence_id",
+        "position",
+        "surface_form",
+        "resolution_status",
+        "coverage_type",
+        "review_status"
+      ],
+      "fields": [
+        "sentence_id",
+        "position",
+        "surface_form",
+        "vocab_id",
+        "resolution_status",
+        "coverage_type",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "sentence_id": "string",
+        "position": "integer",
+        "surface_form": "string",
+        "vocab_id": "string",
+        "resolution_status": "resolution_status",
+        "coverage_type": "coverage_type",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "sentence_grammar.csv": {
+      "path": "language/data/catalog/sentence_grammar.csv",
+      "owner": "language_content",
+      "description": "Sentence-to-syllabus-grammar relationships and legacy mapping candidates.",
+      "primary_key": [
+        "sentence_id",
+        "position"
+      ],
+      "required": [
+        "sentence_id",
+        "position",
+        "legacy_tag",
+        "mapping_status",
+        "review_status"
+      ],
+      "fields": [
+        "sentence_id",
+        "position",
+        "legacy_tag",
+        "grammar_point_id",
+        "candidate_grammar_point_ids",
+        "mapping_status",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "sentence_id": "string",
+        "position": "integer",
+        "legacy_tag": "string",
+        "grammar_point_id": "string",
+        "candidate_grammar_point_ids": "string",
+        "mapping_status": "mapping_status",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "measure_word_sets.csv": {
+      "path": "language/data/catalog/measure_word_sets.csv",
+      "owner": "language_content",
+      "description": "Headword-level classifier study content.",
+      "primary_key": [
+        "measure_word_id"
+      ],
+      "required": [
+        "measure_word_id",
+        "level",
+        "headword_vocab_id",
+        "headword_hanzi",
+        "pinyin",
+        "meaning_en",
+        "review_status"
+      ],
+      "fields": [
+        "measure_word_id",
+        "level",
+        "headword_vocab_id",
+        "headword_hanzi",
+        "pinyin",
+        "pinyin_numeric",
+        "meaning_en",
+        "review_status",
+        "source_id",
+        "notes"
+      ],
+      "types": {
+        "measure_word_id": "string",
+        "level": "integer",
+        "headword_vocab_id": "string",
+        "headword_hanzi": "string",
+        "pinyin": "string",
+        "pinyin_numeric": "string",
+        "meaning_en": "string",
+        "review_status": "editorial_status",
+        "source_id": "string",
+        "notes": "string"
+      }
+    },
+    "classifier_usages.csv": {
+      "path": "language/data/catalog/classifier_usages.csv",
+      "owner": "language_content",
+      "description": "Normalized classifier choices belonging to a measure-word set.",
+      "primary_key": [
+        "usage_id"
+      ],
+      "required": [
+        "usage_id",
+        "measure_word_id",
+        "usage_order",
+        "classifier_hanzi",
+        "classifier_pinyin_numeric",
+        "review_status"
+      ],
+      "fields": [
+        "usage_id",
+        "measure_word_id",
+        "usage_order",
+        "classifier_hanzi",
+        "classifier_pinyin_numeric",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "usage_id": "string",
+        "measure_word_id": "string",
+        "usage_order": "integer",
+        "classifier_hanzi": "string",
+        "classifier_pinyin_numeric": "string",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "coverage_exceptions.csv": {
+      "path": "language/data/catalog/coverage_exceptions.csv",
+      "owner": "language_content",
+      "description": "Explicit bound-morpheme coverage rules with allowed-context patterns.",
+      "primary_key": [
+        "exception_id"
+      ],
+      "required": [
+        "exception_id",
+        "vocab_id",
+        "surface_form",
+        "coverage_type",
+        "reason",
+        "review_status"
+      ],
+      "fields": [
+        "exception_id",
+        "vocab_id",
+        "surface_form",
+        "coverage_type",
+        "allowed_surface_pattern",
+        "reason",
+        "review_status"
+      ],
+      "types": {
+        "exception_id": "string",
+        "vocab_id": "string",
+        "surface_form": "string",
+        "coverage_type": "coverage_type",
+        "allowed_surface_pattern": "string",
+        "reason": "string",
+        "review_status": "editorial_status"
+      }
+    },
+    "reviews.csv": {
+      "path": "language/data/catalog/reviews.csv",
+      "owner": "language_content",
+      "description": "Append-only editorial review decisions.",
+      "primary_key": [
+        "review_id"
+      ],
+      "required": [
+        "review_id",
+        "entity_type",
+        "entity_id",
+        "content_hash",
+        "to_status",
+        "reviewer",
+        "reviewer_type",
+        "reviewed_at"
+      ],
+      "fields": [
+        "review_id",
+        "entity_type",
+        "entity_id",
+        "content_hash",
+        "from_status",
+        "to_status",
+        "reviewer",
+        "reviewer_type",
+        "reviewed_at",
+        "notes"
+      ],
+      "types": {
+        "review_id": "string",
+        "entity_type": "string",
+        "entity_id": "string",
+        "content_hash": "string",
+        "from_status": "editorial_status",
+        "to_status": "editorial_status",
+        "reviewer": "string",
+        "reviewer_type": "reviewer_type",
+        "reviewed_at": "string",
+        "notes": "string"
+      }
+    },
+    "issues.csv": {
+      "path": "language/data/catalog/issues.csv",
+      "owner": "language_content",
+      "description": "Tracked linguistic or data-quality issues.",
+      "primary_key": [
+        "issue_id"
+      ],
+      "required": [
+        "issue_id",
+        "severity",
+        "entity_type",
+        "entity_id",
+        "rule_id",
+        "status",
+        "summary",
+        "details",
+        "created_at"
+      ],
+      "fields": [
+        "issue_id",
+        "severity",
+        "entity_type",
+        "entity_id",
+        "rule_id",
+        "status",
+        "summary",
+        "details",
+        "created_at",
+        "resolved_at",
+        "notes"
+      ],
+      "types": {
+        "issue_id": "string",
+        "severity": "issue_severity",
+        "entity_type": "string",
+        "entity_id": "string",
+        "rule_id": "string",
+        "status": "issue_status",
+        "summary": "string",
+        "details": "string",
+        "created_at": "string",
+        "resolved_at": "string",
+        "notes": "string"
+      }
+    },
+    "waivers.csv": {
+      "path": "language/data/catalog/waivers.csv",
+      "owner": "language_content",
+      "description": "Explicit, time-bounded exceptions to audit rules.",
+      "primary_key": [
+        "waiver_id"
+      ],
+      "required": [
+        "waiver_id",
+        "rule_id",
+        "entity_type",
+        "entity_id",
+        "rationale",
+        "approved_by",
+        "approved_at",
+        "expires_at"
+      ],
+      "fields": [
+        "waiver_id",
+        "rule_id",
+        "entity_type",
+        "entity_id",
+        "rationale",
+        "approved_by",
+        "approved_at",
+        "expires_at",
+        "notes"
+      ],
+      "types": {
+        "waiver_id": "string",
+        "rule_id": "string",
+        "entity_type": "string",
+        "entity_id": "string",
+        "rationale": "string",
+        "approved_by": "string",
+        "approved_at": "string",
+        "expires_at": "string",
+        "notes": "string"
+      }
+    },
+    "vocabulary_cards.csv": {
+      "path": "language/data/product_bindings/vocabulary_cards.csv",
+      "owner": "product_runtime",
+      "description": "Product-owned active vocabulary order and legacy positional keys.",
+      "primary_key": [
+        "runtime_order"
+      ],
+      "required": [
+        "runtime_order",
+        "vocab_id",
+        "legacy_storage_key"
+      ],
+      "fields": [
+        "runtime_order",
+        "vocab_id",
+        "legacy_storage_key",
+        "learn_default",
+        "practice_default"
+      ],
+      "types": {
+        "runtime_order": "integer",
+        "vocab_id": "string",
+        "legacy_storage_key": "string",
+        "learn_default": "boolean",
+        "practice_default": "boolean"
+      }
+    },
+    "sentence_cards.csv": {
+      "path": "language/data/product_bindings/sentence_cards.csv",
+      "owner": "product_runtime",
+      "description": "Product-owned sentence direction, deck, order, and runtime identity.",
+      "primary_key": [
+        "runtime_order"
+      ],
+      "required": [
+        "runtime_order",
+        "deck_order",
+        "card_id",
+        "sentence_id",
+        "direction",
+        "deck_id",
+        "deck_name"
+      ],
+      "fields": [
+        "runtime_order",
+        "deck_order",
+        "card_id",
+        "sentence_id",
+        "direction",
+        "deck_id",
+        "deck_name",
+        "response_style",
+        "tags"
+      ],
+      "types": {
+        "runtime_order": "integer",
+        "deck_order": "integer",
+        "card_id": "string",
+        "sentence_id": "string",
+        "direction": "sentence_direction",
+        "deck_id": "string",
+        "deck_name": "string",
+        "response_style": "response_style",
+        "tags": "string"
+      }
+    },
+    "hanzi_cards.csv": {
+      "path": "language/data/product_bindings/hanzi_cards.csv",
+      "owner": "product_runtime",
+      "description": "Product-owned active hanzi study bindings.",
+      "primary_key": [
+        "runtime_order"
+      ],
+      "required": [
+        "runtime_order",
+        "card_id",
+        "reading_id",
+        "level"
+      ],
+      "fields": [
+        "runtime_order",
+        "card_id",
+        "reading_id",
+        "level"
+      ],
+      "types": {
+        "runtime_order": "integer",
+        "card_id": "string",
+        "reading_id": "string",
+        "level": "integer"
+      }
+    },
+    "measure_word_cards.csv": {
+      "path": "language/data/product_bindings/measure_word_cards.csv",
+      "owner": "product_runtime",
+      "description": "Product-owned active classifier-card bindings.",
+      "primary_key": [
+        "runtime_order"
+      ],
+      "required": [
+        "runtime_order",
+        "card_id",
+        "measure_word_id"
+      ],
+      "fields": [
+        "runtime_order",
+        "card_id",
+        "measure_word_id"
+      ],
+      "types": {
+        "runtime_order": "integer",
+        "card_id": "string",
+        "measure_word_id": "string"
+      }
+    }
+  }
+}

@@ -35,7 +35,7 @@ Vocabulary cards do not store an explicit `level` field, so this report uses the
 | Measure-word cards | 268 | Static measure-word metadata cards. |
 | Image cards | 0 | Catalog scaffold is empty. |
 
-Sentence/study content now totals 3,047 cards: 1,562 sentence cards, 655 hanzi-to-pinyin cards, 655 stroke-sequence cards, and 268 measure-word cards.
+Sentence/study content now totals 3,140 cards: 1,562 sentence cards, 655 hanzi-to-pinyin cards, 655 stroke-sequence cards, and 268 measure-word cards.
 
 ## Coverage metric
 
@@ -75,10 +75,12 @@ The main remaining edge cases are homographs and component/suffix vocabulary ent
 
 ## Reproduction
 
-Regenerate the sentence expansion:
+The sentence expansion script below is a legacy direct-runtime tool. The canonical language catalog now lives under `language/`; do not use this command for new curation.
 
 ```bash
-python3 scripts/augment_sentence_flashcards.py
+python3 language/scripts/audit_catalog.py --write-reports
+python3 language/scripts/compile_runtime_catalog.py --validate
+python3 language/scripts/compile_runtime_catalog.py --check-runtime
 ```
 
 Run the coverage audit:

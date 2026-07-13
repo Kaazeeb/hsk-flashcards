@@ -2,6 +2,14 @@
 
 This document replaces the previous collection of granular project-review and patch notes. It keeps only changes that affect current architecture, data compatibility, deployment, or future maintenance.
 
+## Canonical language catalog
+
+- Chinese learning content now has a dedicated `language/` workspace and scoped `AGENTS.md`.
+- The complete audited HSK syllabus is normalized into CSV sources for 11,000 vocabulary senses, 3,088 recognition hanzi, 593 grammar rows, 427 topics, 166 tasks, and 678 task capabilities.
+- All current vocabulary, sentence, hanzi, and classifier data has been migrated with `legacy_unreviewed` status and deterministic runtime bindings.
+- Runtime JavaScript remains compatible with the static app but is now generated and checked from the CSV catalog.
+- Product presentation fields are isolated from linguistic content so language curation does not choose card direction, deck behavior, UI, or scheduling.
+
 ## 2.2.0 sentence-card coverage update
 
 - Updated `VERSION.txt` to `2.2.0` by advancing only the middle version number from the prior `2.1.0` sentence-card update line.
@@ -9,7 +17,7 @@ This document replaces the previous collection of granular project-review and pa
 - Reduced the expanded sentence set to 1,562 sentence cards, split across `sentence-cards-data-part-1.js` through `sentence-cards-data-part-7.js`.
 - Updated `index.html` to load the seven sentence-card parts.
 - Recomputed sentence `vocabTags` from Chinese text using longest-match vocabulary segmentation plus natural component/suffix surface coverage for `们`, `子`, `室`, `园`, and `员`.
-- Added `scripts/augment_sentence_flashcards.py` so the sentence-card expansion can be regenerated idempotently.
+- Added `scripts/augment_sentence_flashcards.py` for the historical direct-runtime expansion. It is now guarded by `--legacy-direct-write`; new curation uses the canonical `language/` pipeline.
 - Updated `scripts/analyze_flashcards.py` so the audit reports same-level coverage, including the component/surface metric used for suffix and compound-component entries.
 - Added current coverage reports under `tests/reports/`. Every vocabulary card in 1–1000 now has at least 3 same-level sentence appearances under the updated coverage metric.
 
@@ -39,7 +47,7 @@ This document replaces the previous collection of granular project-review and pa
 - Vocabulary: 1,000 built-in cards.
 - Sentence cards: 1,562 total across HSK 1, HSK 2, and HSK 3 sentence decks.
 - Generated study cards: 1,578 total.
-- Sentence/study total: 3,047 cards.
+- Sentence/study total: 3,140 cards.
 - Image-card catalog: 0 active cards until entries/assets are added.
 
 ## Supabase baseline after cleanup

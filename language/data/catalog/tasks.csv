@@ -1,0 +1,167 @@
+task_id,level_min,level_max,scenario_id,task_number,title_zh,title_en,source_id,source_locator_zh,source_locator_en
+hsk26-task1-01,1,1,,1,问答个人基本信息,Asking and answering basic personal information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:56,reference/HSK_SYLLABUS_EN.md:56
+hsk26-task1-02,1,1,,2,问答事件信息,Asking and answering event information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:63,reference/HSK_SYLLABUS_EN.md:63
+hsk26-task1-03,1,1,,3,问答物品信息,Asking and answering object information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:70,reference/HSK_SYLLABUS_EN.md:70
+hsk26-task1-04,1,1,,4,问答天气,Asking and answering weather information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:77,reference/HSK_SYLLABUS_EN.md:77
+hsk26-task1-05,1,1,,5,问答环境信息,Asking and answering environmental or place information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:84,reference/HSK_SYLLABUS_EN.md:84
+hsk26-task1-06,1,1,,6,日常言语交往,Everyday verbal interaction,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:91,reference/HSK_SYLLABUS_EN.md:91
+hsk26-task1-07,1,1,,7,问答饮食喜好,Asking and answering food and dining preferences,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:98,reference/HSK_SYLLABUS_EN.md:98
+hsk26-task1-08,1,1,,8,问答出行信息,Asking and answering travel information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:105,reference/HSK_SYLLABUS_EN.md:105
+hsk26-task1-09,1,1,,9,问答商品信息,Asking and answering product information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:113,reference/HSK_SYLLABUS_EN.md:113
+hsk26-task1-10,1,1,,10,告知生病、探病,Reporting illness and visiting the sick,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:120,reference/HSK_SYLLABUS_EN.md:120
+hsk26-task1-11,1,1,,11,交流休闲活动,Exchanging information about leisure activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:126,reference/HSK_SYLLABUS_EN.md:126
+hsk26-task1-12,1,1,,12,介绍学习情况,Introducing study situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:133,reference/HSK_SYLLABUS_EN.md:133
+hsk26-task1-13,1,1,,13,交流学校情况、课后活动,Exchanging school information and after-class activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:140,reference/HSK_SYLLABUS_EN.md:140
+hsk26-task1-14,1,1,,14,交流工作信息,Exchanging work information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:147,reference/HSK_SYLLABUS_EN.md:147
+hsk26-task1-15,1,1,,15,问答中国传统饮食,Asking and answering about traditional Chinese food and drink,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:154,reference/HSK_SYLLABUS_EN.md:154
+hsk26-task2-01,2,2,,1,问答个人基本情况,Asking and answering basic personal situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:162,reference/HSK_SYLLABUS_EN.md:162
+hsk26-task2-02,2,2,,2,问答事件情况,Asking and answering event situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:170,reference/HSK_SYLLABUS_EN.md:170
+hsk26-task2-03,2,2,,3,问答物品情况,Asking and answering object situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:178,reference/HSK_SYLLABUS_EN.md:178
+hsk26-task2-04,2,2,,4,介绍天气基本情况,Introducing basic weather situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:186,reference/HSK_SYLLABUS_EN.md:186
+hsk26-task2-05,2,2,,5,介绍某个地方,Introducing a place,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:193,reference/HSK_SYLLABUS_EN.md:193
+hsk26-task2-06,2,2,,6,日常言语交往,Everyday verbal interaction,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:200,reference/HSK_SYLLABUS_EN.md:200
+hsk26-task2-07,2,2,,7,问答日常饮食,Asking and answering about daily food and meals,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:207,reference/HSK_SYLLABUS_EN.md:207
+hsk26-task2-08,2,2,,8,问答出行情况,Asking and answering about travel situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:214,reference/HSK_SYLLABUS_EN.md:214
+hsk26-task2-09,2,2,,9,问答商品情况,Asking and answering about product situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:222,reference/HSK_SYLLABUS_EN.md:222
+hsk26-task2-10,2,2,,10,问答生病、探病,Asking and answering about illness and visiting the sick,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:230,reference/HSK_SYLLABUS_EN.md:230
+hsk26-task2-11,2,2,,11,交流休闲活动,Exchanging information about leisure activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:238,reference/HSK_SYLLABUS_EN.md:238
+hsk26-task2-12,2,2,,12,介绍家庭日常生活,Introducing daily family life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:246,reference/HSK_SYLLABUS_EN.md:246
+hsk26-task2-13,2,2,,13,介绍学习情况、学习经历,Introducing study situations and study experience,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:253,reference/HSK_SYLLABUS_EN.md:253
+hsk26-task2-14,2,2,,14,交流学校情况、课后活动,Exchanging school information and after-class activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:260,reference/HSK_SYLLABUS_EN.md:260
+hsk26-task2-15,2,2,,15,交流工作情况,Exchanging work situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:267,reference/HSK_SYLLABUS_EN.md:267
+hsk26-task2-16,2,2,,16,介绍过年及传统饮食,Introducing 过年 and traditional food,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:275,reference/HSK_SYLLABUS_EN.md:275
+hsk26-task2-17,2,2,,17,使用中文称谓语,Using Chinese forms of address,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:283,reference/HSK_SYLLABUS_EN.md:283
+hsk26-task3-01,3,3,,1,介绍个人情况,Introducing personal situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:291,reference/HSK_SYLLABUS_EN.md:291
+hsk26-task3-02,3,3,,2,交流、处理日常事务,Communicating about and handling daily affairs,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:299,reference/HSK_SYLLABUS_EN.md:299
+hsk26-task3-03,3,3,,3,日常交往,Everyday interaction,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:307,reference/HSK_SYLLABUS_EN.md:307
+hsk26-task3-04,3,3,,4,交流饮食情况,Exchanging food and dining information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:316,reference/HSK_SYLLABUS_EN.md:316
+hsk26-task3-05,3,3,,5,谈论交通出行,Talking about transportation and travel,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:324,reference/HSK_SYLLABUS_EN.md:324
+hsk26-task3-06,3,3,,6,交流购物信息,Exchanging shopping information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:332,reference/HSK_SYLLABUS_EN.md:332
+hsk26-task3-07,3,3,,7,谈论就医探病、健康观念,"Talking about medical visits, visiting the sick, and health ideas",hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:340,reference/HSK_SYLLABUS_EN.md:340
+hsk26-task3-08,3,3,,8,谈论休闲生活,Talking about leisure life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:348,reference/HSK_SYLLABUS_EN.md:348
+hsk26-task3-09,3,3,,9,谈论居住情况,Talking about living situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:356,reference/HSK_SYLLABUS_EN.md:356
+hsk26-task3-10,3,3,,10,谈论生活习惯、家庭关系和家庭事务,"Talking about living habits, family relationships, and family affairs",hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:364,reference/HSK_SYLLABUS_EN.md:364
+hsk26-task3-11,3,3,,11,沟通学习情况,Communicating about study situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:372,reference/HSK_SYLLABUS_EN.md:372
+hsk26-task3-12,3,3,,12,交流校园生活,Exchanging campus-life information,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:380,reference/HSK_SYLLABUS_EN.md:380
+hsk26-task3-13,3,3,,13,谈论家庭教育,Talking about family education,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:388,reference/HSK_SYLLABUS_EN.md:388
+hsk26-task3-14,3,3,,14,交流日常办公情况,Exchanging information about daily office work,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:396,reference/HSK_SYLLABUS_EN.md:396
+hsk26-task3-15,3,3,,15,谈论职业,Talking about occupations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:404,reference/HSK_SYLLABUS_EN.md:404
+hsk26-task3-16,3,3,,16,谈论自然情况,Talking about nature,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:412,reference/HSK_SYLLABUS_EN.md:412
+hsk26-task3-17,3,3,,17,介绍某个地方的环境和环保,Introducing the environment and environmental protection of a place,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:420,reference/HSK_SYLLABUS_EN.md:420
+hsk26-task3-18,3,3,,18,交流社会生活的某个方面,Exchanging information about an aspect of social life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:428,reference/HSK_SYLLABUS_EN.md:428
+hsk26-task3-19,3,3,,19,交流文艺活动信息,Exchanging information about literary and artistic activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:436,reference/HSK_SYLLABUS_EN.md:436
+hsk26-task3-20,3,3,,20,介绍体育项目及比赛,Introducing sports and competitions,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:444,reference/HSK_SYLLABUS_EN.md:444
+hsk26-task3-21,3,3,,21,介绍中国特色饮食及餐具,Introducing Chinese-style foods and tableware,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:452,reference/HSK_SYLLABUS_EN.md:452
+hsk26-task3-22,3,3,,22,介绍中国传统风俗,Introducing traditional Chinese customs,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:459,reference/HSK_SYLLABUS_EN.md:459
+hsk26-task4-01,4,4,,1,谈论某个人物,Talking about a person,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:468,reference/HSK_SYLLABUS_EN.md:470
+hsk26-task4-02,4,4,,2,交流、处理日常事务,Communicating about and handling everyday affairs,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:476,reference/HSK_SYLLABUS_EN.md:478
+hsk26-task4-03,4,4,,3,日常言语交往,Everyday verbal interaction,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:484,reference/HSK_SYLLABUS_EN.md:486
+hsk26-task4-04,4,4,,4,谈论情感话题,Talking about emotional topics,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:491,reference/HSK_SYLLABUS_EN.md:493
+hsk26-task4-05,4,4,,5,介绍饮食情况,Introducing food and dining situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:499,reference/HSK_SYLLABUS_EN.md:501
+hsk26-task4-06,4,4,,6,谈论交通出行,Talking about transportation and travel,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:507,reference/HSK_SYLLABUS_EN.md:509
+hsk26-task4-07,4,4,,7,交流购物体验、商业活动内容,Exchanging information about shopping experiences and business activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:515,reference/HSK_SYLLABUS_EN.md:517
+hsk26-task4-08,4,4,,8,谈论就医情况、健康生活,Talking about medical treatment and healthy living,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:523,reference/HSK_SYLLABUS_EN.md:525
+hsk26-task4-09,4,4,,9,交流业余爱好、休闲度假,"Exchanging information about hobbies, leisure, and vacations",hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:531,reference/HSK_SYLLABUS_EN.md:533
+hsk26-task4-10,4,4,,10,交流居住情况、社区情况,Exchanging information about living and community situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:539,reference/HSK_SYLLABUS_EN.md:541
+hsk26-task4-11,4,4,,11,交流家庭生活情况,Exchanging information about family life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:547,reference/HSK_SYLLABUS_EN.md:549
+hsk26-task4-12,4,4,,12,谈论教学、学习情况,Talking about teaching and study situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:555,reference/HSK_SYLLABUS_EN.md:557
+hsk26-task4-13,4,4,,13,交流校园生活,Exchanging information about campus life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:563,reference/HSK_SYLLABUS_EN.md:565
+hsk26-task4-14,4,4,,14,谈论教育现象、观念,Talking about educational phenomena and ideas,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:571,reference/HSK_SYLLABUS_EN.md:573
+hsk26-task4-15,4,4,,15,谈论工作情况与表现,Talking about work situations and performance,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:579,reference/HSK_SYLLABUS_EN.md:581
+hsk26-task4-16,4,4,,16,介绍职业经历与单位情况,Introducing professional experience and information about a work unit,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:587,reference/HSK_SYLLABUS_EN.md:589
+hsk26-task4-17,4,4,,17,谈论自然情况,Talking about nature,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:595,reference/HSK_SYLLABUS_EN.md:597
+hsk26-task4-18,4,4,,18,谈论生活中的环保情况,Talking about environmental protection in life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:603,reference/HSK_SYLLABUS_EN.md:605
+hsk26-task4-19,4,4,,19,介绍新技术应用及科技成果,Introducing applications of new technology and scientific and technological achievements,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:611,reference/HSK_SYLLABUS_EN.md:613
+hsk26-task4-20,4,4,,20,介绍中国的主要省市、民族,"Introducing China’s main provinces, cities, and ethnic groups",hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:619,reference/HSK_SYLLABUS_EN.md:621
+hsk26-task4-21,4,4,,21,谈论经济现象,Talking about economic phenomena,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:625,reference/HSK_SYLLABUS_EN.md:627
+hsk26-task4-22,4,4,,22,谈论社会现象,Talking about social phenomena,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:633,reference/HSK_SYLLABUS_EN.md:635
+hsk26-task4-23,4,4,,23,介绍文艺形式、活动、作品,"Introducing literary and artistic forms, activities, and works",hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:641,reference/HSK_SYLLABUS_EN.md:643
+hsk26-task4-24,4,4,,24,谈论体育项目及比赛,Talking about sports and competitions,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:649,reference/HSK_SYLLABUS_EN.md:651
+hsk26-task4-25,4,4,,25,讲述中外友好故事,Telling stories of China-foreign friendship,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:657,reference/HSK_SYLLABUS_EN.md:659
+hsk26-task4-26,4,4,,26,介绍常见俗语、名言,Introducing common sayings and famous quotations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:664,reference/HSK_SYLLABUS_EN.md:666
+hsk26-task4-27,4,4,,27,介绍传统饮食文化,Introducing traditional food culture,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:670,reference/HSK_SYLLABUS_EN.md:672
+hsk26-task4-28,4,4,,28,介绍风俗传统,Introducing customs and traditions,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:677,reference/HSK_SYLLABUS_EN.md:679
+hsk26-task4-29,4,4,,29,介绍名胜古迹,Introducing famous scenic and historic sites,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:684,reference/HSK_SYLLABUS_EN.md:686
+hsk26-task4-30,4,4,,30,介绍历史人物、历史事件,Introducing historical figures and historical events,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:691,reference/HSK_SYLLABUS_EN.md:693
+hsk26-task5-01,5,5,,1,交流、处理日常事务,Communicating about and handling everyday affairs,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:699,reference/HSK_SYLLABUS_EN.md:701
+hsk26-task5-02,5,5,,2,谈论餐饮体验,Talking about dining experiences,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:707,reference/HSK_SYLLABUS_EN.md:709
+hsk26-task5-03,5,5,,3,谈论交通出行,Talking about transportation and travel,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:714,reference/HSK_SYLLABUS_EN.md:716
+hsk26-task5-04,5,5,,4,谈论购物体验,Talking about shopping experiences,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:721,reference/HSK_SYLLABUS_EN.md:723
+hsk26-task5-05,5,5,,5,谈论医疗健康,Talking about medical and health matters,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:728,reference/HSK_SYLLABUS_EN.md:730
+hsk26-task5-06,5,5,,6,谈论休闲活动,Talking about leisure activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:735,reference/HSK_SYLLABUS_EN.md:737
+hsk26-task5-07,5,5,,7,沟通、交流社区生活情况,Communicating about community life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:742,reference/HSK_SYLLABUS_EN.md:744
+hsk26-task5-08,5,5,,8,交流家庭生活,Exchanging information about family life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:749,reference/HSK_SYLLABUS_EN.md:751
+hsk26-task5-09,5,5,,9,报告学习情况,Reporting study situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:756,reference/HSK_SYLLABUS_EN.md:758
+hsk26-task5-10,5,5,,10,分享校园生活的经历、经验,Sharing campus-life experiences,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:763,reference/HSK_SYLLABUS_EN.md:765
+hsk26-task5-11,5,5,,11,谈论教育情况和问题,Talking about educational situations and issues,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:770,reference/HSK_SYLLABUS_EN.md:772
+hsk26-task5-12,5,5,,12,交流工作内容和工作经历,Exchanging information about work content and work experience,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:777,reference/HSK_SYLLABUS_EN.md:779
+hsk26-task5-13,5,5,,13,谈论经营与管理情况,Talking about operation and management situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:784,reference/HSK_SYLLABUS_EN.md:786
+hsk26-task5-14,5,5,,14,谈论自然情况,Talking about nature,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:791,reference/HSK_SYLLABUS_EN.md:793
+hsk26-task5-15,5,5,,15,谈论环境问题,Talking about environmental issues,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:798,reference/HSK_SYLLABUS_EN.md:800
+hsk26-task5-16,5,5,,16,介绍科技产品,Introducing technological products,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:805,reference/HSK_SYLLABUS_EN.md:807
+hsk26-task5-17,5,5,,17,介绍科学知识,Introducing scientific knowledge,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:812,reference/HSK_SYLLABUS_EN.md:814
+hsk26-task5-18,5,5,,18,介绍中国概况,Introducing an overview of China,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:819,reference/HSK_SYLLABUS_EN.md:821
+hsk26-task5-19,5,5,,19,谈论经济现象,Talking about economic phenomena,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:826,reference/HSK_SYLLABUS_EN.md:828
+hsk26-task5-20,5,5,,20,谈论社会现象,Talking about social phenomena,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:833,reference/HSK_SYLLABUS_EN.md:835
+hsk26-task5-21,5,5,,21,谈论文艺形式、常识、作品,"Talking about literary and artistic forms, common knowledge, and works",hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:840,reference/HSK_SYLLABUS_EN.md:842
+hsk26-task5-22,5,5,,22,谈论体育项目及赛事,Talking about sports and sports events,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:847,reference/HSK_SYLLABUS_EN.md:849
+hsk26-task5-23,5,5,,23,谈论国际交往事件,Talking about international exchange events,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:854,reference/HSK_SYLLABUS_EN.md:856
+hsk26-task5-24,5,5,,24,介绍中国语言文字,Introducing the Chinese language and writing system,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:861,reference/HSK_SYLLABUS_EN.md:863
+hsk26-task5-25,5,5,,25,介绍中国古代民俗传统、人文景观,Introducing ancient Chinese folk traditions and cultural landscapes,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:868,reference/HSK_SYLLABUS_EN.md:870
+hsk26-task5-26,5,5,,26,介绍中国传统思想与艺术,Introducing Chinese traditional thought and art,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:874,reference/HSK_SYLLABUS_EN.md:876
+hsk26-task5-27,5,5,,27,介绍中国历史,Introducing Chinese history,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:880,reference/HSK_SYLLABUS_EN.md:882
+hsk26-task5-28,5,5,,28,介绍中国古代科技,Introducing ancient Chinese science and technology,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:886,reference/HSK_SYLLABUS_EN.md:888
+hsk26-task6-01,6,6,,1,交流、处理日常事务,Communicating about and handling everyday affairs,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:894,reference/HSK_SYLLABUS_EN.md:896
+hsk26-task6-02,6,6,,2,谈论饮食,Talking about food and dining,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:902,reference/HSK_SYLLABUS_EN.md:904
+hsk26-task6-03,6,6,,3,谈论交通出行,Talking about transportation and travel,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:909,reference/HSK_SYLLABUS_EN.md:911
+hsk26-task6-04,6,6,,4,谈论医疗健康,Talking about medical and health matters,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:916,reference/HSK_SYLLABUS_EN.md:918
+hsk26-task6-05,6,6,,5,沟通、交流社区生活情况,Communicating about community life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:923,reference/HSK_SYLLABUS_EN.md:925
+hsk26-task6-06,6,6,,6,交流学习情况,Exchanging information about study situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:930,reference/HSK_SYLLABUS_EN.md:932
+hsk26-task6-07,6,6,,7,谈论校园生活,Talking about campus life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:937,reference/HSK_SYLLABUS_EN.md:939
+hsk26-task6-08,6,6,,8,谈论教育事件、教育理念,Talking about educational events and educational ideas,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:944,reference/HSK_SYLLABUS_EN.md:946
+hsk26-task6-09,6,6,,9,谈论工作内容和职业定位,Talking about work content and professional positioning,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:951,reference/HSK_SYLLABUS_EN.md:953
+hsk26-task6-10,6,6,,10,谈论经营与管理情况,Talking about operation and management situations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:958,reference/HSK_SYLLABUS_EN.md:960
+hsk26-task6-11,6,6,,11,谈论地理、气候与自然资源,"Talking about geography, climate, and natural resources",hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:965,reference/HSK_SYLLABUS_EN.md:967
+hsk26-task6-12,6,6,,12,谈论环境问题,Talking about environmental issues,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:972,reference/HSK_SYLLABUS_EN.md:974
+hsk26-task6-13,6,6,,13,介绍科技产品,Introducing technological products,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:979,reference/HSK_SYLLABUS_EN.md:981
+hsk26-task6-14,6,6,,14,介绍科学知识,Introducing scientific knowledge,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:986,reference/HSK_SYLLABUS_EN.md:988
+hsk26-task6-15,6,6,,15,谈论经济现象,Talking about economic phenomena,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:993,reference/HSK_SYLLABUS_EN.md:995
+hsk26-task6-16,6,6,,16,谈论社会现象,Talking about social phenomena,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1000,reference/HSK_SYLLABUS_EN.md:1002
+hsk26-task6-17,6,6,,17,谈论文艺形式、活动、作品,"Talking about literary and artistic forms, activities, and works",hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1007,reference/HSK_SYLLABUS_EN.md:1009
+hsk26-task6-18,6,6,,18,谈论体育项目及赛事,Talking about sports and sports events,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1014,reference/HSK_SYLLABUS_EN.md:1016
+hsk26-task6-19,6,6,,19,谈论国际活动、中外友好交流事件,Talking about international activities and China-foreign friendly exchange events,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1021,reference/HSK_SYLLABUS_EN.md:1023
+hsk26-task6-20,6,6,,20,介绍中国语言文字,Introducing the Chinese language and writing system,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1028,reference/HSK_SYLLABUS_EN.md:1030
+hsk26-task6-21,6,6,,21,介绍中国古代民俗传统、人文景观,Introducing ancient Chinese folk traditions and cultural landscapes,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1035,reference/HSK_SYLLABUS_EN.md:1037
+hsk26-task6-22,6,6,,22,介绍中国传统思想与艺术,Introducing Chinese traditional thought and art,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1042,reference/HSK_SYLLABUS_EN.md:1044
+hsk26-task6-23,6,6,,23,介绍中国历史,Introducing Chinese history,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1049,reference/HSK_SYLLABUS_EN.md:1051
+hsk26-task6-24,6,6,,24,介绍中国古代科技,Introducing ancient Chinese science and technology,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1056,reference/HSK_SYLLABUS_EN.md:1058
+hsk26-task79-01,7,9,hsk26-scenario79-1,1,交流和讨论个人信息和生活观念,Exchanging and discussing personal information and views on life,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1071,reference/HSK_SYLLABUS_EN.md:1073
+hsk26-task79-02,7,9,hsk26-scenario79-1,2,交流和讨论家庭情况和家庭观念,Exchanging and discussing family situations and family concepts,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1077,reference/HSK_SYLLABUS_EN.md:1079
+hsk26-task79-03,7,9,hsk26-scenario79-1,3,交流和讨论社区环境和社区文化,Exchanging and discussing community environment and community culture,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1083,reference/HSK_SYLLABUS_EN.md:1085
+hsk26-task79-04,7,9,hsk26-scenario79-1,4,交流和讨论饮食知识和烹饪技艺,Exchanging and discussing food knowledge and cooking skills,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1089,reference/HSK_SYLLABUS_EN.md:1091
+hsk26-task79-05,7,9,hsk26-scenario79-1,5,交流和讨论地理知识和旅游体验,Exchanging and discussing geography knowledge and travel experiences,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1095,reference/HSK_SYLLABUS_EN.md:1097
+hsk26-task79-06,7,9,hsk26-scenario79-1,6,交流和讨论健康和医疗话题,Exchanging and discussing health and medical topics,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1101,reference/HSK_SYLLABUS_EN.md:1103
+hsk26-task79-07,7,9,hsk26-scenario79-1,7,交流和讨论体育运动和体育精神,Exchanging and discussing sports and sportsmanship,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1107,reference/HSK_SYLLABUS_EN.md:1109
+hsk26-task79-08,7,9,hsk26-scenario79-1,8,交流和讨论中国国情与文化,Exchanging and discussing China’s national conditions and culture,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1113,reference/HSK_SYLLABUS_EN.md:1115
+hsk26-task79-09,7,9,hsk26-scenario79-1,9,理解相关法规和维护个人合法权益,Understanding relevant laws and regulations and protecting personal legal rights,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1119,reference/HSK_SYLLABUS_EN.md:1121
+hsk26-task79-10,7,9,hsk26-scenario79-1,10,欣赏和评论文艺作品,Appreciating and commenting on literary and artistic works,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1125,reference/HSK_SYLLABUS_EN.md:1127
+hsk26-task79-11,7,9,hsk26-scenario79-1,11,分析和评论时事新闻和传媒出版问题,Analyzing and commenting on current news and media/publication issues,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1131,reference/HSK_SYLLABUS_EN.md:1133
+hsk26-task79-12,7,9,hsk26-scenario79-1,12,分析和评论经贸问题,Analyzing and commenting on economic and trade issues,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1137,reference/HSK_SYLLABUS_EN.md:1139
+hsk26-task79-13,7,9,hsk26-scenario79-1,13,分析和评论科技问题,Analyzing and commenting on science and technology issues,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1143,reference/HSK_SYLLABUS_EN.md:1145
+hsk26-task79-14,7,9,hsk26-scenario79-1,14,分析和评论人类社会发展中的国际性热点问题,Analyzing and commenting on international hot issues in human social development,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1149,reference/HSK_SYLLABUS_EN.md:1151
+hsk26-task79-15,7,9,hsk26-scenario79-2,15,了解和交流机构和行业发展概况,Understanding and exchanging information about organizations and industry development,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1157,reference/HSK_SYLLABUS_EN.md:1159
+hsk26-task79-16,7,9,hsk26-scenario79-2,16,开展业务合作和业务往来,Carrying out business cooperation and business dealings,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1163,reference/HSK_SYLLABUS_EN.md:1165
+hsk26-task79-17,7,9,hsk26-scenario79-2,17,了解法律法规和处理公共关系,Understanding laws and regulations and handling public relations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1169,reference/HSK_SYLLABUS_EN.md:1171
+hsk26-task79-18,7,9,hsk26-scenario79-2,18,了解人力资源政策和处理人事关系,Understanding human-resources policies and handling personnel relations,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1174,reference/HSK_SYLLABUS_EN.md:1176
+hsk26-task79-19,7,9,hsk26-scenario79-2,19,明确工作计划和任务职责,Clarifying work plans and task responsibilities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1180,reference/HSK_SYLLABUS_EN.md:1182
+hsk26-task79-20,7,9,hsk26-scenario79-2,20,与服务对象进行沟通和交流,Communicating with service recipients,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1186,reference/HSK_SYLLABUS_EN.md:1188
+hsk26-task79-21,7,9,hsk26-scenario79-2,21,开展市场调研和分析,Conducting market research and analysis,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1192,reference/HSK_SYLLABUS_EN.md:1194
+hsk26-task79-22,7,9,hsk26-scenario79-2,22,理解和起草各类文件和文案,Understanding and drafting various documents and copy,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1198,reference/HSK_SYLLABUS_EN.md:1200
+hsk26-task79-23,7,9,hsk26-scenario79-3,23,了解和讨论学校各类制度,Understanding and discussing various school systems,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1206,reference/HSK_SYLLABUS_EN.md:1208
+hsk26-task79-24,7,9,hsk26-scenario79-3,24,开展和完成通识性课程及基础性专业课程学习,Undertaking and completing general-education courses and foundational specialized courses,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1212,reference/HSK_SYLLABUS_EN.md:1214
+hsk26-task79-25,7,9,hsk26-scenario79-3,25,获取和利用学习资源,Obtaining and using learning resources,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1218,reference/HSK_SYLLABUS_EN.md:1220
+hsk26-task79-26,7,9,hsk26-scenario79-3,26,了解实验要求和规定并完成实验报告,Understanding experimental requirements and regulations and completing experiment reports,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1224,reference/HSK_SYLLABUS_EN.md:1226
+hsk26-task79-27,7,9,hsk26-scenario79-3,27,开展学术研究活动,Carrying out academic research activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1230,reference/HSK_SYLLABUS_EN.md:1232
+hsk26-task79-28,7,9,hsk26-scenario79-3,28,参与学术交流和讨论,Participating in academic exchange and discussion,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1236,reference/HSK_SYLLABUS_EN.md:1238
+hsk26-task79-29,7,9,hsk26-scenario79-3,29,了解专业实习要求和规定并完成实习报告,Understanding professional internship requirements and regulations and completing internship reports,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1242,reference/HSK_SYLLABUS_EN.md:1244
+hsk26-task79-30,7,9,hsk26-scenario79-3,30,参与学生社团活动和社会实践活动,Participating in student association activities and social-practice activities,hsk26-zh+hsk26-en,reference/HSK_SYLLABUS_ZH.md:1248,reference/HSK_SYLLABUS_EN.md:1250
