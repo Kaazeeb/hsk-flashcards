@@ -95,6 +95,11 @@
       return;
     }
 
+    if (state.currentPage === "grammar") {
+      if (typeof runtime.renderGrammarPage === "function") runtime.renderGrammarPage();
+      return;
+    }
+
     if (state.currentPage !== "flashcards") return;
 
     updateModeButtons();
@@ -550,6 +555,7 @@
     if (state.elements.startDueReviewBtn) state.elements.startDueReviewBtn.addEventListener("click", startDueReviewCards);
     if (state.elements.startNewCardsBtn) state.elements.startNewCardsBtn.addEventListener("click", startNewCardIntroduction);
     if (typeof runtime.bindImageEvents === "function") runtime.bindImageEvents();
+    if (typeof runtime.bindGrammarEvents === "function") runtime.bindGrammarEvents();
     window.addEventListener("keydown", handleTranslationKeyboard);
     window.addEventListener("keydown", handlePinyinKeyboard);
   }

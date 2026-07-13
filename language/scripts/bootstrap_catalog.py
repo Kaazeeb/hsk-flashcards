@@ -17,6 +17,7 @@ from catalog_io import (
     CATALOG_FIELDS,
     EN_SYLLABUS,
     PRODUCT_FIELDS,
+    POST_MIGRATION_CURATED_TABLES,
     PROJECT_ROOT,
     ZH_SYLLABUS,
     csv_path,
@@ -472,6 +473,8 @@ def generate_tables() -> dict[str, list[dict[str, Any]]]:
         "measure_word_cards.csv": measure_bindings,
         **sentence_tables,
     }
+    for name in POST_MIGRATION_CURATED_TABLES:
+        tables[name] = []
     expected = set(CATALOG_FIELDS) | set(PRODUCT_FIELDS)
     if set(tables) != expected:
         raise AssertionError(f"Generated table set mismatch: missing={expected - set(tables)}, extra={set(tables) - expected}")
@@ -485,6 +488,8 @@ def string_rows(rows: list[dict[str, Any]], fields: list[str]) -> list[dict[str,
 def check_tables(tables: dict[str, list[dict[str, Any]]]) -> list[str]:
     differences = []
     for name, rows in tables.items():
+        if name in POST_MIGRATION_CURATED_TABLES:
+            continue
         path = csv_path(name)
         fields = CATALOG_FIELDS.get(name) or PRODUCT_FIELDS[name]
         if not path.exists():
@@ -554,6 +559,8 @@ def write_tables(tables: dict[str, list[dict[str, Any]]], *, force: bool) -> Non
         preview = ", ".join(path.name for path in existing[:5])
         raise FileExistsError(f"Catalog already exists ({preview}); pass --force to overwrite it")
     for name, rows in tables.items():
+        if name in POST_MIGRATION_CURATED_TABLES and csv_path(name).exists():
+            continue
         fields = CATALOG_FIELDS.get(name) or PRODUCT_FIELDS[name]
         write_csv(csv_path(name), fields, rows)
 

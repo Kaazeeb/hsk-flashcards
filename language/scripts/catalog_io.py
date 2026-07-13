@@ -44,6 +44,49 @@ CATALOG_FIELDS: dict[str, list[str]] = {
         "content_zh", "content_en", "review_status", "source_id", "source_locator_zh",
         "source_locator_en", "notes",
     ],
+    "grammar_point_elements.csv": [
+        "grammar_element_id", "grammar_point_id", "element_order", "element_kind",
+        "target_zh", "learner_gloss_en", "review_status", "basis_source_id",
+        "content_origin", "notes",
+    ],
+    "grammar_lessons.csv": [
+        "grammar_lesson_id", "level_introduced", "lesson_kind", "title_en",
+        "target_form_zh", "summary_en", "watch_out_en", "display_group_en",
+        "display_group_basis", "register", "review_status", "basis_source_id",
+        "content_origin", "notes",
+    ],
+    "grammar_lesson_points.csv": [
+        "grammar_lesson_id", "grammar_point_id", "relation_role", "relation_order",
+        "coverage_note_en", "review_status", "notes",
+    ],
+    "grammar_lesson_elements.csv": [
+        "grammar_lesson_id", "grammar_element_id", "relation_role", "relation_order",
+        "review_status", "notes",
+    ],
+    "grammar_lesson_notes.csv": [
+        "grammar_note_id", "grammar_lesson_id", "grammar_element_id", "note_order",
+        "note_kind", "text_en", "review_status", "notes",
+    ],
+    "grammar_lesson_patterns.csv": [
+        "grammar_pattern_id", "grammar_lesson_id", "grammar_element_id", "pattern_order",
+        "label_en", "pattern", "formation_en", "usage_en", "review_status", "notes",
+    ],
+    "grammar_lesson_examples.csv": [
+        "grammar_example_id", "grammar_lesson_id", "grammar_pattern_id", "sentence_id",
+        "example_order", "context_note_en", "example_kind", "review_status", "notes",
+    ],
+    "grammar_example_points.csv": [
+        "grammar_example_id", "grammar_point_id", "grammar_element_id",
+        "demonstration_order", "analysis_en", "review_status", "notes",
+    ],
+    "grammar_example_targets.csv": [
+        "grammar_target_id", "grammar_example_id", "grammar_element_id", "target_order",
+        "target_role", "target_text_zh", "occurrence_number", "review_status", "notes",
+    ],
+    "grammar_vocabulary_exceptions.csv": [
+        "grammar_vocab_exception_id", "grammar_point_id", "surface_form", "level",
+        "required_target_role", "reason", "authorization", "review_status", "notes",
+    ],
     "tasks.csv": [
         "task_id", "level_min", "level_max", "scenario_id", "task_number", "title_zh",
         "title_en", "source_id", "source_locator_zh", "source_locator_en",
@@ -127,6 +170,9 @@ PRODUCT_FIELDS: dict[str, list[str]] = {
     ],
     "hanzi_cards.csv": ["runtime_order", "card_id", "reading_id", "level"],
     "measure_word_cards.csv": ["runtime_order", "card_id", "measure_word_id"],
+    "grammar_page_lessons.csv": [
+        "grammar_lesson_id", "active", "level_display_order", "notes",
+    ],
 }
 
 ALL_TABLE_FIELDS = {**CATALOG_FIELDS, **PRODUCT_FIELDS}
@@ -134,6 +180,28 @@ ALL_TABLE_FIELDS = {**CATALOG_FIELDS, **PRODUCT_FIELDS}
 VALID_STATUSES = {
     "syllabus_only", "legacy_unreviewed", "in_review", "approved", "rejected", "retired",
 }
+
+GRAMMAR_STUDY_CONTENT_TABLES = (
+    "grammar_point_elements.csv",
+    "grammar_lessons.csv",
+    "grammar_lesson_points.csv",
+    "grammar_lesson_elements.csv",
+    "grammar_lesson_notes.csv",
+    "grammar_lesson_patterns.csv",
+    "grammar_lesson_examples.csv",
+    "grammar_example_points.csv",
+    "grammar_example_targets.csv",
+)
+GRAMMAR_STUDY_POLICY_TABLES = ("grammar_vocabulary_exceptions.csv",)
+GRAMMAR_STUDY_CATALOG_TABLES = (
+    *GRAMMAR_STUDY_CONTENT_TABLES,
+    *GRAMMAR_STUDY_POLICY_TABLES,
+)
+GRAMMAR_STUDY_PRODUCT_TABLE = "grammar_page_lessons.csv"
+POST_MIGRATION_CURATED_TABLES = (
+    *GRAMMAR_STUDY_CATALOG_TABLES,
+    GRAMMAR_STUDY_PRODUCT_TABLE,
+)
 
 LEVEL_BANDS = {
     "一": (1, 1), "二": (2, 2), "三": (3, 3), "四": (4, 4), "五": (5, 5),

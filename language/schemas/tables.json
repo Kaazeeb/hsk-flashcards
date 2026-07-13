@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "encoding": "UTF-8",
   "dialect": {
     "delimiter": ",",
@@ -57,6 +57,38 @@
     "reviewer_type": [
       "agent",
       "human"
+    ],
+    "grammar_content_kind": [
+      "category",
+      "construction",
+      "expression_system",
+      "function",
+      "inventory_member",
+      "morphology"
+    ],
+    "grammar_point_relation_role": [
+      "contrast",
+      "prerequisite",
+      "primary",
+      "supporting"
+    ],
+    "grammar_element_relation_role": [
+      "primary",
+      "supporting"
+    ],
+    "grammar_note_kind": [
+      "constraint",
+      "formation",
+      "pragmatics",
+      "usage"
+    ],
+    "grammar_example_kind": [
+      "contrast",
+      "primary",
+      "variation"
+    ],
+    "content_origin": [
+      "project_authored"
     ],
     "issue_severity": [
       "critical",
@@ -257,6 +289,398 @@
         "source_id": "string",
         "source_locator_zh": "string",
         "source_locator_en": "string",
+        "notes": "string"
+      }
+    },
+    "grammar_point_elements.csv": {
+      "path": "language/data/catalog/grammar_point_elements.csv",
+      "owner": "language_content",
+      "description": "Reviewed pedagogical elements decomposed from official grammar rows.",
+      "primary_key": [
+        "grammar_element_id"
+      ],
+      "required": [
+        "grammar_element_id",
+        "grammar_point_id",
+        "element_order",
+        "element_kind",
+        "learner_gloss_en",
+        "review_status",
+        "basis_source_id",
+        "content_origin"
+      ],
+      "fields": [
+        "grammar_element_id",
+        "grammar_point_id",
+        "element_order",
+        "element_kind",
+        "target_zh",
+        "learner_gloss_en",
+        "review_status",
+        "basis_source_id",
+        "content_origin",
+        "notes"
+      ],
+      "types": {
+        "grammar_element_id": "string",
+        "grammar_point_id": "string",
+        "element_order": "integer",
+        "element_kind": "grammar_content_kind",
+        "target_zh": "string",
+        "learner_gloss_en": "string",
+        "review_status": "editorial_status",
+        "basis_source_id": "string",
+        "content_origin": "content_origin",
+        "notes": "string"
+      }
+    },
+    "grammar_lessons.csv": {
+      "path": "language/data/catalog/grammar_lessons.csv",
+      "owner": "language_content",
+      "description": "Stable learner-facing grammar lesson identities and approved summary copy.",
+      "primary_key": [
+        "grammar_lesson_id"
+      ],
+      "required": [
+        "grammar_lesson_id",
+        "level_introduced",
+        "lesson_kind",
+        "title_en",
+        "summary_en",
+        "display_group_en",
+        "display_group_basis",
+        "register",
+        "review_status",
+        "basis_source_id",
+        "content_origin"
+      ],
+      "fields": [
+        "grammar_lesson_id",
+        "level_introduced",
+        "lesson_kind",
+        "title_en",
+        "target_form_zh",
+        "summary_en",
+        "watch_out_en",
+        "display_group_en",
+        "display_group_basis",
+        "register",
+        "review_status",
+        "basis_source_id",
+        "content_origin",
+        "notes"
+      ],
+      "types": {
+        "grammar_lesson_id": "string",
+        "level_introduced": "integer",
+        "lesson_kind": "grammar_content_kind",
+        "title_en": "string",
+        "target_form_zh": "string",
+        "summary_en": "string",
+        "watch_out_en": "string",
+        "display_group_en": "string",
+        "display_group_basis": "string",
+        "register": "string",
+        "review_status": "editorial_status",
+        "basis_source_id": "string",
+        "content_origin": "content_origin",
+        "notes": "string"
+      }
+    },
+    "grammar_lesson_points.csv": {
+      "path": "language/data/catalog/grammar_lesson_points.csv",
+      "owner": "language_content",
+      "description": "Reviewed lesson-to-official-grammar-point relationships.",
+      "primary_key": [
+        "grammar_lesson_id",
+        "grammar_point_id"
+      ],
+      "required": [
+        "grammar_lesson_id",
+        "grammar_point_id",
+        "relation_role",
+        "relation_order",
+        "review_status"
+      ],
+      "fields": [
+        "grammar_lesson_id",
+        "grammar_point_id",
+        "relation_role",
+        "relation_order",
+        "coverage_note_en",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "grammar_lesson_id": "string",
+        "grammar_point_id": "string",
+        "relation_role": "grammar_point_relation_role",
+        "relation_order": "integer",
+        "coverage_note_en": "string",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "grammar_lesson_elements.csv": {
+      "path": "language/data/catalog/grammar_lesson_elements.csv",
+      "owner": "language_content",
+      "description": "Reviewed lesson-to-normalized-grammar-element relationships.",
+      "primary_key": [
+        "grammar_lesson_id",
+        "grammar_element_id"
+      ],
+      "required": [
+        "grammar_lesson_id",
+        "grammar_element_id",
+        "relation_role",
+        "relation_order",
+        "review_status"
+      ],
+      "fields": [
+        "grammar_lesson_id",
+        "grammar_element_id",
+        "relation_role",
+        "relation_order",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "grammar_lesson_id": "string",
+        "grammar_element_id": "string",
+        "relation_role": "grammar_element_relation_role",
+        "relation_order": "integer",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "grammar_lesson_notes.csv": {
+      "path": "language/data/catalog/grammar_lesson_notes.csv",
+      "owner": "language_content",
+      "description": "Ordered learner-facing How it works notes.",
+      "primary_key": [
+        "grammar_note_id"
+      ],
+      "required": [
+        "grammar_note_id",
+        "grammar_lesson_id",
+        "note_order",
+        "note_kind",
+        "text_en",
+        "review_status"
+      ],
+      "fields": [
+        "grammar_note_id",
+        "grammar_lesson_id",
+        "grammar_element_id",
+        "note_order",
+        "note_kind",
+        "text_en",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "grammar_note_id": "string",
+        "grammar_lesson_id": "string",
+        "grammar_element_id": "string",
+        "note_order": "integer",
+        "note_kind": "grammar_note_kind",
+        "text_en": "string",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "grammar_lesson_patterns.csv": {
+      "path": "language/data/catalog/grammar_lesson_patterns.csv",
+      "owner": "language_content",
+      "description": "Ordered grammar formulas and variants belonging to lessons.",
+      "primary_key": [
+        "grammar_pattern_id"
+      ],
+      "required": [
+        "grammar_pattern_id",
+        "grammar_lesson_id",
+        "pattern_order",
+        "label_en",
+        "pattern",
+        "formation_en",
+        "usage_en",
+        "review_status"
+      ],
+      "fields": [
+        "grammar_pattern_id",
+        "grammar_lesson_id",
+        "grammar_element_id",
+        "pattern_order",
+        "label_en",
+        "pattern",
+        "formation_en",
+        "usage_en",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "grammar_pattern_id": "string",
+        "grammar_lesson_id": "string",
+        "grammar_element_id": "string",
+        "pattern_order": "integer",
+        "label_en": "string",
+        "pattern": "string",
+        "formation_en": "string",
+        "usage_en": "string",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "grammar_lesson_examples.csv": {
+      "path": "language/data/catalog/grammar_lesson_examples.csv",
+      "owner": "language_content",
+      "description": "Reviewed lesson-to-canonical-sentence example relationships.",
+      "primary_key": [
+        "grammar_example_id"
+      ],
+      "required": [
+        "grammar_example_id",
+        "grammar_lesson_id",
+        "sentence_id",
+        "example_order",
+        "example_kind",
+        "review_status"
+      ],
+      "fields": [
+        "grammar_example_id",
+        "grammar_lesson_id",
+        "grammar_pattern_id",
+        "sentence_id",
+        "example_order",
+        "context_note_en",
+        "example_kind",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "grammar_example_id": "string",
+        "grammar_lesson_id": "string",
+        "grammar_pattern_id": "string",
+        "sentence_id": "string",
+        "example_order": "integer",
+        "context_note_en": "string",
+        "example_kind": "grammar_example_kind",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "grammar_example_points.csv": {
+      "path": "language/data/catalog/grammar_example_points.csv",
+      "owner": "language_content",
+      "description": "Target-specific analyses proving point and element demonstrations.",
+      "primary_key": [
+        "grammar_example_id",
+        "grammar_element_id"
+      ],
+      "required": [
+        "grammar_example_id",
+        "grammar_point_id",
+        "grammar_element_id",
+        "demonstration_order",
+        "analysis_en",
+        "review_status"
+      ],
+      "fields": [
+        "grammar_example_id",
+        "grammar_point_id",
+        "grammar_element_id",
+        "demonstration_order",
+        "analysis_en",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "grammar_example_id": "string",
+        "grammar_point_id": "string",
+        "grammar_element_id": "string",
+        "demonstration_order": "integer",
+        "analysis_en": "string",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "grammar_example_targets.csv": {
+      "path": "language/data/catalog/grammar_example_targets.csv",
+      "owner": "language_content",
+      "description": "Ordered literal Chinese target segments for safe emphasis.",
+      "primary_key": [
+        "grammar_target_id"
+      ],
+      "required": [
+        "grammar_target_id",
+        "grammar_example_id",
+        "grammar_element_id",
+        "target_order",
+        "target_role",
+        "target_text_zh",
+        "occurrence_number",
+        "review_status"
+      ],
+      "fields": [
+        "grammar_target_id",
+        "grammar_example_id",
+        "grammar_element_id",
+        "target_order",
+        "target_role",
+        "target_text_zh",
+        "occurrence_number",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "grammar_target_id": "string",
+        "grammar_example_id": "string",
+        "grammar_element_id": "string",
+        "target_order": "integer",
+        "target_role": "string",
+        "target_text_zh": "string",
+        "occurrence_number": "integer",
+        "review_status": "editorial_status",
+        "notes": "string"
+      }
+    },
+    "grammar_vocabulary_exceptions.csv": {
+      "path": "language/data/catalog/grammar_vocabulary_exceptions.csv",
+      "owner": "language_content",
+      "description": "Reviewed point-scoped omissions from exact example vocabulary coverage.",
+      "primary_key": [
+        "grammar_vocab_exception_id"
+      ],
+      "required": [
+        "grammar_vocab_exception_id",
+        "grammar_point_id",
+        "surface_form",
+        "level",
+        "required_target_role",
+        "reason",
+        "authorization",
+        "review_status"
+      ],
+      "fields": [
+        "grammar_vocab_exception_id",
+        "grammar_point_id",
+        "surface_form",
+        "level",
+        "required_target_role",
+        "reason",
+        "authorization",
+        "review_status",
+        "notes"
+      ],
+      "types": {
+        "grammar_vocab_exception_id": "string",
+        "grammar_point_id": "string",
+        "surface_form": "string",
+        "level": "integer",
+        "required_target_role": "string",
+        "reason": "string",
+        "authorization": "string",
+        "review_status": "editorial_status",
         "notes": "string"
       }
     },
@@ -680,7 +1104,6 @@
       "required": [
         "sentence_id",
         "position",
-        "legacy_tag",
         "mapping_status",
         "review_status"
       ],
@@ -1054,6 +1477,31 @@
         "runtime_order": "integer",
         "card_id": "string",
         "measure_word_id": "string"
+      }
+    },
+    "grammar_page_lessons.csv": {
+      "path": "language/data/product_bindings/grammar_page_lessons.csv",
+      "owner": "product_runtime",
+      "description": "Product-owned Grammar-page activation and per-level display order.",
+      "primary_key": [
+        "grammar_lesson_id"
+      ],
+      "required": [
+        "grammar_lesson_id",
+        "active",
+        "level_display_order"
+      ],
+      "fields": [
+        "grammar_lesson_id",
+        "active",
+        "level_display_order",
+        "notes"
+      ],
+      "types": {
+        "grammar_lesson_id": "string",
+        "active": "boolean",
+        "level_display_order": "integer",
+        "notes": "string"
       }
     }
   }

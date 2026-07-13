@@ -10,6 +10,16 @@ This document replaces the previous collection of granular project-review and pa
 - Runtime JavaScript remains compatible with the static app but is now generated and checked from the CSV catalog.
 - Product presentation fields are isolated from linguistic content so language curation does not choose card direction, deck behavior, UI, or scheduling.
 
+## 2.3.0 Grammar Study page
+
+- Updated `VERSION.txt` to `2.3.0`.
+- Added a signed-in Grammar page for HSK 1, HSK 2, and HSK 3, with HSK 1 as the default level plus category filtering, search, loading/error states, and one-at-a-time lesson expansion.
+- Added 244 approved lessons: 70 for HSK 1, 78 for HSK 2, and 96 for HSK 3. The curated lesson data contains 547 modeled grammar elements and 571 examples.
+- Added deterministic catalog compilation to three same-origin per-level JavaScript chunks. The controller loads each level lazily, caches successful payloads, supports retry after failure, and strictly validates payload structure, ordered official grammar-point ids, and primary lesson coverage before rendering.
+- Kept Chinese grammar curation in the canonical `language/` catalog and generated the runtime chunks from that source rather than treating JavaScript as an editorial surface.
+- Recorded exactly two narrowly scoped editorial exceptions: HSK 1 `杯` for classifier use and HSK 3 `不必` for negative-modal use. There is no broad exception path for either term or for later-level vocabulary generally.
+- Browser/manual QA was intentionally not completed at the user's direction. This release does not claim browser transfer-size measurements or screenshot validation.
+
 ## 2.2.0 sentence-card coverage update
 
 - Updated `VERSION.txt` to `2.2.0` by advancing only the middle version number from the prior `2.1.0` sentence-card update line.
@@ -42,13 +52,14 @@ This document replaces the previous collection of granular project-review and pa
 - Smart review uses FSRS ratings. Vocabulary uses the guided hanzi/pinyin/translation flow; sentence/study decks use flip-and-rate; image cards are scaffolded separately.
 - App/business data intentionally has no offline replay queue. Failed remote writes are logged and dropped after the in-memory diff baseline advances.
 
-## Content baseline after 2.2.0
+## Content baseline after 2.3.0
 
 - Vocabulary: 1,000 built-in cards.
 - Sentence cards: 1,562 total across HSK 1, HSK 2, and HSK 3 sentence decks.
 - Generated study cards: 1,578 total.
 - Sentence/study total: 3,140 cards.
 - Image-card catalog: 0 active cards until entries/assets are added.
+- Grammar Study: 244 lessons, 547 elements, and 571 examples across HSK 1 through HSK 3.
 
 ## Supabase baseline after cleanup
 

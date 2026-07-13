@@ -41,12 +41,27 @@ from syllabus_parser import (
     EXPECTED_VOCAB_COUNTS,
     EXPECTED_WRITING_COUNTS,
 )
+from grammar_study import (
+    authorized_vocabulary_exception_occurrences,
+    validate_grammar_study,
+    write_grammar_reports,
+)
 
 PRIMARY_KEYS: dict[str, tuple[str, ...]] = {
     "sources.csv": ("source_id",),
     "vocabulary.csv": ("vocab_id",),
     "vocabulary_translations.csv": ("vocab_id", "locale"),
     "grammar_points.csv": ("grammar_point_id",),
+    "grammar_point_elements.csv": ("grammar_element_id",),
+    "grammar_lessons.csv": ("grammar_lesson_id",),
+    "grammar_lesson_points.csv": ("grammar_lesson_id", "grammar_point_id"),
+    "grammar_lesson_elements.csv": ("grammar_lesson_id", "grammar_element_id"),
+    "grammar_lesson_notes.csv": ("grammar_note_id",),
+    "grammar_lesson_patterns.csv": ("grammar_pattern_id",),
+    "grammar_lesson_examples.csv": ("grammar_example_id",),
+    "grammar_example_points.csv": ("grammar_example_id", "grammar_element_id"),
+    "grammar_example_targets.csv": ("grammar_target_id",),
+    "grammar_vocabulary_exceptions.csv": ("grammar_vocab_exception_id",),
     "tasks.csv": ("task_id",),
     "task_scenarios.csv": ("scenario_id",),
     "task_capabilities.csv": ("task_id", "capability_number"),
@@ -69,6 +84,7 @@ PRIMARY_KEYS: dict[str, tuple[str, ...]] = {
     "sentence_cards.csv": ("runtime_order",),
     "hanzi_cards.csv": ("runtime_order",),
     "measure_word_cards.csv": ("runtime_order",),
+    "grammar_page_lessons.csv": ("grammar_lesson_id",),
 }
 
 REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
@@ -77,6 +93,47 @@ REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
                        "syllabus_form", "syllabus_pinyin", "pinyin", "source_id"),
     "vocabulary_translations.csv": ("vocab_id", "locale", "text", "review_status"),
     "grammar_points.csv": ("grammar_point_id", "level_min", "row_order", "category_zh", "source_id"),
+    "grammar_point_elements.csv": (
+        "grammar_element_id", "grammar_point_id", "element_order", "element_kind",
+        "learner_gloss_en", "review_status", "basis_source_id", "content_origin",
+    ),
+    "grammar_lessons.csv": (
+        "grammar_lesson_id", "level_introduced", "lesson_kind", "title_en", "summary_en",
+        "display_group_en", "display_group_basis", "register", "review_status",
+        "basis_source_id", "content_origin",
+    ),
+    "grammar_lesson_points.csv": (
+        "grammar_lesson_id", "grammar_point_id", "relation_role", "relation_order",
+        "review_status",
+    ),
+    "grammar_lesson_elements.csv": (
+        "grammar_lesson_id", "grammar_element_id", "relation_role", "relation_order",
+        "review_status",
+    ),
+    "grammar_lesson_notes.csv": (
+        "grammar_note_id", "grammar_lesson_id", "note_order", "note_kind", "text_en",
+        "review_status",
+    ),
+    "grammar_lesson_patterns.csv": (
+        "grammar_pattern_id", "grammar_lesson_id", "pattern_order",
+        "label_en", "pattern", "formation_en", "usage_en", "review_status",
+    ),
+    "grammar_lesson_examples.csv": (
+        "grammar_example_id", "grammar_lesson_id", "sentence_id", "example_order",
+        "example_kind", "review_status",
+    ),
+    "grammar_example_points.csv": (
+        "grammar_example_id", "grammar_point_id", "grammar_element_id",
+        "demonstration_order", "analysis_en", "review_status",
+    ),
+    "grammar_example_targets.csv": (
+        "grammar_target_id", "grammar_example_id", "grammar_element_id", "target_order",
+        "target_role", "target_text_zh", "occurrence_number", "review_status",
+    ),
+    "grammar_vocabulary_exceptions.csv": (
+        "grammar_vocab_exception_id", "grammar_point_id", "surface_form", "level",
+        "required_target_role", "reason", "authorization", "review_status",
+    ),
     "tasks.csv": ("task_id", "level_min", "task_number", "title_zh", "title_en"),
     "task_scenarios.csv": ("scenario_id", "level_min", "scenario_order", "title_zh", "title_en"),
     "task_capabilities.csv": ("task_id", "capability_number", "statement_zh", "statement_en"),
@@ -91,7 +148,7 @@ REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "sentence_utterance_translations.csv": ("sentence_id", "turn_order", "locale", "text", "review_status"),
     "sentence_vocabulary.csv": ("sentence_id", "position", "surface_form", "resolution_status",
                                 "coverage_type", "review_status"),
-    "sentence_grammar.csv": ("sentence_id", "position", "legacy_tag", "mapping_status", "review_status"),
+    "sentence_grammar.csv": ("sentence_id", "position", "mapping_status", "review_status"),
     "measure_word_sets.csv": ("measure_word_id", "level", "headword_vocab_id", "headword_hanzi",
                               "pinyin", "meaning_en", "review_status"),
     "classifier_usages.csv": ("usage_id", "measure_word_id", "usage_order", "classifier_hanzi",
@@ -103,6 +160,7 @@ REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
                            "deck_id", "deck_name"),
     "hanzi_cards.csv": ("runtime_order", "card_id", "reading_id", "level"),
     "measure_word_cards.csv": ("runtime_order", "card_id", "measure_word_id"),
+    "grammar_page_lessons.csv": ("grammar_lesson_id", "active", "level_display_order"),
     "reviews.csv": ("review_id", "entity_type", "entity_id", "content_hash", "to_status",
                     "reviewer", "reviewer_type", "reviewed_at"),
     "issues.csv": ("issue_id", "severity", "entity_type", "entity_id", "rule_id", "status",
@@ -113,6 +171,26 @@ REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
 
 FOREIGN_KEYS: list[tuple[str, str, str, str, bool]] = [
     ("vocabulary_translations.csv", "vocab_id", "vocabulary.csv", "vocab_id", False),
+    ("grammar_point_elements.csv", "grammar_point_id", "grammar_points.csv", "grammar_point_id", False),
+    ("grammar_point_elements.csv", "basis_source_id", "sources.csv", "source_id", False),
+    ("grammar_lessons.csv", "basis_source_id", "sources.csv", "source_id", False),
+    ("grammar_lesson_points.csv", "grammar_lesson_id", "grammar_lessons.csv", "grammar_lesson_id", False),
+    ("grammar_lesson_points.csv", "grammar_point_id", "grammar_points.csv", "grammar_point_id", False),
+    ("grammar_lesson_elements.csv", "grammar_lesson_id", "grammar_lessons.csv", "grammar_lesson_id", False),
+    ("grammar_lesson_elements.csv", "grammar_element_id", "grammar_point_elements.csv", "grammar_element_id", False),
+    ("grammar_lesson_notes.csv", "grammar_lesson_id", "grammar_lessons.csv", "grammar_lesson_id", False),
+    ("grammar_lesson_notes.csv", "grammar_element_id", "grammar_point_elements.csv", "grammar_element_id", True),
+    ("grammar_lesson_patterns.csv", "grammar_lesson_id", "grammar_lessons.csv", "grammar_lesson_id", False),
+    ("grammar_lesson_patterns.csv", "grammar_element_id", "grammar_point_elements.csv", "grammar_element_id", True),
+    ("grammar_lesson_examples.csv", "grammar_lesson_id", "grammar_lessons.csv", "grammar_lesson_id", False),
+    ("grammar_lesson_examples.csv", "grammar_pattern_id", "grammar_lesson_patterns.csv", "grammar_pattern_id", True),
+    ("grammar_lesson_examples.csv", "sentence_id", "sentences.csv", "sentence_id", False),
+    ("grammar_example_points.csv", "grammar_example_id", "grammar_lesson_examples.csv", "grammar_example_id", False),
+    ("grammar_example_points.csv", "grammar_point_id", "grammar_points.csv", "grammar_point_id", False),
+    ("grammar_example_points.csv", "grammar_element_id", "grammar_point_elements.csv", "grammar_element_id", False),
+    ("grammar_example_targets.csv", "grammar_example_id", "grammar_lesson_examples.csv", "grammar_example_id", False),
+    ("grammar_example_targets.csv", "grammar_element_id", "grammar_point_elements.csv", "grammar_element_id", False),
+    ("grammar_vocabulary_exceptions.csv", "grammar_point_id", "grammar_points.csv", "grammar_point_id", False),
     ("task_capabilities.csv", "task_id", "tasks.csv", "task_id", False),
     ("tasks.csv", "scenario_id", "task_scenarios.csv", "scenario_id", True),
     ("hanzi_readings.csv", "hanzi_id", "hanzi.csv", "hanzi_id", False),
@@ -130,6 +208,7 @@ FOREIGN_KEYS: list[tuple[str, str, str, str, bool]] = [
     ("sentence_cards.csv", "sentence_id", "sentences.csv", "sentence_id", False),
     ("hanzi_cards.csv", "reading_id", "hanzi_readings.csv", "reading_id", False),
     ("measure_word_cards.csv", "measure_word_id", "measure_word_sets.csv", "measure_word_id", False),
+    ("grammar_page_lessons.csv", "grammar_lesson_id", "grammar_lessons.csv", "grammar_lesson_id", False),
     ("sentences.csv", "topic_id", "topics.csv", "topic_id", True),
 ]
 for _table_name, _fields in CATALOG_FIELDS.items():
@@ -346,6 +425,26 @@ def validate_review_governance(tables: dict[str, list[dict[str, str]]]) -> list[
         ("vocabulary_translations.csv", "review_status", "vocabulary_translation",
          lambda row: f"{row['vocab_id']}:{row['locale']}"),
         ("grammar_points.csv", "review_status", "grammar_point", lambda row: row["grammar_point_id"]),
+        ("grammar_point_elements.csv", "review_status", "grammar_point_element",
+         lambda row: row["grammar_element_id"]),
+        ("grammar_lessons.csv", "review_status", "grammar_lesson",
+         lambda row: row["grammar_lesson_id"]),
+        ("grammar_lesson_points.csv", "review_status", "grammar_lesson_point",
+         lambda row: f"{row['grammar_lesson_id']}:{row['grammar_point_id']}"),
+        ("grammar_lesson_elements.csv", "review_status", "grammar_lesson_element",
+         lambda row: f"{row['grammar_lesson_id']}:{row['grammar_element_id']}"),
+        ("grammar_lesson_notes.csv", "review_status", "grammar_lesson_note",
+         lambda row: row["grammar_note_id"]),
+        ("grammar_lesson_patterns.csv", "review_status", "grammar_lesson_pattern",
+         lambda row: row["grammar_pattern_id"]),
+        ("grammar_lesson_examples.csv", "review_status", "grammar_lesson_example",
+         lambda row: row["grammar_example_id"]),
+        ("grammar_example_points.csv", "review_status", "grammar_example_point",
+         lambda row: f"{row['grammar_example_id']}:{row['grammar_element_id']}"),
+        ("grammar_example_targets.csv", "review_status", "grammar_example_target",
+         lambda row: row["grammar_target_id"]),
+        ("grammar_vocabulary_exceptions.csv", "review_status", "grammar_vocabulary_exception",
+         lambda row: row["grammar_vocab_exception_id"]),
         ("hanzi.csv", "curation_status", "hanzi", lambda row: row["hanzi_id"]),
         ("hanzi_readings.csv", "review_status", "hanzi_reading", lambda row: row["reading_id"]),
         ("sentences.csv", "curation_status", "sentence", lambda row: row["sentence_id"]),
@@ -544,6 +643,7 @@ def validate_linguistic_relations(
     exceptions = {
         (row["vocab_id"], row["surface_form"]): row for row in tables["coverage_exceptions.csv"]
     }
+    grammar_vocabulary_exceptions = authorized_vocabulary_exception_occurrences(tables)
     waivers = set()
     for row in tables["waivers.csv"]:
         try:
@@ -600,6 +700,26 @@ def validate_linguistic_relations(
 
     grammar_counts = Counter(row["mapping_status"] for row in tables["sentence_grammar.csv"])
     for row in tables["sentence_grammar.csv"]:
+        if row["review_status"] == "legacy_unreviewed" and not row["legacy_tag"]:
+            errors.append(issue(
+                "legacy_grammar_tag", "Migrated sentence-grammar rows require their immutable legacy_tag",
+                table="sentence_grammar.csv", entity_id=row["sentence_id"],
+            ))
+        if not row["legacy_tag"] and (
+            row["mapping_status"] != "mapped"
+            or not row["grammar_point_id"]
+            or row["candidate_grammar_point_ids"]
+        ):
+            errors.append(issue(
+                "new_grammar_mapping",
+                "A blank legacy_tag is allowed only for a clean mapped grammar_point_id relation",
+                table="sentence_grammar.csv", entity_id=row["sentence_id"],
+            ))
+        if row["mapping_status"] == "mapped" and not row["grammar_point_id"]:
+            errors.append(issue(
+                "grammar_mapping_status", "mapping_status=mapped requires grammar_point_id",
+                table="sentence_grammar.csv", entity_id=row["sentence_id"],
+            ))
         if row["review_status"] == "approved" and not row["grammar_point_id"]:
             errors.append(issue("grammar_approval", "Approved grammar link has no grammar_point_id",
                                 table="sentence_grammar.csv", entity_id=row["sentence_id"]))
@@ -622,7 +742,7 @@ def validate_linguistic_relations(
     for values in by_initial.values():
         values.sort(key=lambda value: (-len(value), value))
 
-    def segment_span(span: str, level: int) -> list[str] | None:
+    def segment_span(span: str, level: int, allowed_unlinked: set[str]) -> list[str] | None:
         best: list[list[str] | None] = [None] * (len(span) + 1)
         best[len(span)] = []
         for offset in range(len(span) - 1, -1, -1):
@@ -630,6 +750,10 @@ def validate_linguistic_relations(
             for surface in by_initial.get(span[offset], []):
                 end = offset + len(surface)
                 if surface_levels[surface] <= level and span.startswith(surface, offset) and best[end] is not None:
+                    options.append([surface, *best[end]])
+            for surface in sorted(allowed_unlinked, key=lambda value: (-len(value), value)):
+                end = offset + len(surface)
+                if span.startswith(surface, offset) and best[end] is not None:
                     options.append([surface, *best[end]])
             if options:
                 best[offset] = max(options, key=lambda option: (sum(len(token) ** 2 for token in option), -len(option)))
@@ -644,7 +768,10 @@ def validate_linguistic_relations(
         segmented_tokens: list[str] = []
         failed_spans = []
         for match in re.finditer(r"[㐀-鿿]+", sentence["full_zh"]):
-            segmented = segment_span(match.group(0), sentence_level)
+            segmented = segment_span(
+                match.group(0), sentence_level,
+                set(grammar_vocabulary_exceptions.get(sentence_id, Counter())),
+            )
             if segmented is None:
                 failed_spans.append(match.group(0))
             else:
@@ -657,13 +784,53 @@ def validate_linguistic_relations(
                 f"Chinese text cannot be fully segmented with cumulative HSK <= {sentence_level}: {failed_spans}",
                 table="sentences.csv", entity_id=sentence_id,
             ))
-        linked_surfaces = {row["surface_form"] for row in sentence_links.get(sentence_id, [])}
-        missing = sorted(set(segmented_tokens) - linked_surfaces)
-        untagged_token_claims += len(missing)
+        exact_links = [
+            row for row in sorted(
+                sentence_links.get(sentence_id, []), key=lambda item: int(item["position"])
+            )
+            if row["resolution_status"] == "exact"
+        ]
         is_approved = sentence["curation_status"] == "approved" or sentence["linguistic_review_status"] == "approved"
+        if is_approved:
+            segmented_counts = Counter(segmented_tokens)
+            segmented_counts -= grammar_vocabulary_exceptions.get(sentence_id, Counter())
+            linked_counts = Counter(row["surface_form"] for row in exact_links)
+            missing_counts = segmented_counts - linked_counts
+            extra_counts = linked_counts - segmented_counts
+            missing = sorted(missing_counts.elements())
+            extras = sorted(extra_counts.elements())
+            untagged_token_claims += sum(missing_counts.values())
+        else:
+            linked_surfaces = {
+                row["surface_form"] for row in sentence_links.get(sentence_id, [])
+            }
+            missing = sorted(set(segmented_tokens) - linked_surfaces)
+            extras = []
+            untagged_token_claims += len(missing)
         if is_approved and missing:
-            errors.append(issue("sentence_vocabulary_completeness", f"Approved sentence lacks links for {missing}",
+            errors.append(issue("sentence_vocabulary_completeness", f"Approved sentence lacks occurrence links for {missing}",
                                 table="sentences.csv", entity_id=sentence_id))
+        if is_approved and extras:
+            errors.append(issue(
+                "sentence_vocabulary_completeness",
+                f"Approved sentence has excess or overlapping exact links for {extras}",
+                table="sentences.csv", entity_id=sentence_id,
+            ))
+        if is_approved and not missing and not extras:
+            linked_order = [row["surface_form"] for row in exact_links]
+            exception_counts = grammar_vocabulary_exceptions.get(sentence_id, Counter()).copy()
+            expected_order = []
+            for token in segmented_tokens:
+                if exception_counts[token] > 0:
+                    exception_counts[token] -= 1
+                else:
+                    expected_order.append(token)
+            if linked_order != expected_order:
+                errors.append(issue(
+                    "sentence_vocabulary_order",
+                    "Approved sentence vocabulary positions must follow lexical occurrence order",
+                    table="sentences.csv", entity_id=sentence_id,
+                ))
 
     utterances_by_sentence: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in tables["sentence_utterances.csv"]:
@@ -1042,8 +1209,10 @@ def build_report(threshold: int, selected_level: int | None) -> tuple[dict[str, 
     errors.extend(validate_review_governance(tables))
     compatibility_errors, compatibility = validate_compatibility(tables)
     relation_errors, relationships = validate_linguistic_relations(tables)
+    grammar_errors, grammar_study = validate_grammar_study(tables)
     errors.extend(compatibility_errors)
     errors.extend(relation_errors)
+    errors.extend(grammar_errors)
     coverage, coverage_rows = coverage_report(tables, threshold, selected_level)
     backlog = review_backlog(tables, coverage)
     warnings = [
@@ -1093,6 +1262,7 @@ def build_report(threshold: int, selected_level: int | None) -> tuple[dict[str, 
         "inventory": inventory(tables, selected_level),
         "compatibility": compatibility,
         "relationships": relationships,
+        "grammar_study": grammar_study,
         "coverage": coverage,
         "review_backlog": backlog,
         "errors": errors,
@@ -1165,6 +1335,21 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"| Segmented token types missing explicit links | {rel['untagged_segmented_token_types']:,} |",
         f"| Missing utterance translations | {rel['missing_utterance_translations']:,} |",
         f"| Unreviewed coverage exceptions | {backlog['unreviewed_coverage_exceptions']:,} |",
+        "", "## Grammar study", "",
+        f"Feature activation: **{'ACTIVE' if report['grammar_study']['enabled'] else 'EMPTY / PRE-CURATION'}**.", "",
+        f"Authorized point-scoped vocabulary exceptions: **{report['grammar_study'].get('authorized_vocabulary_exceptions', 0)}**. These create no vocabulary relation.", "",
+        "| HSK | Primary official-point coverage | Active lessons | Active examples |",
+        "| ---: | ---: | ---: | ---: |",
+    ])
+    for level in ("1", "2", "3"):
+        grammar = report["grammar_study"]
+        point = grammar["official_point_coverage"][level]
+        lines.append(
+            f"| {level} | {point['covered']}/{point['expected']} | "
+            f"{grammar.get('lessons_by_level', {}).get(level, 0)} | "
+            f"{grammar.get('examples_by_level', {}).get(level, 0)} |"
+        )
+    lines.extend([
         "", "## Editorial backlog", "",
         "| Catalog | Status counts |", "| --- | --- |",
     ])
@@ -1202,6 +1387,7 @@ def write_reports(report: dict[str, Any], coverage_rows: list[dict[str, Any]]) -
         "approved_surface_target_met", "approved_explicit_target_met", "curation_status",
     ]
     write_csv(REPORT_DIR / "vocabulary-coverage.csv", fields, coverage_rows)
+    write_grammar_reports(load_tables(), REPORT_DIR)
 
 
 def main(argv: list[str]) -> int:

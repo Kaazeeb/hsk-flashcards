@@ -12,7 +12,7 @@ Runtime semantic synchronization: **YES**.
 | --- | ---: |
 | Official vocabulary senses | 11,000 |
 | Active vocabulary cards | 1,000 |
-| Sentence cards | 1,562 |
+| Sentence cards | 2,133 |
 | Official grammar rows | 593 |
 | Official topics | 427 |
 | Official tasks / capabilities | 166 / 678 |
@@ -28,9 +28,9 @@ Target: 3 distinct same-level sentences.
 
 | HSK | Senses | Published surface min / avg | Published surface below | Published explicit min / avg | Published explicit below | Approved explicit below |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 300 | 3 / 7.31 | 0 | 3 / 7.31 | 0 | 300 |
-| 2 | 200 | 2 / 4.34 | 1 | 0 / 4.03 | 5 | 200 |
-| 3 | 500 | 3 / 4.16 | 0 | 0 / 3.87 | 9 | 500 |
+| 1 | 300 | 3 / 7.31 | 0 | 3 / 7.31 | 0 | 225 |
+| 2 | 200 | 2 / 4.34 | 1 | 0 / 4.03 | 5 | 163 |
+| 3 | 500 | 3 / 4.16 | 0 | 0 / 3.87 | 9 | 464 |
 
 Published coverage includes product-bound legacy migration content. Approved-only coverage spans the full catalog independently of product bindings and is the editorial target. Surface coverage cannot distinguish homographic senses.
 
@@ -38,9 +38,9 @@ Published coverage includes product-bound legacy migration content. Approved-onl
 
 | HSK band | Official senses | Product active | Not active | Below approved explicit target |
 | ---: | ---: | ---: | ---: | ---: |
-| 1 | 300 | 300 | 0 | 300 |
-| 2 | 200 | 200 | 0 | 200 |
-| 3 | 500 | 500 | 0 | 500 |
+| 1 | 300 | 300 | 0 | 225 |
+| 2 | 200 | 200 | 0 | 163 |
+| 3 | 500 | 500 | 0 | 464 |
 | 4 | 1000 | 0 | 1000 | 1000 |
 | 5 | 1600 | 0 | 1600 | 1600 |
 | 6 | 1800 | 0 | 1800 | 1800 |
@@ -50,14 +50,26 @@ Published coverage includes product-bound legacy migration content. Approved-onl
 
 | Signal | Count |
 | --- | ---: |
-| Sentence-vocabulary links | 8,839 |
+| Sentence-vocabulary links | 12,012 |
 | Ambiguous sense links | 79 |
 | Component-only links | 57 |
-| Sentence-grammar links | 3,109 |
-| Approved grammar links | 0 |
+| Sentence-grammar links | 3,680 |
+| Approved grammar links | 571 |
 | Segmented token types missing explicit links | 0 |
 | Missing utterance translations | 360 |
 | Unreviewed coverage exceptions | 5 |
+
+## Grammar study
+
+Feature activation: **ACTIVE**.
+
+Authorized point-scoped vocabulary exceptions: **2**. These create no vocabulary relation.
+
+| HSK | Primary official-point coverage | Active lessons | Active examples |
+| ---: | ---: | ---: | ---: |
+| 1 | 70/70 | 70 | 145 |
+| 2 | 78/78 | 78 | 201 |
+| 3 | 96/96 | 96 | 225 |
 
 ## Editorial backlog
 
@@ -65,10 +77,10 @@ Published coverage includes product-bound legacy migration content. Approved-onl
 | --- | --- |
 | `vocabulary.csv` | legacy_unreviewed: 1,000, syllabus_only: 10,000 |
 | `vocabulary_translations.csv` | legacy_unreviewed: 1,000 |
-| `sentences.csv` | legacy_unreviewed: 1,562 |
-| `sentence_translations.csv` | legacy_unreviewed: 1,562 |
-| `sentence_utterance_translations.csv` | legacy_unreviewed: 1,562 |
-| `sentence_utterances.csv` | legacy_unreviewed: 1,922 |
+| `sentences.csv` | approved: 571, legacy_unreviewed: 1,562 |
+| `sentence_translations.csv` | approved: 571, legacy_unreviewed: 1,562 |
+| `sentence_utterance_translations.csv` | approved: 571, legacy_unreviewed: 1,562 |
+| `sentence_utterances.csv` | approved: 571, legacy_unreviewed: 1,922 |
 | `hanzi_readings.csv` | legacy_unreviewed: 655 |
 | `measure_word_sets.csv` | legacy_unreviewed: 268 |
 | `classifier_usages.csv` | legacy_unreviewed: 443 |

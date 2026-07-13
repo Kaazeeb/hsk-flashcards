@@ -1,0 +1,245 @@
+grammar_point_id,level,row_order,category_zh,category_en,review_status,primary_lesson_id,primary_mapping_count,primary_lesson_active,element_count,primary_element_mapping_count,demonstrating_example_count,vocabulary_exception_surfaces,complete
+hsk26-g1-001,1,1,语素,Morphemes,approved,glesson_1412363f764e4b6e804c4a579f649313,1,true,2,2,2,,true
+hsk26-g1-002,1,2,语素,Morphemes,approved,glesson_47131ae8ea394437a5297f42b342b73d,1,true,2,2,2,,true
+hsk26-g1-003,1,3,词类,Word classes,approved,glesson_a9c2ecd6c785436fa03139619ca2affd,1,true,6,6,2,,true
+hsk26-g1-004,1,4,词类,Word classes,approved,glesson_6fbcb4305c5d4a5d88bf76bae817835f,1,true,2,2,2,,true
+hsk26-g1-005,1,5,词类,Word classes,approved,glesson_5e7f55241f214616ac7cde0dbdddfd71,1,true,2,2,2,,true
+hsk26-g1-006,1,6,词类,Word classes,approved,glesson_5a426c2d10734028a3898347249529d4,1,true,1,1,2,,true
+hsk26-g1-007,1,7,词类,Word classes,approved,glesson_bb78882713cf4b49876d78dacf6ebf54,1,true,8,8,2,,true
+hsk26-g1-008,1,8,词类,Word classes,approved,glesson_43642677d6364b81a48e4506d8a0105c,1,true,11,11,2,,true
+hsk26-g1-009,1,9,词类,Word classes,approved,glesson_1a3df179f68d4d33aa38254927c24dbc,1,true,12,12,2,,true
+hsk26-g1-010,1,10,词类,Word classes,approved,glesson_6360c8ccc591431488f7006797127eb7,1,true,12,12,2,,true
+hsk26-g1-011,1,11,词类,Word classes,approved,glesson_d7cad090d9554245a5dbed09caa87826,1,true,15,15,2,,true
+hsk26-g1-012,1,12,词类,Word classes,approved,glesson_92993e435fd2485884e66731507a89a7,1,true,8,8,2,,true
+hsk26-g1-013,1,13,词类,Word classes,approved,glesson_ffcb8ee873944afc831b07219d8b60c4,1,true,1,1,2,杯,true
+hsk26-g1-014,1,14,词类,Word classes,approved,glesson_366fff0d896542d0921adc449244e8df,1,true,7,7,2,,true
+hsk26-g1-015,1,15,词类,Word classes,approved,glesson_16cda7aefaaf49eebd4327366d43cb10,1,true,5,5,2,,true
+hsk26-g1-016,1,16,词类,Word classes,approved,glesson_4352b1a2159746fd89c742e39cd0668f,1,true,1,1,2,,true
+hsk26-g1-017,1,17,词类,Word classes,approved,glesson_ba7347a31d784cbca5182e1d566478fe,1,true,2,2,2,,true
+hsk26-g1-018,1,18,词类,Word classes,approved,glesson_25b211801b454d9ba2a99a519ff3d998,1,true,1,1,2,,true
+hsk26-g1-019,1,19,词类,Word classes,approved,glesson_7fb2f8481a4c4d02942993747c989fcc,1,true,2,2,2,,true
+hsk26-g1-020,1,20,词类,Word classes,approved,glesson_8045fc9617b844d1bea15d13eeab2498,1,true,3,3,3,,true
+hsk26-g1-021,1,21,词类,Word classes,approved,glesson_774188c53155422ea5f9f9d9176814f4,1,true,1,1,2,,true
+hsk26-g1-022,1,22,词类,Word classes,approved,glesson_74aaea9ca06346b8b9c1126fb6e0915e,1,true,2,2,2,,true
+hsk26-g1-023,1,23,词类,Word classes,approved,glesson_0e77d991e9a346519efa66a6c5882497,1,true,1,1,2,,true
+hsk26-g1-024,1,24,词类,Word classes,approved,glesson_a74fcd39ad2c4fb59a14ed3cf69e5f45,1,true,1,1,2,,true
+hsk26-g1-025,1,25,词类,Word classes,approved,glesson_1a09481348024cffac4caba31e71ccb6,1,true,1,1,2,,true
+hsk26-g1-026,1,26,词类,Word classes,approved,glesson_5a0310b4cf854089997508807c121c78,1,true,6,6,6,,true
+hsk26-g1-027,1,27,词类,Word classes,approved,glesson_b94351c5fad2413b9981abea6bd8ba95,1,true,1,1,2,,true
+hsk26-g1-028,1,28,短语,Phrases,approved,glesson_8a50ad5ec1cf47199bad98e7b15fbbfb,1,true,1,1,2,,true
+hsk26-g1-029,1,29,短语,Phrases,approved,glesson_2168b15d20824e47b75dfa55e28dbf3b,1,true,1,1,2,,true
+hsk26-g1-030,1,30,短语,Phrases,approved,glesson_1fc581dad530442fa886235a4e4f7d9d,1,true,1,1,2,,true
+hsk26-g1-031,1,31,短语,Phrases,approved,glesson_4d919eed7b9347febdef9633d1781586,1,true,1,1,2,,true
+hsk26-g1-032,1,32,短语,Phrases,approved,glesson_550e903fb0ab4a659570c5c0220af87d,1,true,1,1,2,,true
+hsk26-g1-033,1,33,短语,Phrases,approved,glesson_627f84e67bba43b397e2c78ba24d0683,1,true,1,1,2,,true
+hsk26-g1-034,1,34,短语,Phrases,approved,glesson_9a5f822d74fe4c839e358a1bc3acfd9b,1,true,1,1,2,,true
+hsk26-g1-035,1,35,句子成分,Sentence components,approved,glesson_29e6003d76324040b5569af989f757da,1,true,3,3,2,,true
+hsk26-g1-036,1,36,句子成分,Sentence components,approved,glesson_4eb138b94d8f4d2995ed9c5d082a8f28,1,true,4,4,2,,true
+hsk26-g1-037,1,37,句子成分,Sentence components,approved,glesson_a7ca54ff385649f5a6c3f1bfa66f4cba,1,true,2,2,2,,true
+hsk26-g1-038,1,38,句子成分,Sentence components,approved,glesson_537d191c1b5c4bb596cb5b0152173131,1,true,3,3,2,,true
+hsk26-g1-039,1,39,句子成分,Sentence components,approved,glesson_27ecd777a2564adaafe8770a1d6b61ba,1,true,3,3,2,,true
+hsk26-g1-040,1,40,句子成分,Sentence components,approved,glesson_fc44a931c80d4e79b32a28b5c7e4c29c,1,true,4,4,3,,true
+hsk26-g1-041,1,41,句子成分,Sentence components,approved,glesson_59f6ebf93bea45fc8fd173609a6b93f7,1,true,1,1,2,,true
+hsk26-g1-042,1,42,句子的类型,Sentence types,approved,glesson_d3d1433d431346659fad3a64d2d182b4,1,true,1,1,2,,true
+hsk26-g1-043,1,43,句子的类型,Sentence types,approved,glesson_65cef66ccadb4bda94ba9c6ba8ee5533,1,true,1,1,2,,true
+hsk26-g1-044,1,44,句子的类型,Sentence types,approved,glesson_605ba97eb84f4d5980bf26497ddab505,1,true,1,1,2,,true
+hsk26-g1-045,1,45,句子的类型,Sentence types,approved,glesson_30e3fcafb95040e2a6f3deee108b10e8,1,true,1,1,2,,true
+hsk26-g1-046,1,46,句子的类型,Sentence types,approved,glesson_516cbfcecf1e41348048f4929d6e3627,1,true,1,1,2,,true
+hsk26-g1-047,1,47,句子的类型,Sentence types,approved,glesson_09d85cc1ba6e4814b12be153e06f304c,1,true,1,1,2,,true
+hsk26-g1-048,1,48,句子的类型,Sentence types,approved,glesson_c64087e117dd44169bd7781d5af92a73,1,true,1,1,2,,true
+hsk26-g1-049,1,49,句子的类型,Sentence types,approved,glesson_9cce8dd18eab4193b8fd140c593e243a,1,true,1,1,2,,true
+hsk26-g1-050,1,50,句子的类型,Sentence types,approved,glesson_53b9d25d39a241d0a380f9f6971ed5b3,1,true,1,1,2,,true
+hsk26-g1-051,1,51,句子的类型,Sentence types,approved,glesson_9529a9ee5dd346bcb03610816cefc5c7,1,true,1,1,2,,true
+hsk26-g1-052,1,52,句子的类型,Sentence types,approved,glesson_7e7ea63f64d44d4882dfecb1f9a1b809,1,true,1,1,2,,true
+hsk26-g1-053,1,53,句子的类型,Sentence types,approved,glesson_cd34aec214fe4a9cabbf2f3af75c073c,1,true,1,1,2,,true
+hsk26-g1-054,1,54,句子的类型,Sentence types,approved,glesson_a969cfb59bc94ffe9e4cfe7d987bed9c,1,true,1,1,2,,true
+hsk26-g1-055,1,55,句子的类型,Sentence types,approved,glesson_2591dabcc1884f9abb97f4a2f22ff0b6,1,true,1,1,2,,true
+hsk26-g1-056,1,56,句子的类型,Sentence types,approved,glesson_da3d25b747b946389f9953cd5238b2f2,1,true,1,1,2,,true
+hsk26-g1-057,1,57,句子的类型,Sentence types,approved,glesson_63b7cbccafa74b23bbd5aa16e6d062da,1,true,1,1,2,,true
+hsk26-g1-058,1,58,句子的类型,Sentence types,approved,glesson_48a062355f864c48b758a0b01ef35199,1,true,1,1,2,,true
+hsk26-g1-059,1,59,句子的类型,Sentence types,approved,glesson_2d8af7f2d3cf4844a8b8092c733e4ae6,1,true,1,1,2,,true
+hsk26-g1-060,1,60,句子的类型,Sentence types,approved,glesson_db21663d6ac94570a7bf0deebcd4c748,1,true,1,1,2,,true
+hsk26-g1-061,1,61,句子的类型,Sentence types,approved,glesson_2232c0c8bc1142afa9218cd5d1ed8c8b,1,true,1,1,2,,true
+hsk26-g1-062,1,62,动作的态,Aspects of actions,approved,glesson_1c532271cd2640b49271c5a329873b24,1,true,1,1,2,,true
+hsk26-g1-063,1,63,动作的态,Aspects of actions,approved,glesson_e905b001675443aca8517dd361e94872,1,true,1,1,2,,true
+hsk26-g1-064,1,64,动作的态,Aspects of actions,approved,glesson_36fbed7cb60f418fb1fcde9d82fc8d3c,1,true,2,2,2,,true
+hsk26-g1-065,1,65,动作的态,Aspects of actions,approved,glesson_f5920fa0a3c042a48c647c76dd37c313,1,true,2,2,2,,true
+hsk26-g1-066,1,66,动作的态,Aspects of actions,approved,glesson_21bd039e25d64151956190fa42876f2f,1,true,1,1,2,,true
+hsk26-g1-067,1,67,特殊表达法,Special expressions,approved,glesson_7152d114a79049a4993f58b6c7847994,1,true,2,2,2,,true
+hsk26-g1-068,1,68,特殊表达法,Special expressions,approved,glesson_945b84d2096b4309acee40e0e2adbc2b,1,true,1,1,2,,true
+hsk26-g1-069,1,69,特殊表达法,Special expressions,approved,glesson_558b9ebc01934fa89f4eecfe76570426,1,true,4,4,3,,true
+hsk26-g1-070,1,70,特殊表达法,Special expressions,approved,glesson_8e74d0cdc0324dcaa7ace1d175619c98,1,true,3,3,2,,true
+hsk26-g2-001,2,1,语素,Morphemes,approved,glesson_b8e097ea884c4549b8f6422ad2a796a0,1,true,1,1,2,,true
+hsk26-g2-002,2,2,词类,Word classes,approved,glesson_8b0a999cf2e14b5ca047ac7de31d2997,1,true,2,2,2,,true
+hsk26-g2-003,2,3,词类,Word classes,approved,glesson_a91ecbb9ff784ac392a137fb2dbd5cdf,1,true,4,4,4,,true
+hsk26-g2-004,2,4,词类,Word classes,approved,glesson_9e1e81c523f44c8cbc6c147e92033433,1,true,1,1,2,,true
+hsk26-g2-005,2,5,词类,Word classes,approved,glesson_9154adcdd1eb445d81f9f1b9e0f52031,1,true,4,4,4,,true
+hsk26-g2-006,2,6,词类,Word classes,approved,glesson_5e7829e104354662a78adeb2b1d2dff9,1,true,1,1,2,,true
+hsk26-g2-007,2,7,词类,Word classes,approved,glesson_80527658633340f598660551f1dd2e41,1,true,1,1,2,,true
+hsk26-g2-008,2,8,词类,Word classes,approved,glesson_125dc9b62eb74fe4bbc800701647cd66,1,true,5,5,5,,true
+hsk26-g2-009,2,9,词类,Word classes,approved,glesson_cd8068aa406c4cf9973d0172420ae334,1,true,2,2,2,,true
+hsk26-g2-010,2,10,词类,Word classes,approved,glesson_44413e91370f40a69c2f6302b2076397,1,true,3,3,3,,true
+hsk26-g2-011,2,11,词类,Word classes,approved,glesson_48ee165d96084cee99e07d3fc899fa39,1,true,4,4,4,,true
+hsk26-g2-012,2,12,词类,Word classes,approved,glesson_7120c20f6c874ce5b1af39be029dfd59,1,true,1,1,2,,true
+hsk26-g2-013,2,13,词类,Word classes,approved,glesson_2ada6849a2bc4a1f9e2abad367cf7408,1,true,1,1,2,,true
+hsk26-g2-014,2,14,词类,Word classes,approved,glesson_1f5b7591c8de4534a071d4e868fa3f63,1,true,3,3,3,,true
+hsk26-g2-015,2,15,词类,Word classes,approved,glesson_c9eb971d6b9c48a191b9422e545b52e3,1,true,1,1,2,,true
+hsk26-g2-016,2,16,词类,Word classes,approved,glesson_32b7676dc1714d9390f46157a5251722,1,true,7,7,7,,true
+hsk26-g2-017,2,17,词类,Word classes,approved,glesson_8b5643c69b5541b087e6806ecef94f7e,1,true,2,2,2,,true
+hsk26-g2-018,2,18,词类,Word classes,approved,glesson_6eec0008af9b4d6fbc582149b6303e6e,1,true,1,1,2,,true
+hsk26-g2-019,2,19,词类,Word classes,approved,glesson_645bec7bf7d34fab8a8a2dd3559217e8,1,true,2,2,2,,true
+hsk26-g2-020,2,20,词类,Word classes,approved,glesson_527c85c04e5b411f83b5db806dc52df8,1,true,3,3,3,,true
+hsk26-g2-021,2,21,词类,Word classes,approved,glesson_55984ca37edd412280de4d44daaa9275,1,true,1,1,2,,true
+hsk26-g2-022,2,22,词类,Word classes,approved,glesson_6d2bab0c242a402a809aabb3179c3e00,1,true,1,1,2,,true
+hsk26-g2-023,2,23,词类,Word classes,approved,glesson_5e8e696279814a90be92d5a941dd0a09,1,true,1,1,2,,true
+hsk26-g2-024,2,24,词类,Word classes,approved,glesson_77963a8dd549420597887a52f0701f48,1,true,1,1,2,,true
+hsk26-g2-025,2,25,词类,Word classes,approved,glesson_a0dc28dcfc874f248315ca3e394ff720,1,true,1,1,2,,true
+hsk26-g2-026,2,26,词类,Word classes,approved,glesson_db995a72a5ac4c5b855161e5e39a7d72,1,true,1,1,2,,true
+hsk26-g2-027,2,27,词类,Word classes,approved,glesson_46b84a7de49e4772a750a61d5bec8cc9,1,true,1,1,2,,true
+hsk26-g2-028,2,28,词类,Word classes,approved,glesson_77b3c6754a5e4c1d97dc166a76a2db8d,1,true,1,1,2,,true
+hsk26-g2-029,2,29,词类,Word classes,approved,glesson_b49ce6a5128c454fa3be3acb1540abf7,1,true,7,7,7,,true
+hsk26-g2-030,2,30,词类,Word classes,approved,glesson_15acb1d75c46459f99b079ced557b9b0,1,true,2,2,2,,true
+hsk26-g2-031,2,31,词类,Word classes,approved,glesson_e8f9265e5c9d4c4f8dcdc6d045857372,1,true,1,1,2,,true
+hsk26-g2-032,2,32,词类,Word classes,approved,glesson_8b55af09f88745a6af81c4cde9573d68,1,true,1,1,2,,true
+hsk26-g2-033,2,33,词类,Word classes,approved,glesson_ae778daeb15447bea503c3e2bea7e4a2,1,true,4,4,4,,true
+hsk26-g2-034,2,34,词类,Word classes,approved,glesson_36e95abd2250415aa183464effa23390,1,true,1,1,2,,true
+hsk26-g2-035,2,35,短语,Phrases,approved,glesson_bee3f7b4aa384c42b6795c0adb6d56f9,1,true,1,1,2,,true
+hsk26-g2-036,2,36,短语,Phrases,approved,glesson_5de2d33fd67d4f0ea3f7855d4e242d82,1,true,1,1,2,,true
+hsk26-g2-037,2,37,短语,Phrases,approved,glesson_6d88ea2c75964933848765ca878452de,1,true,1,1,2,,true
+hsk26-g2-038,2,38,短语,Phrases,approved,glesson_d7e5255c5b514cceb4c30bfa044800dd,1,true,1,1,2,,true
+hsk26-g2-039,2,39,短语,Phrases,approved,glesson_5bedc574f1b04b7d8102149208a70c88,1,true,1,1,2,,true
+hsk26-g2-040,2,40,短语,Phrases,approved,glesson_20fbb3d2482a4bb1b9e153a9ad33fbdf,1,true,1,1,2,,true
+hsk26-g2-041,2,41,短语,Phrases,approved,glesson_e3981bef253e46c48e9f20daecf6002f,1,true,1,1,2,,true
+hsk26-g2-042,2,42,固定格式,Fixed formats,approved,glesson_1c115b4f31ce47338c90eacee08d91c1,1,true,1,1,2,,true
+hsk26-g2-043,2,43,固定格式,Fixed formats,approved,glesson_05bde99c7379415a9e1067abc6f1e4ce,1,true,3,3,3,,true
+hsk26-g2-044,2,44,固定格式,Fixed formats,approved,glesson_5029adfdc6f545af98383219c99bfa91,1,true,1,1,2,,true
+hsk26-g2-045,2,45,句子成分,Sentence components,approved,glesson_badca6da43d5461281a859c1d488ba49,1,true,1,1,2,,true
+hsk26-g2-046,2,46,句子成分,Sentence components,approved,glesson_9ef8d5cea59d47638f54e8f4a61765e1,1,true,1,1,2,,true
+hsk26-g2-047,2,47,句子成分,Sentence components,approved,glesson_8f0d645b2a3f4c93abb66903f3c5558f,1,true,2,2,2,,true
+hsk26-g2-048,2,48,句子成分,Sentence components,approved,glesson_47f3b0ed04bf4a36a6956dd0695c632a,1,true,5,5,5,,true
+hsk26-g2-049,2,49,句子成分,Sentence components,approved,glesson_01b862ef28b441d2bc831c4224c8cc4a,1,true,2,2,2,,true
+hsk26-g2-050,2,50,句子成分,Sentence components,approved,glesson_f31d698d638445f1a9feb41d157fe04b,1,true,6,6,6,,true
+hsk26-g2-051,2,51,句子成分,Sentence components,approved,glesson_ee41e6416f824d27b1eb8c57691de21b,1,true,13,13,13,,true
+hsk26-g2-052,2,52,句子成分,Sentence components,approved,glesson_ede1b62f33a6494a85014b585331b428,1,true,1,1,2,,true
+hsk26-g2-053,2,53,句子成分,Sentence components,approved,glesson_c3771e2abd7742728367260732b013c7,1,true,1,1,2,,true
+hsk26-g2-054,2,54,句子成分,Sentence components,approved,glesson_ffbf32e9af2f483ea949c0ad313f0001,1,true,1,1,2,,true
+hsk26-g2-055,2,55,句子的类型,Sentence types,approved,glesson_a6853982d0af406fa888be25a7d45bd3,1,true,1,1,2,,true
+hsk26-g2-056,2,56,句子的类型,Sentence types,approved,glesson_52acdf2be231401cb6641db150ed1b78,1,true,1,1,2,,true
+hsk26-g2-057,2,57,句子的类型,Sentence types,approved,glesson_b26122dc1f28458583e65e8d71623385,1,true,1,1,2,,true
+hsk26-g2-058,2,58,句子的类型,Sentence types,approved,glesson_a35f4c8b3a7545ddbd5495e9946d2dd3,1,true,1,1,2,,true
+hsk26-g2-059,2,59,句子的类型,Sentence types,approved,glesson_a7c3f16190ef479f9dc90866f0f19fd3,1,true,1,1,2,,true
+hsk26-g2-060,2,60,句子的类型,Sentence types,approved,glesson_8406c000714148ed93355a655ae380e4,1,true,1,1,2,,true
+hsk26-g2-061,2,61,句子的类型,Sentence types,approved,glesson_8cd3774517fc4724be7340812ecbe749,1,true,1,1,2,,true
+hsk26-g2-062,2,62,句子的类型,Sentence types,approved,glesson_3eb252ea7d424841a3152d08aa6cc546,1,true,2,2,2,,true
+hsk26-g2-063,2,63,句子的类型,Sentence types,approved,glesson_6ef576543f8541009ddc1864bf774cfb,1,true,4,4,4,,true
+hsk26-g2-064,2,64,句子的类型,Sentence types,approved,glesson_0d882781e8774e09858c603addc4ffee,1,true,2,2,2,,true
+hsk26-g2-065,2,65,句子的类型,Sentence types,approved,glesson_ffe80b1988b84769a16676ccb04b2e61,1,true,4,4,4,,true
+hsk26-g2-066,2,66,句子的类型,Sentence types,approved,glesson_1498a4583ff14c99892cf06f0b72f6e6,1,true,3,3,3,,true
+hsk26-g2-067,2,67,句子的类型,Sentence types,approved,glesson_993586dc6e8f4916b41298d63695c08d,1,true,1,1,2,,true
+hsk26-g2-068,2,68,句子的类型,Sentence types,approved,glesson_68db8b2f6deb4411af949bf10e1bb513,1,true,1,1,2,,true
+hsk26-g2-069,2,69,句子的类型,Sentence types,approved,glesson_03c64f5939e34fb5ae2e9318a50693cf,1,true,1,1,2,,true
+hsk26-g2-070,2,70,句子的类型,Sentence types,approved,glesson_cd8a7497afe54bbeb49b0343599ed9ec,1,true,1,1,2,,true
+hsk26-g2-071,2,71,句子的类型,Sentence types,approved,glesson_6f0127d426cf4bf68701631287733166,1,true,1,1,2,,true
+hsk26-g2-072,2,72,动作的态,Aspects of actions,approved,glesson_8ff45e3161d942abb8dd0470128fe4d5,1,true,1,1,2,,true
+hsk26-g2-073,2,73,动作的态,Aspects of actions,approved,glesson_5e4c4bb2dc1543c1b1e7afbef39ca393,1,true,1,1,2,,true
+hsk26-g2-074,2,74,动作的态,Aspects of actions,approved,glesson_850e51837bbb4d249c84d673457cb2e1,1,true,1,1,2,,true
+hsk26-g2-075,2,75,特殊表达法,Special expressions,approved,glesson_e77d15c96ede4ed4b4125715ee306f3a,1,true,1,1,2,,true
+hsk26-g2-076,2,76,特殊表达法,Special expressions,approved,glesson_00381ffa4caf46d8a88816e5c574b3e9,1,true,1,1,2,,true
+hsk26-g2-077,2,77,特殊表达法,Special expressions,approved,glesson_dd80611de9834c14b69a9d00ac756445,1,true,1,1,2,,true
+hsk26-g2-078,2,78,特殊表达法,Special expressions,approved,glesson_237b83ef82744366b4ac454c615a734f,1,true,1,1,2,,true
+hsk26-g3-001,3,1,语素,Morphemes,approved,glesson_6e7cfe6abe734612a4e5a72de1210257,1,true,1,1,2,,true
+hsk26-g3-002,3,2,语素,Morphemes,approved,glesson_32471e0e6d8446e5baff7c10a29196dd,1,true,3,3,3,,true
+hsk26-g3-003,3,3,词类,Word classes,approved,glesson_d72c52c17a7d49bf9fd6547f5900dcbc,1,true,9,9,2,,true
+hsk26-g3-004,3,4,词类,Word classes,approved,glesson_ea19a49bbb6e415c8b9f24bb7aa1432a,1,true,5,5,3,,true
+hsk26-g3-005,3,5,词类,Word classes,approved,glesson_d30968a42f4b4ef49c213b6271e5f4f4,1,true,4,4,2,,true
+hsk26-g3-006,3,6,词类,Word classes,approved,glesson_4b17ca4cd44f43268595621fcd28cb0b,1,true,3,3,2,,true
+hsk26-g3-007,3,7,词类,Word classes,approved,glesson_867901eb059049e79b6ff537b4ab9bed,1,true,1,1,2,,true
+hsk26-g3-008,3,8,词类,Word classes,approved,glesson_5d546dc5765a4b47a1819003e41f0888,1,true,2,2,2,,true
+hsk26-g3-009,3,9,词类,Word classes,approved,glesson_bea2dc463fb3437fac779d881872add9,1,true,1,1,2,,true
+hsk26-g3-010,3,10,词类,Word classes,approved,glesson_b6e0bf6e6140401d949ed1cd7a5e44a2,1,true,2,2,2,,true
+hsk26-g3-011,3,11,词类,Word classes,approved,glesson_64a50251c82e4b31bf9ccb111190ae9f,1,true,2,2,2,,true
+hsk26-g3-012,3,12,词类,Word classes,approved,glesson_df7aa22167ec4fc7b0f03bf2ab4b61a9,1,true,20,20,5,,true
+hsk26-g3-013,3,13,词类,Word classes,approved,glesson_c3df0eb303974d85aac4214ca6128240,1,true,2,2,2,,true
+hsk26-g3-014,3,14,词类,Word classes,approved,glesson_e8773bfc98ae4f038b8e6a18d2d6ac8c,1,true,4,4,2,,true
+hsk26-g3-015,3,15,词类,Word classes,approved,glesson_67af68618b554c8e8f28c44bd041bfce,1,true,1,1,2,,true
+hsk26-g3-016,3,16,词类,Word classes,approved,glesson_5f556af650a944789b0f58310ea9ff13,1,true,8,8,4,,true
+hsk26-g3-017,3,17,词类,Word classes,approved,glesson_17962a7ae6a74a4daa7a09ae22c027e3,1,true,6,6,3,,true
+hsk26-g3-018,3,18,词类,Word classes,approved,glesson_07762125aabd4d749cf0f1832fee99fd,1,true,7,7,6,,true
+hsk26-g3-019,3,19,词类,Word classes,approved,glesson_89059b179fe648e5b7ae36f476083e22,1,true,4,4,3,,true
+hsk26-g3-020,3,20,词类,Word classes,approved,glesson_5fb2d0bf9f384280a2d05a727fbc624e,1,true,1,1,2,,true
+hsk26-g3-021,3,21,词类,Word classes,approved,glesson_177b3691e5374b388530d00a7c05979a,1,true,6,6,4,,true
+hsk26-g3-022,3,22,词类,Word classes,approved,glesson_9e20456f2fa34fdeafcb9d9f0c07e386,1,true,6,6,5,,true
+hsk26-g3-023,3,23,词类,Word classes,approved,glesson_69679885521946b7a6801b6ca1c2716d,1,true,2,2,2,不必,true
+hsk26-g3-024,3,24,词类,Word classes,approved,glesson_0ca9c57f33894bcc9dfd898fbacfaf78,1,true,3,3,3,,true
+hsk26-g3-025,3,25,词类,Word classes,approved,glesson_309a16f37538472988dbe46293b62779,1,true,1,1,2,,true
+hsk26-g3-026,3,26,词类,Word classes,approved,glesson_c8f640cc55c34c5ebcf4f8c68c0f9a83,1,true,2,2,2,,true
+hsk26-g3-027,3,27,词类,Word classes,approved,glesson_65181384815e48bb8984cea0ad0c86e5,1,true,2,2,2,,true
+hsk26-g3-028,3,28,词类,Word classes,approved,glesson_f8df5d8520dc416f90cc4c5f48366344,1,true,1,1,2,,true
+hsk26-g3-029,3,29,词类,Word classes,approved,glesson_86045223657d499287380b3408184831,1,true,2,2,2,,true
+hsk26-g3-030,3,30,词类,Word classes,approved,glesson_3e69ae1cd06d466fbbd76b265b767a9b,1,true,8,8,7,,true
+hsk26-g3-031,3,31,词类,Word classes,approved,glesson_00d57d729c7f4d23b440054ccc241d9b,1,true,1,1,2,,true
+hsk26-g3-032,3,32,短语,Phrases,approved,glesson_49c1ef7d1f3841548297a0b490d07b81,1,true,1,1,2,,true
+hsk26-g3-033,3,33,短语,Phrases,approved,glesson_5e921aa422d24b6a890431b12b32fc6f,1,true,1,1,2,,true
+hsk26-g3-034,3,34,短语,Phrases,approved,glesson_56c56a08a83a4a9fba7fb8f8edeac19e,1,true,1,1,2,,true
+hsk26-g3-035,3,35,短语,Phrases,approved,glesson_c74f97e80cba4f0396cdf394f34eff1e,1,true,1,1,2,,true
+hsk26-g3-036,3,36,短语,Phrases,approved,glesson_5f19781ab8ae438e8b3b96ed0eeba473,1,true,1,1,2,,true
+hsk26-g3-037,3,37,短语,Phrases,approved,glesson_b0577291ea834c2d9ab205ab44afb00d,1,true,1,1,2,,true
+hsk26-g3-038,3,38,短语,Phrases,approved,glesson_17ce2c91cf0744cc88bc0f91363fc43c,1,true,1,1,2,,true
+hsk26-g3-039,3,39,短语,Phrases,approved,glesson_f7e879eb77834d0b821cb273f009fb0a,1,true,1,1,2,,true
+hsk26-g3-040,3,40,短语,Phrases,approved,glesson_a1dfe076faec4624ad1920ecf040d0c6,1,true,1,1,2,,true
+hsk26-g3-041,3,41,短语,Phrases,approved,glesson_f069e89cffa64b04ae56201517efa1f1,1,true,1,1,2,,true
+hsk26-g3-042,3,42,短语,Phrases,approved,glesson_6846bb8213774651a3a0fc6f7ac335d6,1,true,1,1,2,,true
+hsk26-g3-043,3,43,短语,Phrases,approved,glesson_316c9bec0f684aa884fe3be17c0d0fa8,1,true,1,1,2,,true
+hsk26-g3-044,3,44,固定格式,Fixed formats,approved,glesson_9d70695e91ed42b9a1bf70af3cbe7279,1,true,3,3,3,,true
+hsk26-g3-045,3,45,固定格式,Fixed formats,approved,glesson_2de4d47ffc894d33bc269b63cecd62ef,1,true,1,1,2,,true
+hsk26-g3-046,3,46,固定格式,Fixed formats,approved,glesson_86ade8b4e22942ec899e79e4ec99da30,1,true,1,1,2,,true
+hsk26-g3-047,3,47,固定格式,Fixed formats,approved,glesson_dfd078bbb2674897a0fe8cbec750e3bb,1,true,4,4,4,,true
+hsk26-g3-048,3,48,固定格式,Fixed formats,approved,glesson_6baf35e486cf4338aa6637ee28bd8262,1,true,1,1,2,,true
+hsk26-g3-049,3,49,固定格式,Fixed formats,approved,glesson_6c2cdcd62e104b80b2eb3873a2b2787e,1,true,1,1,2,,true
+hsk26-g3-050,3,50,固定格式,Fixed formats,approved,glesson_31d755e440e645e5b0c80f741acaea2c,1,true,4,4,4,,true
+hsk26-g3-051,3,51,固定格式,Fixed formats,approved,glesson_dcc7fa1a622346d5a68dd65fad261172,1,true,1,1,2,,true
+hsk26-g3-052,3,52,固定格式,Fixed formats,approved,glesson_79689c9fb74747b391ce575ac4167555,1,true,1,1,2,,true
+hsk26-g3-053,3,53,固定格式,Fixed formats,approved,glesson_d0c6abcc416f408382b08b81f1e5aa2e,1,true,3,3,3,,true
+hsk26-g3-054,3,54,句子成分,Sentence components,approved,glesson_0b941a74e636424585d377b2f70b4b2e,1,true,2,2,2,,true
+hsk26-g3-055,3,55,句子成分,Sentence components,approved,glesson_931fa872891644ec9551798943541630,1,true,1,1,2,,true
+hsk26-g3-056,3,56,句子成分,Sentence components,approved,glesson_d2efb4f8c516443bb43d91df0e487452,1,true,1,1,2,,true
+hsk26-g3-057,3,57,句子成分,Sentence components,approved,glesson_f95efe2751dd4f9e8608c4eaa8b4e1e5,1,true,4,4,4,,true
+hsk26-g3-058,3,58,句子成分,Sentence components,approved,glesson_33ffecba3284470ea135a85bbe5d5923,1,true,3,3,3,,true
+hsk26-g3-059,3,59,句子成分,Sentence components,approved,glesson_93490e12936e4c7eb4b0fe18d6f003ff,1,true,2,2,2,,true
+hsk26-g3-060,3,60,句子成分,Sentence components,approved,glesson_81a16c159ed04f33baf215dbe272a1bf,1,true,2,2,2,,true
+hsk26-g3-061,3,61,句子成分,Sentence components,approved,glesson_cf0bf06ae7914411a782069d00b08c85,1,true,2,2,2,,true
+hsk26-g3-062,3,62,句子成分,Sentence components,approved,glesson_d55e66f484e44c9aa5ebbbf4fcded9b9,1,true,1,1,2,,true
+hsk26-g3-063,3,63,句子成分,Sentence components,approved,glesson_46b1065e58094ca989310f1e3283e1e7,1,true,2,2,2,,true
+hsk26-g3-064,3,64,句子成分,Sentence components,approved,glesson_a406d28084104510ad51f2f6d103ecc6,1,true,1,1,2,,true
+hsk26-g3-065,3,65,句子的类型,Sentence types,approved,glesson_2e161ba40ebc413383365b8ee6d111c2,1,true,1,1,2,,true
+hsk26-g3-066,3,66,句子的类型,Sentence types,approved,glesson_662c3598b52345f1b16c437f9c50dd3f,1,true,1,1,2,,true
+hsk26-g3-067,3,67,句子的类型,Sentence types,approved,glesson_485f0c081660431cb26e6624feab453c,1,true,2,2,2,,true
+hsk26-g3-068,3,68,句子的类型,Sentence types,approved,glesson_8291206edc9b4948a350de4f51adecae,1,true,2,2,2,,true
+hsk26-g3-069,3,69,句子的类型,Sentence types,approved,glesson_902e37aedf50494fb982985426947899,1,true,3,3,3,,true
+hsk26-g3-070,3,70,句子的类型,Sentence types,approved,glesson_8c5b4c0a54594df08a901d349e971746,1,true,1,1,2,,true
+hsk26-g3-071,3,71,句子的类型,Sentence types,approved,glesson_4e1807cc26d140f79028dbc028fcaa1b,1,true,1,1,2,,true
+hsk26-g3-072,3,72,句子的类型,Sentence types,approved,glesson_9e80e20829b14b17a957359bb6bbc67e,1,true,1,1,2,,true
+hsk26-g3-073,3,73,句子的类型,Sentence types,approved,glesson_756a581f98be48b5afa1b781494a4e72,1,true,2,2,2,,true
+hsk26-g3-074,3,74,句子的类型,Sentence types,approved,glesson_081ca9efc2fb40d79a01e906847593b2,1,true,1,1,2,,true
+hsk26-g3-075,3,75,句子的类型,Sentence types,approved,glesson_aee8f5d56fa24588a6ce2de696dc7b13,1,true,1,1,2,,true
+hsk26-g3-076,3,76,句子的类型,Sentence types,approved,glesson_3c6e9fce50f743499075918414b62e11,1,true,1,1,2,,true
+hsk26-g3-077,3,77,句子的类型,Sentence types,approved,glesson_7208ea54ca48453fa88ace572360521e,1,true,4,4,4,,true
+hsk26-g3-078,3,78,句子的类型,Sentence types,approved,glesson_ab55443f5842459e92950531f3a14640,1,true,1,1,2,,true
+hsk26-g3-079,3,79,句子的类型,Sentence types,approved,glesson_37870b2f9f64465286774f5376432844,1,true,1,1,2,,true
+hsk26-g3-080,3,80,句子的类型,Sentence types,approved,glesson_1553ab51818642b2bc0841d9472a6c39,1,true,1,1,2,,true
+hsk26-g3-081,3,81,句子的类型,Sentence types,approved,glesson_a0f1859f68cb4d54b2caf12ff9e8237b,1,true,1,1,2,,true
+hsk26-g3-082,3,82,句子的类型,Sentence types,approved,glesson_086668360c5544938de5ede95467808a,1,true,2,2,2,,true
+hsk26-g3-083,3,83,句子的类型,Sentence types,approved,glesson_fafa2f30a8db4d60ab1046837b39b08e,1,true,1,1,2,,true
+hsk26-g3-084,3,84,句子的类型,Sentence types,approved,glesson_7003f358f7df4bbeb820c60ae7eef247,1,true,1,1,2,,true
+hsk26-g3-085,3,85,句子的类型,Sentence types,approved,glesson_3699ff1d274242dca062cce0908bec20,1,true,1,1,2,,true
+hsk26-g3-086,3,86,句子的类型,Sentence types,approved,glesson_78985b77a53a429aa7bb1d642fdf7494,1,true,1,1,2,,true
+hsk26-g3-087,3,87,句子的类型,Sentence types,approved,glesson_b06d9fcf7b8d414eb52e92cdd74392a7,1,true,1,1,2,,true
+hsk26-g3-088,3,88,句子的类型,Sentence types,approved,glesson_ac8a06a59b734a0b9926e0b5e721fa87,1,true,1,1,2,,true
+hsk26-g3-089,3,89,句子的类型,Sentence types,approved,glesson_f182cc46e3b946abb96f53dda5e4df1c,1,true,1,1,2,,true
+hsk26-g3-090,3,90,句子的类型,Sentence types,approved,glesson_7f858a43efcf4b10be8832af83ec2c3a,1,true,1,1,2,,true
+hsk26-g3-091,3,91,句子的类型,Sentence types,approved,glesson_498b753c7da54f61b6841874434f7a84,1,true,1,1,2,,true
+hsk26-g3-092,3,92,句子的类型,Sentence types,approved,glesson_428b8aa5e9bd475cbf3fa5ef7ba5b5eb,1,true,1,1,2,,true
+hsk26-g3-093,3,93,句子的类型,Sentence types,approved,glesson_a0126ffa7598439aaae163fcd7508b72,1,true,1,1,2,,true
+hsk26-g3-094,3,94,句子的类型,Sentence types,approved,glesson_9315a8f6d7df428daba515fc04d63e30,1,true,2,2,2,,true
+hsk26-g3-095,3,95,特殊表达法,Special expressions,approved,glesson_e253e9a29c714cd8a4333d3f8428b903,1,true,1,1,2,,true
+hsk26-g3-096,3,96,特殊表达法,Special expressions,approved,glesson_687cfec23a554ec897fe4131b27568d7,1,true,1,1,2,,true

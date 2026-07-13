@@ -31,6 +31,15 @@ from compile_runtime_catalog import (  # noqa: E402
 from syllabus_parser import parse_all  # noqa: E402
 from snapshot_legacy_runtime import EXPECTED_SNAPSHOT_SHA256, TARGET as LEGACY_SNAPSHOT  # noqa: E402
 from write_schema import schema  # noqa: E402
+from grammar_study import (  # noqa: E402
+    authorized_vocabulary_exception_occurrences,
+    build_target_parts,
+    compile_grammar_by_level,
+    render_grammar_chunks,
+    validate_pinyin,
+    validate_grammar_study,
+)
+from catalog_io import GRAMMAR_STUDY_CONTENT_TABLES, GRAMMAR_STUDY_PRODUCT_TABLE  # noqa: E402
 
 
 class SyllabusParserTests(unittest.TestCase):
@@ -83,6 +92,7 @@ class CatalogPipelineTests(unittest.TestCase):
             "sentences": len(runtime["sentences"]),
             "hanzi": len(runtime["hanzi"]),
             "measure_words": len(runtime["measure_words"]),
+            "grammar": len(compiled["grammar"]),
         })
 
     def test_legacy_snapshot_is_immutable(self) -> None:
@@ -110,7 +120,8 @@ class CatalogPipelineTests(unittest.TestCase):
         inventory = report["inventory"]
         self.assertEqual(
             inventory["sentence_and_study_cards"],
-            inventory["sentences"] + inventory["active_hanzi_study_records"] * 2
+            sum(inventory["sentence_directions"].values())
+            + inventory["active_hanzi_study_records"] * 2
             + inventory["active_measure_word_cards"],
         )
         self.assertTrue(report["compatibility"]["runtime_semantic_match"])
@@ -193,10 +204,10 @@ class CatalogPipelineTests(unittest.TestCase):
             "reviewer": "test-reviewer", "reviewer_type": "human",
             "reviewed_at": "2026-07-12", "notes": "",
         }
-        tables["reviews.csv"] = [
+        tables["reviews.csv"].extend([
             {"review_id": "review_old", "content_hash": "0" * 64, **base},
             {"review_id": "review_current", "content_hash": current_hash, **base},
-        ]
+        ])
         self.assertEqual(validate_review_governance(tables), [])
 
     def test_approved_coverage_is_independent_of_product_bindings(self) -> None:
@@ -290,6 +301,207 @@ class CatalogPipelineTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "Duplicate primary key"):
             compile_all(duplicate_translation)
+
+    def test_empty_grammar_feature_is_optional_but_partial_content_fails_closed(self) -> None:
+        tables = load_tables()
+        for name in (*GRAMMAR_STUDY_CONTENT_TABLES, GRAMMAR_STUDY_PRODUCT_TABLE):
+            tables[name] = []
+        errors, summary = validate_grammar_study(tables)
+        self.assertEqual(errors, [])
+        self.assertFalse(summary["enabled"])
+        self.assertEqual(summary["authorized_vocabulary_exceptions"], 2)
+        self.assertEqual(compile_grammar_by_level(tables), {})
+
+        tables["grammar_lessons.csv"].append({
+            "grammar_lesson_id": "glesson_00000000000040008000000000000000",
+            "level_introduced": "1", "lesson_kind": "category", "title_en": "Test",
+            "target_form_zh": "", "summary_en": "A test purpose.", "watch_out_en": "",
+            "display_group_en": "Word classes", "display_group_basis": "official_category",
+            "register": "neutral", "review_status": "in_review",
+            "basis_source_id": "hsk26-zh+hsk26-en", "content_origin": "project_authored",
+            "notes": "",
+        })
+        errors, summary = validate_grammar_study(tables)
+        self.assertTrue(summary["enabled"])
+        self.assertTrue(any(error["rule"] == "grammar_activation" for error in errors))
+        self.assertTrue(any(error["rule"] == "grammar_primary_point_coverage" for error in errors))
+
+    def test_clean_exact_grammar_mapping_may_omit_legacy_tag(self) -> None:
+        tables = load_tables()
+        sentence = next(row for row in tables["sentences.csv"] if row["level"] == "1")
+        links = [
+            row for row in tables["sentence_grammar.csv"]
+            if row["sentence_id"] == sentence["sentence_id"]
+        ]
+        tables["sentence_grammar.csv"].append({
+            "sentence_id": sentence["sentence_id"],
+            "position": str(max(int(row["position"]) for row in links) + 1),
+            "legacy_tag": "", "grammar_point_id": "hsk26-g1-001",
+            "candidate_grammar_point_ids": "", "mapping_status": "mapped",
+            "review_status": "in_review", "notes": "",
+        })
+        errors, _summary = validate_linguistic_relations(tables)
+        self.assertFalse(any(error["rule"] == "new_grammar_mapping" for error in errors))
+        self.assertFalse(any(error["rule"] == "legacy_grammar_tag" for error in errors))
+
+        migrated = next(row for row in tables["sentence_grammar.csv"] if row["legacy_tag"])
+        migrated["legacy_tag"] = ""
+        errors, _summary = validate_linguistic_relations(tables)
+        self.assertTrue(any(error["rule"] == "legacy_grammar_tag" for error in errors))
+
+    def test_approved_sentence_vocabulary_is_occurrence_aware(self) -> None:
+        tables = load_tables()
+        vocab = next(row for row in tables["vocabulary.csv"] if row["hanzi"] == "我")
+        sentence_id = "sent_00000000000040008000000000000000"
+        tables["sentences.csv"].append({
+            "sentence_id": sentence_id, "level": "1", "full_zh": "我我。", "topic_id": "",
+            "register": "neutral", "curation_status": "approved",
+            "linguistic_review_status": "approved", "source_id": "hsk26-zh", "notes": "",
+        })
+        relation = {
+            "sentence_id": sentence_id, "position": "1", "surface_form": "我",
+            "vocab_id": vocab["vocab_id"], "resolution_status": "exact", "coverage_type": "exact",
+            "review_status": "approved", "notes": "",
+        }
+        tables["sentence_vocabulary.csv"].append(relation)
+        errors, _summary = validate_linguistic_relations(tables)
+        self.assertTrue(any(
+            error["rule"] == "sentence_vocabulary_completeness" and error["entity_id"] == sentence_id
+            for error in errors
+        ))
+        tables["sentence_vocabulary.csv"].append({**relation, "position": "2"})
+        errors, _summary = validate_linguistic_relations(tables)
+        self.assertFalse(any(
+            error["rule"] in {"sentence_vocabulary_completeness", "sentence_vocabulary_order"}
+            and error["entity_id"] == sentence_id
+            for error in errors
+        ))
+
+    def test_grammar_chunk_contract_and_target_parts_are_deterministic(self) -> None:
+        payload = {
+            "schemaVersion": "1", "syllabusId": "hsk-2025-11", "level": 1,
+            "officialPointIds": [], "categories": [], "lessons": [],
+        }
+        rendered = render_grammar_chunks({1: payload})["grammar-lessons-hsk1.js"]
+        self.assertEqual(rendered, render_grammar_chunks({1: payload})["grammar-lessons-hsk1.js"])
+        self.assertIn("window.HSKFlashcards", rendered)
+        self.assertIn('"schemaVersion": "1"', rendered)
+        self.assertNotIn("<script", rendered)
+
+        targets = [
+            {
+                "grammar_target_id": "gtarget_00000000000040008000000000000000",
+                "target_order": "1", "target_text_zh": "在", "occurrence_number": "2",
+                "target_role": "marker",
+            }
+        ]
+        parts, errors = build_target_parts("我在家，他在学校。", targets)
+        self.assertEqual(errors, [])
+        self.assertEqual([part["text"] for part in parts if part["emphasized"]], ["在"])
+        self.assertEqual("".join(part["text"] for part in parts), "我在家，他在学校。")
+
+        overlapping = [
+            {**targets[0], "target_order": "1", "occurrence_number": "1"},
+            {
+                **targets[0], "grammar_target_id": "gtarget_00000000000040008000000000000001",
+                "target_order": "2", "target_text_zh": "在家", "occurrence_number": "1",
+            },
+        ]
+        _parts, errors = build_target_parts("我在家。", overlapping)
+        self.assertTrue(any(error["rule"] == "grammar_target_order" for error in errors))
+
+    def test_grammar_pinyin_accepts_nfc_caron_vowels(self) -> None:
+        self.assertIsNone(validate_pinyin("Wǒ hěn hǎo, nǐ hǎo ma?"))
+        self.assertIsNone(validate_pinyin("Nǚ'ér qù lǚxíng."))
+        self.assertEqual(validate_pinyin("Wo3 hen3 hao3."), "Display pinyin must use tone marks and ü rather than digits, v, or u:")
+
+    def test_classifier_bei_exception_is_point_and_target_scoped(self) -> None:
+        tables = load_tables()
+        policies = tables["grammar_vocabulary_exceptions.csv"]
+        self.assertEqual(len(policies), 2)
+        policy = next(row for row in policies if row["surface_form"] == "杯")
+        self.assertEqual(
+            (policy["grammar_point_id"], policy["surface_form"], policy["level"],
+             policy["required_target_role"]),
+            ("hsk26-g1-013", "杯", "1", "classifier"),
+        )
+        self.assertNotIn("杯", {row["hanzi"] for row in tables["vocabulary.csv"]})
+        bubi_policy = next(row for row in policies if row["surface_form"] == "不必")
+        self.assertEqual(
+            (bubi_policy["grammar_point_id"], bubi_policy["level"],
+             bubi_policy["required_target_role"]),
+            ("hsk26-g3-023", "3", "negative_modal"),
+        )
+        self.assertFalse(any(
+            row["hanzi"] == "不必" and int(row["level_min"]) <= 3
+            for row in tables["vocabulary.csv"]
+        ))
+
+        sentence_id = "sent_00000000000040008000000000000001"
+        example_id = "gexample_00000000000040008000000000000001"
+        element_id = "gelement_00000000000040008000000000000001"
+        tables["sentences.csv"].append({
+            "sentence_id": sentence_id, "level": "1", "full_zh": "我喝一杯茶。", "topic_id": "",
+            "register": "neutral", "curation_status": "approved",
+            "linguistic_review_status": "approved", "source_id": "hsk26-zh", "notes": "",
+        })
+        tables["grammar_lesson_examples.csv"].append({
+            "grammar_example_id": example_id, "grammar_lesson_id": "test_lesson",
+            "grammar_pattern_id": "", "sentence_id": sentence_id, "example_order": "1",
+            "context_note_en": "", "example_kind": "primary", "review_status": "approved",
+            "notes": "",
+        })
+        tables["grammar_example_points.csv"].append({
+            "grammar_example_id": example_id, "grammar_point_id": "hsk26-g1-013",
+            "grammar_element_id": element_id, "demonstration_order": "1",
+            "analysis_en": "杯 classifies the serving.", "review_status": "approved", "notes": "",
+        })
+        target = {
+            "grammar_target_id": "gtarget_00000000000040008000000000000001",
+            "grammar_example_id": example_id, "grammar_element_id": element_id,
+            "target_order": "1", "target_role": "classifier", "target_text_zh": "杯",
+            "occurrence_number": "1", "review_status": "approved", "notes": "",
+        }
+        tables["grammar_example_targets.csv"].append(target)
+        for position, surface in enumerate(("我", "喝", "一", "茶"), start=1):
+            vocab = next(
+                row for row in tables["vocabulary.csv"]
+                if row["hanzi"] == surface and int(row["level_min"]) <= 1
+            )
+            tables["sentence_vocabulary.csv"].append({
+                "sentence_id": sentence_id, "position": str(position), "surface_form": surface,
+                "vocab_id": vocab["vocab_id"], "resolution_status": "exact",
+                "coverage_type": "exact", "review_status": "approved", "notes": "",
+            })
+
+        authorized = authorized_vocabulary_exception_occurrences(tables)
+        self.assertEqual(authorized[sentence_id]["杯"], 1)
+        errors, _summary = validate_linguistic_relations(tables)
+        self.assertFalse(any(
+            error["entity_id"] == sentence_id and error["rule"] in {
+                "sentence_lexical_segmentation", "sentence_vocabulary_completeness",
+                "sentence_vocabulary_order",
+            }
+            for error in errors
+        ))
+
+        target["target_role"] = "constituent"
+        self.assertNotIn(sentence_id, authorized_vocabulary_exception_occurrences(tables))
+        errors, _summary = validate_linguistic_relations(tables)
+        self.assertTrue(any(
+            error["entity_id"] == sentence_id and error["rule"] == "sentence_lexical_segmentation"
+            for error in errors
+        ))
+
+        unauthorized = deepcopy(tables)
+        next(
+            row for row in unauthorized["grammar_vocabulary_exceptions.csv"]
+            if row["surface_form"] == "杯"
+        )["grammar_point_id"] = "hsk26-g1-014"
+        grammar_errors, _summary = validate_grammar_study(unauthorized)
+        self.assertTrue(any(
+            error["rule"] == "grammar_vocabulary_exception_scope" for error in grammar_errors
+        ))
 
 
 if __name__ == "__main__":

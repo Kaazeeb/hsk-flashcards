@@ -1,6 +1,6 @@
 # HSK Flashcards technical overview
 
-Version: 2.2.0
+Version: 2.3.0
 
 ## Runtime model
 
@@ -8,21 +8,23 @@ This is a static browser app. There is no build step, package manager, bundler, 
 
 Main entry path:
 
-1. `index.html` loads data, libraries, and app modules.
+1. `index.html` loads the eager data, libraries, and app modules.
 2. `app.js` calls `window.HSKFlashcards.main.bootstrap()`.
 3. `js/main.js` forwards bootstrap to the split runtime implementation.
 4. `js/main-actions.js` owns the final bootstrap, render cycle, event binding, and top-level UI actions.
 
+Grammar lesson payloads are an exception to the eager data path: the Grammar controller loads one same-origin JavaScript chunk for the selected HSK level only when the signed-in Grammar page needs it.
+
 ## Root files
 
-- `index.html`: page markup for auth, setup, vocabulary flashcards, review, stats, and image-card panels.
+- `index.html`: page markup for auth, setup, vocabulary flashcards, review, stats, image-card panels, and the signed-in Grammar page.
 - `styles.css`: all app styling and responsive/mobile layout.
 - `app.js`: tiny bootstrap wrapper.
 - `hsk1-data.js`: tiny aggregator marker for the split HSK vocabulary chunks under `js/data/`.
 - `fsrs-lib.js`: browser FSRS scheduler build.
 - `supabase_starter.sql`: current database starter script.
 - `SUPABASE.md`: current Supabase schema and API-call documentation.
-- `VERSION.txt`: release marker; current value is `2.2.0`.
+- `VERSION.txt`: release marker; current value is `2.3.0`.
 - `JS_LINE_COUNTS.txt`: current JavaScript line-count snapshot.
 - `PROJECT_IMPORTANT_UPDATES.md`: consolidated high-signal project updates only.
 
@@ -35,6 +37,7 @@ Data/catalog modules:
 - `js/data/flashcards/hanzi-cards-data-part-1.js` through `js/data/flashcards/hanzi-cards-data-part-3.js`: hardcoded hanzi metadata used to generate pinyin and stroke-sequence study cards.
 - `js/data/flashcards/measure-word-cards-data-part-1.js` through `js/data/flashcards/measure-word-cards-data-part-3.js`: hardcoded measure-word study-card metadata.
 - `js/data/flashcards/image-cards-data.js`: image-card catalog scaffold. It is currently empty, so the app loads zero image cards until entries/assets are added.
+- `js/data/grammar/grammar-lessons-hsk1.js` through `js/data/grammar/grammar-lessons-hsk3.js`: deterministic per-level Grammar Study payloads, loaded lazily rather than by the initial page script list.
 
 Language source modules:
 
@@ -42,7 +45,7 @@ Language source modules:
 - `language/data/product_bindings/`: product-owned card direction, deck, activation, and compatibility order.
 - `language/reference/`: audited Chinese HSK syllabus plus its aligned English reference translation.
 - `language/scripts/audit_catalog.py`: schema, reference, HSK-level, coverage, and compatibility audit.
-- `language/scripts/compile_runtime_catalog.py`: deterministic compiler from CSV sources to the classic JavaScript files above.
+- `language/scripts/compile_runtime_catalog.py`: deterministic compiler from CSV sources to the classic JavaScript files above, including the Grammar Study chunks.
 
 Do not edit the generated flashcard JavaScript as the content source. Chinese-language changes start in `language/` and must follow `language/AGENTS.md`.
 The compiler is an offline maintenance tool; generated JavaScript remains committed, so the browser runtime still has no build-step dependency.
@@ -64,6 +67,7 @@ Core modules:
 - `js/main-setup-view.js`: Setup card-visibility rendering and shared flashcard display helpers.
 - `js/main-study-flow.js`: vocabulary/sentence answer flow and flashcard renderers.
 - `js/main-image-flow.js`: image-card learn/review flow scaffold.
+- `js/main-grammar-page.js`: signed-in Grammar page controller, level/category/search state, lazy same-origin chunk loading, retry handling, strict payload validation, and safe lesson rendering.
 - `js/main-actions.js`: render orchestration, setup actions, reset/navigation actions, and event binding.
 - `js/main.js`: tiny facade that exposes `main.bootstrap()`.
 
@@ -77,6 +81,9 @@ Core modules:
   - 1,578 generated study cards.
 - Sentence/study direction breakdown is generated from the loaded card data. Sentence cards include Chinese-to-English, English-to-Chinese, and Chinese Q&A directions; generated study cards include `hanzi_to_pinyin`, `measure_word`, and `stroke_sequence`.
 - Image cards are scaffolded but the current catalog has 0 active cards.
+- Grammar Study contains 244 approved lessons across HSK 1 through HSK 3: 70 HSK 1 lessons, 78 HSK 2 lessons, and 96 HSK 3 lessons. The lessons contain 547 modeled elements and 571 examples.
+- Grammar compilation is deterministic. The page controller validates chunk identity, ordered official grammar-point ids, primary lesson coverage, and payload structure before rendering a level.
+- Grammar vocabulary policy has two exact editorial exceptions only: HSK 1 `杯` in classifier use and HSK 3 `不必` in negative-modal use. Neither exception creates a broad allowance for the word, level, or element type.
 
 ## Main learning flows
 
@@ -88,6 +95,8 @@ Vocabulary cards support:
 - Smart FSRS review with ratings `1=Again`, `2=Hard`, `3=Good`, `4=Easy`.
 
 Sentence/study decks support a flip-and-rate Smart flow. Image cards have a separate learn/review scaffold with a softer image spacing factor.
+
+The signed-in Grammar page supports HSK 1, HSK 2, and HSK 3, defaulting to HSK 1. Learners can filter lessons by category, search the loaded level, and expand one lesson at a time. Grammar study is read-only and does not add review scheduling or persistence records.
 
 ## State and persistence model
 
@@ -118,4 +127,5 @@ The browser includes the Supabase URL and anon key. That is acceptable only beca
 - No Supabase Realtime subscription; other devices refresh on load/focus rather than streaming every event live.
 - No business-data offline replay queue.
 - No automated browser test suite is included in the repository.
+- Browser/manual QA for the Grammar Study release was intentionally not completed at the user's direction. No browser transfer-size measurements or screenshot validation are claimed for this release.
 - Image cards require catalog entries plus image assets before the image flow has real content.

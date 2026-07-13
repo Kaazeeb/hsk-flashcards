@@ -15,6 +15,16 @@ DESCRIPTIONS = {
     "vocabulary.csv": "One row per official HSK vocabulary sense; active legacy metadata is retained as unreviewed.",
     "vocabulary_translations.csv": "Locale-keyed vocabulary translations.",
     "grammar_points.csv": "Aligned official grammar rows with filled hierarchy.",
+    "grammar_point_elements.csv": "Reviewed pedagogical elements decomposed from official grammar rows.",
+    "grammar_lessons.csv": "Stable learner-facing grammar lesson identities and approved summary copy.",
+    "grammar_lesson_points.csv": "Reviewed lesson-to-official-grammar-point relationships.",
+    "grammar_lesson_elements.csv": "Reviewed lesson-to-normalized-grammar-element relationships.",
+    "grammar_lesson_notes.csv": "Ordered learner-facing How it works notes.",
+    "grammar_lesson_patterns.csv": "Ordered grammar formulas and variants belonging to lessons.",
+    "grammar_lesson_examples.csv": "Reviewed lesson-to-canonical-sentence example relationships.",
+    "grammar_example_points.csv": "Target-specific analyses proving point and element demonstrations.",
+    "grammar_example_targets.csv": "Ordered literal Chinese target segments for safe emphasis.",
+    "grammar_vocabulary_exceptions.csv": "Reviewed point-scoped omissions from exact example vocabulary coverage.",
     "tasks.csv": "Official communicative tasks.",
     "task_scenarios.csv": "Official Level 7-9 life, work, and academic task scenarios.",
     "task_capabilities.csv": "Atomic can-do bullets linked to tasks.",
@@ -37,15 +47,18 @@ DESCRIPTIONS = {
     "sentence_cards.csv": "Product-owned sentence direction, deck, order, and runtime identity.",
     "hanzi_cards.csv": "Product-owned active hanzi study bindings.",
     "measure_word_cards.csv": "Product-owned active classifier-card bindings.",
+    "grammar_page_lessons.csv": "Product-owned Grammar-page activation and per-level display order.",
 }
 
 INTEGER_FIELDS = {
     "syllabus_order", "level_min", "level_max", "row_order", "task_number",
     "capability_number", "recognition_level_min", "recognition_level_max",
     "writing_level_min", "writing_level_max", "level", "turn_order", "position",
-    "usage_order", "runtime_order", "deck_order", "scenario_order",
+    "usage_order", "runtime_order", "deck_order", "scenario_order", "element_order",
+    "level_introduced", "relation_order", "note_order", "pattern_order", "example_order",
+    "demonstration_order", "target_order", "occurrence_number", "level_display_order",
 }
-BOOLEAN_FIELDS = {"learn_default", "practice_default"}
+BOOLEAN_FIELDS = {"learn_default", "practice_default", "active"}
 EDITORIAL_STATUS_FIELDS = {
     "review_status", "curation_status", "linguistic_review_status", "example_review_status",
     "from_status", "to_status",
@@ -58,6 +71,16 @@ ENUM_FIELD_TYPES = {
     "role": "utterance_role",
     "response_style": "response_style",
     "reviewer_type": "reviewer_type",
+    "element_kind": "grammar_content_kind",
+    "lesson_kind": "grammar_content_kind",
+    "content_origin": "content_origin",
+    "note_kind": "grammar_note_kind",
+    "example_kind": "grammar_example_kind",
+}
+
+RELATION_ROLE_TYPES = {
+    "grammar_lesson_points.csv": "grammar_point_relation_role",
+    "grammar_lesson_elements.csv": "grammar_element_relation_role",
 }
 
 
@@ -70,6 +93,8 @@ def type_for(table: str, field: str) -> str:
         return "editorial_status"
     if field in ENUM_FIELD_TYPES:
         return ENUM_FIELD_TYPES[field]
+    if field == "relation_role" and table in RELATION_ROLE_TYPES:
+        return RELATION_ROLE_TYPES[table]
     if table == "issues.csv" and field == "severity":
         return "issue_severity"
     if table == "issues.csv" and field == "status":
@@ -91,7 +116,7 @@ def schema() -> dict:
             "types": {field: type_for(name, field) for field in fields},
         }
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "encoding": "UTF-8",
         "dialect": {"delimiter": ",", "line_ending": "LF", "quoting": "RFC 4180", "null": ""},
         "list_separator": "|",
@@ -105,6 +130,15 @@ def schema() -> dict:
             "utterance_role": ["negative_answer", "positive_answer", "question", "statement"],
             "response_style": ["direction_default", "labeled_ab_lines"],
             "reviewer_type": ["agent", "human"],
+            "grammar_content_kind": [
+                "category", "construction", "expression_system", "function",
+                "inventory_member", "morphology",
+            ],
+            "grammar_point_relation_role": ["contrast", "prerequisite", "primary", "supporting"],
+            "grammar_element_relation_role": ["primary", "supporting"],
+            "grammar_note_kind": ["constraint", "formation", "pragmatics", "usage"],
+            "grammar_example_kind": ["contrast", "primary", "variation"],
+            "content_origin": ["project_authored"],
             "issue_severity": ["critical", "high", "medium", "low"],
             "issue_status": ["open", "resolved", "wont_fix"],
         },

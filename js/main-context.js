@@ -19,6 +19,7 @@
   const { createAppStore } = ns.store;
   const { createButton, clearNode, setBar, updateResult, scheduleStudyAreaFocus } = ns.ui;
   const smart = ns.smart;
+  const ALLOWED_PAGES = Object.freeze(["login", "setup", "flashcards", "images", "grammar"]);
 
   // Randomizes Smart queue order per browser session while keeping order stable across renders.
   function createSmartSessionSeed() {
@@ -104,6 +105,12 @@
       authSignOutBtn: document.getElementById("authSignOutBtn"),
       pageButtons: [...document.querySelectorAll(".page-btn[data-page]")],
       pagePanels: [...document.querySelectorAll(".page-panel[data-page]")],
+      grammarPanel: document.querySelector('.page-panel[data-page="grammar"]'),
+      grammarLevelButtons: [...document.querySelectorAll(".grammar-level-btn[data-grammar-level]")],
+      grammarCategorySelect: document.getElementById("grammarCategorySelect"),
+      grammarSearchInput: document.getElementById("grammarSearchInput"),
+      grammarStatus: document.getElementById("grammarStatus"),
+      grammarResults: document.getElementById("grammarResults"),
       modeButtons: [...document.querySelectorAll(".mode-btn")],
       imageDeckSelect: document.getElementById("imageDeckSelect"),
       imageModeButtons: [...document.querySelectorAll(".image-mode-btn")],
@@ -343,12 +350,12 @@
   function ensureCurrentPageAllowed() {
     const signedIn = !!getAuthStatus().signedIn;
     if (!signedIn && state.currentPage !== "login") state.currentPage = "login";
-    if (!["login", "setup", "flashcards", "images"].includes(state.currentPage)) state.currentPage = signedIn ? "flashcards" : "login";
+    if (!ALLOWED_PAGES.includes(state.currentPage)) state.currentPage = signedIn ? "flashcards" : "login";
   }
 
   function setPage(page) {
     const signedIn = !!getAuthStatus().signedIn;
-    if (!["login", "setup", "flashcards", "images"].includes(page)) return;
+    if (!ALLOWED_PAGES.includes(page)) return;
     if (!signedIn && page !== "login") return;
     state.currentPage = page;
     render();
@@ -428,6 +435,7 @@
 
 
   Object.assign(runtime, {
+    ALLOWED_PAGES,
     MODES,
     PRACTICE_QUIZ_TYPES,
     ALL_SET_ID,

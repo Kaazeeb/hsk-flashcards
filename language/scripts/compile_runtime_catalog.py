@@ -22,6 +22,12 @@ from catalog_io import (
     pipe_split,
     read_csv,
 )
+from grammar_study import (
+    GRAMMAR_DATA_DIR,
+    check_grammar_runtime,
+    compile_grammar_by_level,
+    render_grammar_chunks,
+)
 
 DATA_DIR = PROJECT_ROOT / "js" / "data" / "flashcards"
 PUBLISHABLE_STATUSES = {"legacy_unreviewed", "approved"}
@@ -175,7 +181,9 @@ def compile_sentences(data: dict[str, list[dict[str, str]]]) -> list[dict[str, A
             "deckId": binding["deck_id"], "deckName": binding["deck_name"],
             "direction": direction, "front": front, "back": back,
             "chinese": full_zh, "english": english,
-            "grammarTags": [row["legacy_tag"] for row in grammar_links.get(sentence_id, [])],
+            "grammarTags": [
+                row["legacy_tag"] for row in grammar_links.get(sentence_id, []) if row["legacy_tag"]
+            ],
             "vocabTags": [row["surface_form"] for row in vocab_links.get(sentence_id, [])],
             "tags": pipe_split(binding["tags"]),
         })
@@ -241,15 +249,22 @@ def validate_catalog_input(data: dict[str, list[dict[str, str]]]) -> None:
         validate_linguistic_relations,
         validate_official_contract_and_domains,
         validate_review_governance,
+        validate_schema_contract,
+        validate_sources,
     )
+    from grammar_study import validate_grammar_study
 
     errors = []
     errors.extend(validate_headers_and_rows(data))
+    errors.extend(validate_schema_contract())
     errors.extend(validate_foreign_keys(data))
     errors.extend(validate_official_contract_and_domains(data))
+    errors.extend(validate_sources(data))
     errors.extend(validate_review_governance(data))
     linguistic_errors, _summary = validate_linguistic_relations(data)
     errors.extend(linguistic_errors)
+    grammar_errors, _grammar_summary = validate_grammar_study(data)
+    errors.extend(grammar_errors)
     if errors:
         first = errors[0]
         raise ValueError(
@@ -260,7 +275,7 @@ def validate_catalog_input(data: dict[str, list[dict[str, str]]]) -> None:
 
 def compile_all(
     data: dict[str, list[dict[str, str]]] | None = None, *, validate: bool = True
-) -> dict[str, list[dict[str, Any]]]:
+) -> dict[str, Any]:
     data = data or load_catalog()
     if validate:
         validate_catalog_input(data)
@@ -269,6 +284,7 @@ def compile_all(
         "sentences": compile_sentences(data),
         "hanzi": compile_hanzi(data),
         "measure_words": compile_measure_words(data),
+        "grammar": compile_grammar_by_level(data, validate=False),
     }
     if validate:
         validate_legacy_immutability(data, compiled)
@@ -371,10 +387,11 @@ def validate_legacy_immutability(
                     f"Legacy relation deletion in {sentence_id} {old_key}; preserve the row as reviewed history"
                 )
             for row in link:
-                if row["review_status"] == "legacy_unreviewed":
-                    position = int(row["position"]) - 1
-                    if position >= len(old_values) or row[new_key] != str(old_values[position]):
-                        raise ValueError(f"Legacy relation drift in {sentence_id} {old_key} position {position + 1}")
+                position = int(row["position"]) - 1
+                if position < len(old_values) and row[new_key] != str(old_values[position]):
+                    raise ValueError(f"Legacy relation drift in {sentence_id} {old_key} position {position + 1}")
+                if row["review_status"] == "legacy_unreviewed" and position >= len(old_values):
+                    raise ValueError(f"Legacy relation drift in {sentence_id} {old_key} position {position + 1}")
     for binding in sentence_bindings[len(baseline["sentences"]):]:
         sentence = sentences[binding["sentence_id"]]
         if sentence["curation_status"] != "approved" or sentence["linguistic_review_status"] != "approved":
@@ -428,10 +445,13 @@ def first_difference(expected: list[dict[str, Any]], actual: list[dict[str, Any]
     return None
 
 
-def check_runtime(compiled: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+def check_runtime(compiled: dict[str, Any]) -> list[dict[str, Any]]:
     runtime = load_runtime_cards()
     differences = []
     for family in compiled:
+        if family == "grammar":
+            differences.extend(check_grammar_runtime(compiled[family]))
+            continue
         difference = first_difference(compiled[family], runtime[family])
         if difference:
             differences.append({"family": family, **difference})
@@ -502,7 +522,7 @@ def atomic_write(path: Path, content: bytes) -> None:
             temporary.unlink()
 
 
-def write_runtime(compiled: dict[str, list[dict[str, Any]]]) -> dict[str, list[str]]:
+def write_runtime(compiled: dict[str, Any]) -> dict[str, list[str]]:
     vocabulary_rendered = render_vocabulary(chunked(compiled["vocabulary"], 200))
     sentence_rendered = render_object_parts(
         chunked(compiled["sentences"], 250), prefix="sentence-cards-data",
@@ -522,32 +542,40 @@ def write_runtime(compiled: dict[str, list[dict[str, Any]]]) -> dict[str, list[s
     measure_rendered = render_object_parts(
         measure_by_level, prefix="measure-word-cards-data", global_name="HSK_MEASURE_WORD_CARDS"
     )
-    groups = {
+    eager_groups = {
         "hsk1-data": list(vocabulary_rendered),
         "sentence-cards-data": list(sentence_rendered),
         "hanzi-cards-data": list(hanzi_rendered),
         "measure-word-cards-data": list(measure_rendered),
     }
+    grammar_rendered = render_grammar_chunks(compiled["grammar"])
+    groups = {**eager_groups, "grammar-lessons": list(grammar_rendered)}
     rendered_files = {
         **vocabulary_rendered, **sentence_rendered, **hanzi_rendered, **measure_rendered,
     }
     index_path = PROJECT_ROOT / "index.html"
     index_text = index_path.read_text(encoding="utf-8")
-    for prefix, names in groups.items():
+    for prefix, names in eager_groups.items():
         index_text = replace_index_group(index_text, prefix, names)
 
     affected = {index_path}
-    for prefix, names in groups.items():
+    for prefix, names in eager_groups.items():
         affected.update(DATA_DIR.glob(f"{prefix}-part-*.js"))
         affected.update(DATA_DIR / name for name in names)
+    affected.update(GRAMMAR_DATA_DIR.glob("grammar-lessons-hsk*.js"))
+    affected.update(GRAMMAR_DATA_DIR / name for name in grammar_rendered)
     snapshot = {path: path.read_bytes() if path.exists() else None for path in affected}
     try:
         for name, content in rendered_files.items():
             atomic_write(DATA_DIR / name, content.encode("utf-8"))
+        for name, content in grammar_rendered.items():
+            atomic_write(GRAMMAR_DATA_DIR / name, content.encode("utf-8"))
         atomic_write(index_path, index_text.encode("utf-8"))
         keep = set(rendered_files)
         for path in affected:
             if path.parent == DATA_DIR and path.name not in keep and path.exists():
+                path.unlink()
+            if path.parent == GRAMMAR_DATA_DIR and path.name not in grammar_rendered and path.exists():
                 path.unlink()
     except Exception:
         for path, original in snapshot.items():

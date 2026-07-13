@@ -30,6 +30,8 @@ flowchart TD
 
 The compiler joins linguistic content with product bindings. This lets the language owner change a translation or correct a sentence without deciding whether the product presents Chinese-to-English, English-to-Chinese, or Q&A cards.
 
+The optional HSK 1-3 Grammar page uses the same contract. Reviewed lesson content is normalized across `grammar_point_elements.csv` and the `grammar_*` lesson/example relationship tables, while `grammar_page_lessons.csv` owns activation and per-level order. A completely empty grammar-study catalog is a valid pre-curation state. Once any grammar-study row or binding exists, validation fails closed until all 70/78/96 official rows and their normalized elements are covered by complete approved content.
+
 ## Initial migration
 
 The first catalog snapshot contains:
@@ -72,6 +74,8 @@ Publish approved catalog changes to the runtime chunks:
 python3 language/scripts/compile_runtime_catalog.py --write
 python3 language/scripts/compile_runtime_catalog.py --check-runtime
 ```
+
+Grammar lessons compile into one classic-JavaScript chunk per HSK level under `js/data/grammar/`. Those chunks are checked by the same compiler but are not inserted into `index.html`; the application loads them lazily by selected level.
 
 Run pipeline regression tests:
 
