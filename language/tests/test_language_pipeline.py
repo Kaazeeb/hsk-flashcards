@@ -27,6 +27,9 @@ from catalog_io import load_runtime_cards, read_csv, row_hash, sha256_file  # no
 from compile_runtime_catalog import (  # noqa: E402
     check_runtime,
     compile_all,
+    compile_sentences,
+    load_legacy_snapshot,
+    validate_legacy_immutability,
 )
 from syllabus_parser import parse_all  # noqa: E402
 from snapshot_legacy_runtime import EXPECTED_SNAPSHOT_SHA256, TARGET as LEGACY_SNAPSHOT  # noqa: E402
@@ -105,6 +108,121 @@ class CatalogPipelineTests(unittest.TestCase):
         self.assertNotIn("back", rows[0])
         self.assertIn("direction", rows[0])
         self.assertIn("deck_id", rows[0])
+        self.assertIn("active", rows[0])
+
+    def test_sentence_binding_tombstone_preserves_historical_order(self) -> None:
+        tables = load_tables()
+        active = sorted(
+            (row for row in tables["sentence_cards.csv"] if row["active"] == "true"),
+            key=lambda row: int(row["runtime_order"]),
+        )
+        target = active[len(active) // 2]
+        expected_ids = [row["card_id"] for row in active if row["card_id"] != target["card_id"]]
+        target["active"] = "false"
+
+        compiled_ids = [card["id"] for card in compile_sentences(tables)]
+        self.assertEqual(compiled_ids, expected_ids)
+        self.assertTrue(all("visibilityIndex" in card for card in compile_sentences(tables)))
+
+    def test_legacy_sentence_binding_must_remain_as_an_immutable_tombstone(self) -> None:
+        tables = load_tables()
+        baseline_last_id = str(load_legacy_snapshot()["sentences"][-1]["id"])
+        removed = next(row for row in tables["sentence_cards.csv"] if row["card_id"] == baseline_last_id)
+        removed_order = int(removed["runtime_order"])
+        removed_deck_id = removed["deck_id"]
+        removed_deck_order = int(removed["deck_order"])
+        tables["sentence_cards.csv"] = [
+            row for row in tables["sentence_cards.csv"] if row["card_id"] != baseline_last_id
+        ]
+        for row in tables["sentence_cards.csv"]:
+            if int(row["runtime_order"]) > removed_order:
+                row["runtime_order"] = str(int(row["runtime_order"]) - 1)
+            if row["deck_id"] == removed_deck_id and int(row["deck_order"]) > removed_deck_order:
+                row["deck_order"] = str(int(row["deck_order"]) - 1)
+        compiled = compile_all(tables, validate=False)
+        with self.assertRaisesRegex(ValueError, "Missing immutable sentence card binding"):
+            validate_legacy_immutability(tables, compiled)
+
+        changed = load_tables()
+        binding = next(
+            row for row in changed["sentence_cards.csv"] if row["card_id"] == baseline_last_id
+        )
+        binding["active"] = "false"
+        binding["deck_name"] += " changed"
+        compiled = compile_all(changed, validate=False)
+        with self.assertRaisesRegex(ValueError, "Immutable sentence binding drift"):
+            validate_legacy_immutability(changed, compiled)
+
+    def test_approved_single_question_grammar_example_can_become_a_translation_card(self) -> None:
+        tables = load_tables()
+        sentence_levels = {row["sentence_id"]: row["level"] for row in tables["sentences.csv"]}
+        example_sentence_ids = {
+            row["sentence_id"] for row in tables["grammar_lesson_examples.csv"]
+        }
+        question = next(
+            row for row in tables["sentence_utterances.csv"]
+            if row["sentence_id"] in example_sentence_ids
+            and sentence_levels[row["sentence_id"]] == "3"
+            and row["role"] == "question"
+        )
+        max_runtime_order = max(int(row["runtime_order"]) for row in tables["sentence_cards.csv"])
+        max_deck_order = max(
+            int(row["deck_order"])
+            for row in tables["sentence_cards.csv"]
+            if row["deck_id"] == "sentence_hsk3"
+        )
+        card_id = "scard_00000000000040008000000000000000"
+        tables["sentence_cards.csv"].append({
+            "runtime_order": str(max_runtime_order + 1),
+            "deck_order": str(max_deck_order + 1),
+            "card_id": card_id,
+            "sentence_id": question["sentence_id"],
+            "active": "true",
+            "direction": "zh_to_en",
+            "deck_id": "sentence_hsk3",
+            "deck_name": "HSK 3 sentence cards — 2026 syllabus aligned",
+            "response_style": "direction_default",
+            "tags": "hsk3|hsk2026|sentence|zh_to_en|grammar_curated",
+        })
+
+        card = next(card for card in compile_sentences(tables) if card["id"] == card_id)
+        self.assertEqual(card["front"], question["zh_text"])
+        self.assertEqual(card["visibilityIndex"], max_deck_order)
+        compiled = compile_all(tables, validate=False)
+        validate_legacy_immutability(tables, compiled)
+
+        translation = next(
+            row for row in tables["sentence_translations.csv"]
+            if row["sentence_id"] == question["sentence_id"] and row["locale"] == "en"
+        )
+        translation["review_status"] = "in_review"
+        with self.assertRaisesRegex(ValueError, "non-publishable"):
+            validate_legacy_immutability(tables, compiled)
+
+    def test_inactive_sentence_binding_is_excluded_from_published_coverage(self) -> None:
+        tables = load_tables()
+        bindings_by_sentence: dict[str, list[dict[str, str]]] = {}
+        for binding in tables["sentence_cards.csv"]:
+            if binding["active"] == "true":
+                bindings_by_sentence.setdefault(binding["sentence_id"], []).append(binding)
+        sentences = {row["sentence_id"]: row for row in tables["sentences.csv"]}
+        vocabulary = {row["vocab_id"]: row for row in tables["vocabulary.csv"]}
+        target_link = next(
+            link for link in tables["sentence_vocabulary.csv"]
+            if link["vocab_id"]
+            and vocabulary[link["vocab_id"]]["level_min"] == "3"
+            and link["review_status"] in {"legacy_unreviewed", "approved"}
+            and sentences[link["sentence_id"]]["level"] == "3"
+            and link["surface_form"] in sentences[link["sentence_id"]]["full_zh"]
+            and len(bindings_by_sentence.get(link["sentence_id"], [])) == 1
+        )
+        _summary, before_rows = coverage_report(tables, 3, 3)
+        before = next(row for row in before_rows if row["vocab_id"] == target_link["vocab_id"])
+
+        bindings_by_sentence[target_link["sentence_id"]][0]["active"] = "false"
+        _summary, after_rows = coverage_report(tables, 3, 3)
+        after = next(row for row in after_rows if row["vocab_id"] == target_link["vocab_id"])
+        self.assertEqual(after["published_explicit_count"], before["published_explicit_count"] - 1)
 
     def test_vocabulary_legacy_positions_are_frozen(self) -> None:
         rows = read_csv(PROJECT_ROOT / "language" / "data" / "product_bindings" / "vocabulary_cards.csv")
@@ -378,14 +496,22 @@ class CatalogPipelineTests(unittest.TestCase):
         ))
 
     def test_grammar_chunk_contract_and_target_parts_are_deterministic(self) -> None:
+        compiled = compile_grammar_by_level(load_tables())
+        for level_payload in compiled.values():
+            for lesson in level_payload["lessons"]:
+                for pattern in lesson["patterns"]:
+                    self.assertTrue(pattern["appliesToZh"])
+                for note in lesson["notes"]:
+                    self.assertTrue(note["appliesToZh"])
+
         payload = {
-            "schemaVersion": "1", "syllabusId": "hsk-2025-11", "level": 1,
+            "schemaVersion": "2", "syllabusId": "hsk-2025-11", "level": 1,
             "officialPointIds": [], "categories": [], "lessons": [],
         }
         rendered = render_grammar_chunks({1: payload})["grammar-lessons-hsk1.js"]
         self.assertEqual(rendered, render_grammar_chunks({1: payload})["grammar-lessons-hsk1.js"])
         self.assertIn("window.HSKFlashcards", rendered)
-        self.assertIn('"schemaVersion": "1"', rendered)
+        self.assertIn('"schemaVersion": "2"', rendered)
         self.assertNotIn("<script", rendered)
 
         targets = [

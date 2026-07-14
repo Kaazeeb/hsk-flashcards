@@ -2,7 +2,7 @@
   "use strict";
   var root = window.HSKFlashcards;
   var payload = {
-  "schemaVersion": "1",
+  "schemaVersion": "2",
   "syllabusId": "hsk-2025-11",
   "level": 2,
   "officialPointIds": [
@@ -143,6 +143,9 @@
       "patterns": [
         {
           "labelEn": "Location noun",
+          "appliesToZh": [
+            "—面"
+          ],
           "pattern": "Direction + 面",
           "formationEn": "Attach 面 to a direction such as 里, 外, 前, 后, 上, or 下.",
           "usageEn": "Names a side or relative location."
@@ -151,6 +154,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "—面"
+          ],
           "textEn": "The direction and 面 form a single location word, such as 里面 or 后面."
         }
       ],
@@ -230,6 +236,10 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "左",
+            "右"
+          ],
           "textEn": "Add 边 when naming a relative location: 左边 or 右边."
         }
       ],
@@ -308,6 +318,12 @@
       "patterns": [
         {
           "labelEn": "Brief or softened action",
+          "appliesToZh": [
+            "AA",
+            "A一A",
+            "A了A",
+            "ABAB"
+          ],
           "pattern": "AA / A一A / A了A / ABAB",
           "formationEn": "Repeat the verb in the pattern appropriate to its length and aspect.",
           "usageEn": "Makes the action sound limited, exploratory, or less forceful."
@@ -316,10 +332,22 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "AA",
+            "A一A",
+            "A了A",
+            "ABAB"
+          ],
           "textEn": "AA, A一A, and ABAB commonly soften requests or suggest trying an action."
         },
         {
           "kind": "usage",
+          "appliesToZh": [
+            "AA",
+            "A一A",
+            "A了A",
+            "ABAB"
+          ],
           "textEn": "A了A reports that the brief action was actually carried out."
         }
       ],
@@ -454,6 +482,9 @@
       "patterns": [
         {
           "labelEn": "Possible event",
+          "appliesToZh": [
+            "可能"
+          ],
           "pattern": "Subject + 可能 + Predicate",
           "formationEn": "Place 可能 before the predicate whose truth is uncertain.",
           "usageEn": "Expresses the speaker's assessment that something may happen or be true."
@@ -462,10 +493,13 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "可能"
+          ],
           "textEn": "可能 normally comes before the verb or adjectival predicate it qualifies."
         }
       ],
-      "watchOutEn": "可能 expresses likelihood; it does not mean learned ability like 会.",
+      "watchOutEn": "Place 不 after 可能 for a possible negative event: 可能不来. 不可能来 says that coming is impossible, so the scopes differ.",
       "examples": [
         {
           "id": "gexample_28e77e9aabef424c96324917b249d757",
@@ -522,6 +556,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_526592206ff54347bd8a04375695d5bc",
+          "zh": "他今天可能不来。",
+          "pinyin": "Tā jīntiān kěnéng bù lái.",
+          "translationEn": "He may not come today.",
+          "analyses": [
+            {
+              "textEn": "可能 scopes over the negative event 不来, so the sentence says that not coming is possible rather than impossible."
+            }
+          ],
+          "parts": [
+            {
+              "text": "他今天",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "可能",
+              "emphasized": true,
+              "role": "modal"
+            },
+            {
+              "text": "不来。",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -540,6 +602,12 @@
       "patterns": [
         {
           "labelEn": "Separable verb-object word",
+          "appliesToZh": [
+            "帮忙",
+            "游泳",
+            "跳舞",
+            "跑步"
+          ],
           "pattern": "Verb part + grammatical material + Object part",
           "formationEn": "Keep the lexical pair together when no internal grammar is needed; split it when a licensed quantity or aspect pattern requires it.",
           "usageEn": "Allows aspect or quantity information to attach to the internal verb-object structure."
@@ -548,10 +616,22 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "帮忙",
+            "游泳",
+            "跳舞",
+            "跑步"
+          ],
           "textEn": "The four syllabus items are 帮忙, 游泳, 跳舞, and 跑步."
         },
         {
           "kind": "formation",
+          "appliesToZh": [
+            "帮忙",
+            "游泳",
+            "跳舞",
+            "跑步"
+          ],
           "textEn": "A classifier can enter the word, as in 帮一个忙."
         }
       ],
@@ -696,6 +776,9 @@
       "patterns": [
         {
           "labelEn": "Reason question",
+          "appliesToZh": [
+            "为什么"
+          ],
           "pattern": "Subject + 为什么 + Predicate",
           "formationEn": "Place 为什么 before the action or state whose reason is unknown.",
           "usageEn": "Requests a reason rather than a yes-or-no answer."
@@ -704,10 +787,13 @@
       "notes": [
         {
           "kind": "constraint",
+          "appliesToZh": [
+            "为什么"
+          ],
           "textEn": "Do not add 吗 to a question already formed with 为什么."
         }
       ],
-      "watchOutEn": "为什么 stays in the position where the reason is being requested; it normally comes before the predicate.",
+      "watchOutEn": "为什么 already asks a question: say 你为什么不去？, not *你为什么不去吗？ Keep it before the predicate.",
       "examples": [
         {
           "id": "gexample_bc91855c2d99445b891c6cbccd2792e2",
@@ -782,6 +868,9 @@
       "patterns": [
         {
           "labelEn": "Reflexive reference",
+          "appliesToZh": [
+            "自己"
+          ],
           "pattern": "Referent + 自己",
           "formationEn": "Use 自己 where the clause refers back to its established person.",
           "usageEn": "Marks self-reference or emphasizes personal involvement."
@@ -790,10 +879,16 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "自己"
+          ],
           "textEn": "Before a verb, 自己 can emphasize doing something without another person's help."
         },
         {
           "kind": "usage",
+          "appliesToZh": [
+            "自己"
+          ],
           "textEn": "Before 的 + noun, 自己 identifies something belonging to the relevant person."
         }
       ],
@@ -854,6 +949,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_ab189c2ed2044d2b94ca40f127bdb6f5",
+          "zh": "这件事你自己能做吗？",
+          "pinyin": "Zhè jiàn shì nǐ zìjǐ néng zuò ma?",
+          "translationEn": "Can you do this yourself?",
+          "analyses": [
+            {
+              "textEn": "自己 refers back to 你 and emphasizes that the listener, rather than another person, would do it."
+            }
+          ],
+          "parts": [
+            {
+              "text": "这件事你",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "自己",
+              "emphasized": true,
+              "role": "reflexive_pronoun"
+            },
+            {
+              "text": "能做吗？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -872,12 +995,22 @@
       "patterns": [
         {
           "labelEn": "Deictic manner or degree",
+          "appliesToZh": [
+            "那么",
+            "那样",
+            "这么",
+            "这样",
+            "每"
+          ],
           "pattern": "那么/这么 + Adjective; 那样/这样 + Verb",
           "formationEn": "Choose 这- for a nearer reference and 那- for a more distant or previously mentioned reference.",
           "usageEn": "Points to a degree, way, or kind."
         },
         {
           "labelEn": "Every member",
+          "appliesToZh": [
+            "每"
+          ],
           "pattern": "每 + Classifier + Noun + 都 + Predicate",
           "formationEn": "Put 每 before the classifier-noun phrase and 都 before the shared predicate.",
           "usageEn": "States that the predicate applies to every member."
@@ -886,6 +1019,13 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "那么",
+            "那样",
+            "这么",
+            "这样",
+            "每"
+          ],
           "textEn": "这么 and 那么 commonly modify degree; 这样 and 那样 commonly point to a way of acting."
         }
       ],
@@ -1043,6 +1183,10 @@
       "patterns": [
         {
           "labelEn": "Reduplicated description",
+          "appliesToZh": [
+            "AA",
+            "AABB"
+          ],
           "pattern": "AA / AABB (+ 的/地)",
           "formationEn": "Repeat a one-syllable adjective as AA or the two parts of a two-syllable adjective as AABB.",
           "usageEn": "Creates a vivid descriptive or manner-reading phrase."
@@ -1051,6 +1195,10 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "AA",
+            "AABB"
+          ],
           "textEn": "Use 的 when the reduplicated phrase describes a noun or forms a descriptive predicate; use 地 before an action."
         }
       ],
@@ -1130,6 +1278,11 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "万",
+            "好多",
+            "多"
+          ],
           "textEn": "万 is an exact place-value unit; 好多 and quantity 多 can leave the exact amount open."
         }
       ],
@@ -1237,6 +1390,12 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "条",
+            "位",
+            "间",
+            "名"
+          ],
           "textEn": "Place the classifier between a number or demonstrative and its noun."
         }
       ],
@@ -1371,6 +1530,9 @@
       "patterns": [
         {
           "labelEn": "Packaged quantity",
+          "appliesToZh": [
+            "包"
+          ],
           "pattern": "Numeral + 包 + Noun",
           "formationEn": "Put 包 between the number and the packaged substance or item.",
           "usageEn": "Counts packages rather than individual contents."
@@ -1379,6 +1541,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "包"
+          ],
           "textEn": "The noun naming a package is borrowed into the classifier position."
         }
       ],
@@ -1439,6 +1604,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_282492af803d4f3fb53782b81db82eba",
+          "zh": "你买了几包茶？",
+          "pinyin": "Nǐ mǎile jǐ bāo chá?",
+          "translationEn": "How many packets of tea did you buy?",
+          "analyses": [
+            {
+              "textEn": "包 follows interrogative 几 and classifies the unknown number of packaged amounts of tea."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你买了几",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "包",
+              "emphasized": true,
+              "role": "classifier"
+            },
+            {
+              "text": "茶？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -1457,6 +1650,9 @@
       "patterns": [
         {
           "labelEn": "Number of occurrences",
+          "appliesToZh": [
+            "次"
+          ],
           "pattern": "Verb + Numeral + 次",
           "formationEn": "Place the numeral and 次 after the action verb or verb-object phrase.",
           "usageEn": "States how many occasions the action has."
@@ -1465,6 +1661,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "次"
+          ],
           "textEn": "Use 两次, not 二次, for two occurrences in ordinary speech."
         }
       ],
@@ -1525,6 +1724,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_431b163acba94f21974ef69fa93bec05",
+          "zh": "你去过几次中国？",
+          "pinyin": "Nǐ qùguo jǐ cì Zhōngguó?",
+          "translationEn": "How many times have you been to China?",
+          "analyses": [
+            {
+              "textEn": "次 follows 几 and asks for the number of separate experiences expressed by 去过."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你去过几",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "次",
+              "emphasized": true,
+              "role": "verbal_measure"
+            },
+            {
+              "text": "中国？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -1543,12 +1770,20 @@
       "patterns": [
         {
           "labelEn": "Exclamatory degree",
+          "appliesToZh": [
+            "多",
+            "好",
+            "最"
+          ],
           "pattern": "多/好 + Adjective + 啊",
           "formationEn": "Place 多 or 好 before the adjective; 啊 commonly closes the exclamation.",
           "usageEn": "Highlights a striking degree."
         },
         {
           "labelEn": "Highest degree",
+          "appliesToZh": [
+            "最"
+          ],
           "pattern": "最 + Adjective",
           "formationEn": "Place 最 immediately before the adjective.",
           "usageEn": "Selects the highest degree in the relevant group."
@@ -1557,6 +1792,11 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "多",
+            "好",
+            "最"
+          ],
           "textEn": "多 and 好 are expressive here; 最 makes a superlative comparison."
         }
       ],
@@ -1663,6 +1903,9 @@
       "patterns": [
         {
           "labelEn": "Shared action",
+          "appliesToZh": [
+            "一起"
+          ],
           "pattern": "Plural participants + 一起 + Verb",
           "formationEn": "Place 一起 immediately before the action performed jointly.",
           "usageEn": "Groups the participants within one shared event."
@@ -1671,6 +1914,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "一起"
+          ],
           "textEn": "The participants may be a plural subject or be established by context."
         }
       ],
@@ -1731,6 +1977,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_c33807fa7da64e0781d8e0b731295358",
+          "zh": "明天我们一起去，好吗？",
+          "pinyin": "Míngtiān wǒmen yìqǐ qù, hǎo ma?",
+          "translationEn": "Let's go together tomorrow, okay?",
+          "analyses": [
+            {
+              "textEn": "一起 comes before 去 and presents 我们 as joint participants; 好吗 asks for agreement to the suggestion."
+            }
+          ],
+          "parts": [
+            {
+              "text": "明天我们",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "一起",
+              "emphasized": true,
+              "role": "scope_adverb"
+            },
+            {
+              "text": "去，好吗？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -1749,6 +2023,15 @@
       "patterns": [
         {
           "labelEn": "Time viewpoint before a predicate",
+          "appliesToZh": [
+            "还",
+            "已经",
+            "有时",
+            "有时候",
+            "快",
+            "快要",
+            "正"
+          ],
           "pattern": "Subject + Time adverb + Predicate",
           "formationEn": "Place the time adverb before the verb or state it qualifies.",
           "usageEn": "Selects continuation, prior realization, frequency, imminence, or present progress."
@@ -1757,10 +2040,28 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "还",
+            "已经",
+            "有时",
+            "有时候",
+            "快",
+            "快要",
+            "正"
+          ],
           "textEn": "有时 and 有时候 are interchangeable short and full forms in these examples."
         },
         {
           "kind": "formation",
+          "appliesToZh": [
+            "还",
+            "已经",
+            "有时",
+            "有时候",
+            "快",
+            "快要",
+            "正"
+          ],
           "textEn": "正 commonly combines with 在 or final 呢, but it can also stand directly before the verb."
         }
       ],
@@ -1979,6 +2280,10 @@
       "patterns": [
         {
           "labelEn": "Frequent action",
+          "appliesToZh": [
+            "常",
+            "经常"
+          ],
           "pattern": "Subject + 常/经常 + Verb",
           "formationEn": "Place the frequency adverb before the repeated action.",
           "usageEn": "Presents the action as common or habitual."
@@ -1987,10 +2292,18 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "常",
+            "经常"
+          ],
           "textEn": "常 is shorter and can sound slightly more compact; 经常 is common in neutral speech."
         },
         {
           "kind": "usage",
+          "appliesToZh": [
+            "常",
+            "经常"
+          ],
           "textEn": "The reviewed examples use 经常; 常 remains an explicitly listed member of the official grammar inventory."
         }
       ],
@@ -2051,6 +2364,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_7d46df88b6d44892b932f0a35b782b4a",
+          "zh": "你经常在家做饭吗？",
+          "pinyin": "Nǐ jīngcháng zài jiā zuòfàn ma?",
+          "translationEn": "Do you often cook at home?",
+          "analyses": [
+            {
+              "textEn": "经常 precedes the location and action phrase and asks whether cooking at home is habitual."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "经常",
+              "emphasized": true,
+              "role": "frequency_adverb"
+            },
+            {
+              "text": "在家做饭吗？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -2069,6 +2410,9 @@
       "patterns": [
         {
           "labelEn": "Do not",
+          "appliesToZh": [
+            "别"
+          ],
           "pattern": "(Subject) + 别 + Verb",
           "formationEn": "Place 别 immediately before the prohibited action.",
           "usageEn": "Forms a negative command or warning."
@@ -2077,10 +2421,13 @@
       "notes": [
         {
           "kind": "pragmatics",
+          "appliesToZh": [
+            "别"
+          ],
           "textEn": "Adding a subject can make the intended listener explicit; context often makes it unnecessary."
         }
       ],
-      "watchOutEn": "别 comes before the action being prohibited; do not combine it with another 不 before that verb.",
+      "watchOutEn": "别 already supplies the negative command: say 别说话, not *别不说话 when you mean 'Do not speak.' 不说话 alone describes not speaking.",
       "examples": [
         {
           "id": "gexample_cac02c86d79249e09a9d205619324491",
@@ -2132,6 +2479,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_3cc96edff93c49ddb5be826a6d73fe9a",
+          "zh": "下雨了，别出去。",
+          "pinyin": "Xiàyǔ le, bié chūqù.",
+          "translationEn": "It is raining; do not go outside.",
+          "analyses": [
+            {
+              "textEn": "别 directly precedes 出去 and turns the second clause into a negative command prompted by the rain."
+            }
+          ],
+          "parts": [
+            {
+              "text": "下雨了，",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "别",
+              "emphasized": true,
+              "role": "negative_adverb"
+            },
+            {
+              "text": "出去。",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -2150,12 +2525,18 @@
       "patterns": [
         {
           "labelEn": "Later step",
+          "appliesToZh": [
+            "再"
+          ],
           "pattern": "First action + 再 + Later action",
           "formationEn": "Put 再 before the action that should happen second.",
           "usageEn": "Orders two actions without claiming repetition."
         },
         {
           "labelEn": "Prompt next step",
+          "appliesToZh": [
+            "就"
+          ],
           "pattern": "Condition/Time + 就 + Result",
           "formationEn": "Put 就 before the result that follows readily from the first part.",
           "usageEn": "Links the second event closely to the first."
@@ -2164,6 +2545,10 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "再",
+            "就"
+          ],
           "textEn": "These indexed functions connect events; 再1 elsewhere can simply mean 'again.'"
         }
       ],
@@ -2224,6 +2609,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_11173255d2d848c7912703f8a7c6d345",
+          "zh": "你看完书再看电视。",
+          "pinyin": "Nǐ kànwán shū zài kàn diànshì.",
+          "translationEn": "Finish reading the book before watching television.",
+          "analyses": [
+            {
+              "textEn": "再 introduces 看电视 as the later action, after 看完书 has first reached its result."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你看完书",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "再",
+              "emphasized": true,
+              "role": "sequencing_adverb"
+            },
+            {
+              "text": "看电视。",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -2242,18 +2655,27 @@
       "patterns": [
         {
           "labelEn": "Reached point",
+          "appliesToZh": [
+            "都"
+          ],
           "pattern": "都 + Predicate + 了",
           "formationEn": "Place 都 before the state and close the reached-point statement with 了.",
           "usageEn": "Highlights that a time or amount has already been reached."
         },
         {
           "labelEn": "Narrowed choice",
+          "appliesToZh": [
+            "就"
+          ],
           "pattern": "Subject + 就 + Focused predicate",
           "formationEn": "Place 就 immediately before the deliberately narrow or exact choice.",
           "usageEn": "Conveys 'just,' 'only,' or 'precisely.'"
         },
         {
           "labelEn": "Maintained course",
+          "appliesToZh": [
+            "还是"
+          ],
           "pattern": "Subject + 还是 + Predicate",
           "formationEn": "Place 还是 before the action or state that remains in force.",
           "usageEn": "Keeps that course despite preceding context or an apparent obstacle."
@@ -2262,6 +2684,11 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "都",
+            "就",
+            "还是"
+          ],
           "textEn": "The syllabus numbers distinguish these discourse functions from earlier or connective uses of the same surface forms."
         }
       ],
@@ -2363,6 +2790,9 @@
       "patterns": [
         {
           "labelEn": "Starting point",
+          "appliesToZh": [
+            "从"
+          ],
           "pattern": "从 + Time/Place + Predicate",
           "formationEn": "Put 从 before the time or place that serves as the starting point.",
           "usageEn": "Sets the origin of an action in time or space."
@@ -2371,6 +2801,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "从"
+          ],
           "textEn": "A complete range can use 从……到…… for its beginning and end."
         }
       ],
@@ -2431,6 +2864,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_e15386be8c8c4bdba2c24a1cc6cbd0ba",
+          "zh": "你从哪儿来？",
+          "pinyin": "Nǐ cóng nǎr lái?",
+          "translationEn": "Where do you come from?",
+          "analyses": [
+            {
+              "textEn": "从 introduces 哪儿 in the source position and asks for the starting place of the movement 来."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "从",
+              "emphasized": true,
+              "role": "preposition"
+            },
+            {
+              "text": "哪儿来？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -2449,6 +2910,9 @@
       "patterns": [
         {
           "labelEn": "Movement direction",
+          "appliesToZh": [
+            "往"
+          ],
           "pattern": "往 + Direction/Place + Movement verb",
           "formationEn": "Put 往 and the direction before the movement verb.",
           "usageEn": "Orients the movement toward that direction."
@@ -2457,6 +2921,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "往"
+          ],
           "textEn": "Direction words such as 前, 左边, or 里面 can follow 往."
         }
       ],
@@ -2535,6 +3002,9 @@
       "patterns": [
         {
           "labelEn": "Source or route",
+          "appliesToZh": [
+            "从"
+          ],
           "pattern": "从 + Direction/Route + Movement predicate",
           "formationEn": "Put 从 before the side or route associated with the movement.",
           "usageEn": "Specifies where the movement comes from or which path it follows."
@@ -2543,6 +3013,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "从"
+          ],
           "textEn": "Directional complements such as 过来 or 过去 can make the movement perspective explicit."
         }
       ],
@@ -2621,6 +3094,9 @@
       "patterns": [
         {
           "labelEn": "Action for someone",
+          "appliesToZh": [
+            "给"
+          ],
           "pattern": "Subject + 给 + Person + Verb + Object",
           "formationEn": "Put 给 and the affected person before the main verb.",
           "usageEn": "Marks who receives the result or benefit of the action."
@@ -2629,6 +3105,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "给"
+          ],
           "textEn": "Context and word order distinguish prepositional 给 from the independent verb 给 'to give.'"
         }
       ],
@@ -2707,6 +3186,9 @@
       "patterns": [
         {
           "labelEn": "Comparison standard",
+          "appliesToZh": [
+            "比"
+          ],
           "pattern": "A + 比 + B + Predicate",
           "formationEn": "Put 比 before B, then state the property or action compared.",
           "usageEn": "Compares A against B."
@@ -2715,10 +3197,13 @@
       "notes": [
         {
           "kind": "constraint",
+          "appliesToZh": [
+            "比"
+          ],
           "textEn": "Do not add 是 before a simple adjectival result such as 高 or 冷."
         }
       ],
-      "watchOutEn": "比 and its comparison standard come before the property being compared.",
+      "watchOutEn": "Do not add 很 to the basic comparison: *他比我很高 is incorrect; say 他比我高. 比 and its standard come before the compared property.",
       "examples": [
         {
           "id": "gexample_bd1aa6584fed4a258cc1c77b5eac05ec",
@@ -2793,6 +3278,9 @@
       "patterns": [
         {
           "labelEn": "Accompanied or directed action",
+          "appliesToZh": [
+            "跟"
+          ],
           "pattern": "Subject + 跟 + Person + Predicate",
           "formationEn": "Place 跟 and the other participant before the action.",
           "usageEn": "Marks a companion or counterpart involved in the action."
@@ -2801,6 +3289,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "跟"
+          ],
           "textEn": "一起 can be added when the meaning is explicitly joint participation."
         }
       ],
@@ -2861,6 +3352,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_6e64689a0638493ba9ff014f7f148cba",
+          "zh": "你跟谁一起去？",
+          "pinyin": "Nǐ gēn shéi yìqǐ qù?",
+          "translationEn": "Who are you going with?",
+          "analyses": [
+            {
+              "textEn": "跟 introduces 谁 as the unknown companion who participates in the shared action with 你."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "跟",
+              "emphasized": true,
+              "role": "preposition"
+            },
+            {
+              "text": "谁一起去？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -2879,6 +3398,9 @@
       "patterns": [
         {
           "labelEn": "Reason phrase",
+          "appliesToZh": [
+            "因为"
+          ],
           "pattern": "Subject + 因为 + Reason + Predicate",
           "formationEn": "Put 因为 and its reason before the main predicate.",
           "usageEn": "Presents that reason as the cause of the main event."
@@ -2887,6 +3409,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "因为"
+          ],
           "textEn": "The reason phrase stays integrated with the main subject and predicate."
         }
       ],
@@ -2965,6 +3490,9 @@
       "patterns": [
         {
           "labelEn": "Parallel coordination",
+          "appliesToZh": [
+            "跟"
+          ],
           "pattern": "Item A + 跟 + Item B",
           "formationEn": "Place 跟 between two items with the same grammatical role.",
           "usageEn": "Combines the items as a coordinated unit."
@@ -2973,6 +3501,9 @@
       "notes": [
         {
           "kind": "constraint",
+          "appliesToZh": [
+            "跟"
+          ],
           "textEn": "At this level, use 跟 to join words or phrases, not two independent clauses."
         }
       ],
@@ -3051,24 +3582,48 @@
       "patterns": [
         {
           "labelEn": "Contrast",
+          "appliesToZh": [
+            "但",
+            "但是",
+            "那",
+            "虽然",
+            "还是",
+            "因为",
+            "所以"
+          ],
           "pattern": "Clause A, 但/但是 + Clause B",
           "formationEn": "Put 但 or 但是 before the contrasting clause.",
           "usageEn": "Marks the second clause as contrary to an expectation from the first."
         },
         {
           "labelEn": "Contextual response",
+          "appliesToZh": [
+            "那"
+          ],
           "pattern": "Situation, 那 + Response",
           "formationEn": "Put 那 before the response drawn from the preceding situation.",
           "usageEn": "Means 'then' or 'in that case.'"
         },
         {
           "labelEn": "Clause relation",
+          "appliesToZh": [
+            "但",
+            "但是",
+            "那",
+            "虽然",
+            "还是",
+            "因为",
+            "所以"
+          ],
           "pattern": "虽然 + Clause / 因为 + Cause, 所以 + Result",
           "formationEn": "Place each connector at the beginning of the clause whose logical role it marks.",
           "usageEn": "Introduces concession, cause, or result."
         },
         {
           "labelEn": "Alternative",
+          "appliesToZh": [
+            "还是"
+          ],
           "pattern": "Alternative A + 还是 + Alternative B",
           "formationEn": "Put 还是 between the alternatives.",
           "usageEn": "Presents a choice, especially in a question."
@@ -3077,10 +3632,28 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "但",
+            "但是",
+            "那",
+            "虽然",
+            "还是",
+            "因为",
+            "所以"
+          ],
           "textEn": "但 is a shorter counterpart of 但是."
         },
         {
           "kind": "usage",
+          "appliesToZh": [
+            "但",
+            "但是",
+            "那",
+            "虽然",
+            "还是",
+            "因为",
+            "所以"
+          ],
           "textEn": "虽然 commonly anticipates a contrasting second clause, while 因为 commonly anticipates a result."
         }
       ],
@@ -3274,12 +3847,18 @@
       "patterns": [
         {
           "labelEn": "Post-verbal complement",
+          "appliesToZh": [
+            "得"
+          ],
           "pattern": "Verb + 得 + Description",
           "formationEn": "Put 得 after the verb and before the description of its performance.",
           "usageEn": "Evaluates how the action is performed."
         },
         {
           "labelEn": "Pre-verbal manner",
+          "appliesToZh": [
+            "地"
+          ],
           "pattern": "Description + 地 + Verb",
           "formationEn": "Put 地 after the manner phrase and before the action.",
           "usageEn": "States the manner in which the action occurs."
@@ -3288,10 +3867,14 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "得",
+            "地"
+          ],
           "textEn": "Their opposite positions around the verb reflect their different grammatical jobs."
         }
       ],
-      "watchOutEn": "Both are pronounced de, but 得 follows a verb while 地 follows a manner description before a verb.",
+      "watchOutEn": "Use 得 after a verb for a complement (跑得很快) and 地 after a manner phrase before a verb (高兴地笑). Similar-looking strings with the other particle can have a different structure and meaning, so judge the word order rather than the English gloss.",
       "examples": [
         {
           "id": "gexample_975cf1be814a4300a0bfc990b9ef55e3",
@@ -3348,6 +3931,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_0c807cbe0a4f4e4bb4508c348d84b1b1",
+          "zh": "她汉语说得好不好？",
+          "pinyin": "Tā Hànyǔ shuō de hǎo bu hǎo?",
+          "translationEn": "Does she speak Chinese well or not?",
+          "analyses": [
+            {
+              "textEn": "得 follows 说 and introduces 好不好, an affirmative-negative description of how well she speaks."
+            }
+          ],
+          "parts": [
+            {
+              "text": "她汉语说",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "得",
+              "emphasized": true,
+              "role": "structural_particle"
+            },
+            {
+              "text": "好不好？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -3366,6 +3977,9 @@
       "patterns": [
         {
           "labelEn": "Prior experience",
+          "appliesToZh": [
+            "过"
+          ],
           "pattern": "Subject + Verb + 过 + Object",
           "formationEn": "Place neutral-tone 过 directly after the experienced action.",
           "usageEn": "States that the experience occurred at least once before."
@@ -3374,10 +3988,13 @@
       "notes": [
         {
           "kind": "constraint",
+          "appliesToZh": [
+            "过"
+          ],
           "textEn": "In a negative experience statement, use 没 + Verb + 过."
         }
       ],
-      "watchOutEn": "Aspect 过 presents prior experience, not simply a completed event; negate it with 没(有), not 不.",
+      "watchOutEn": "Deny experience with 没(有) + Verb + 过: 她没有坐过地铁. *她不坐过地铁 is incorrect for a never-had experience.",
       "examples": [
         {
           "id": "gexample_5de41acf6f6742eb910e0d1bcea9fad3",
@@ -3434,6 +4051,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_fb3b3deb0d7b41dea76571e8a4c19af3",
+          "zh": "你吃过这个菜吗？",
+          "pinyin": "Nǐ chīguo zhège cài ma?",
+          "translationEn": "Have you eaten this dish before?",
+          "analyses": [
+            {
+              "textEn": "过 follows 吃 and asks whether eating this dish belongs to the listener's prior experience."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你吃",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "过",
+              "emphasized": true,
+              "role": "aspect_particle"
+            },
+            {
+              "text": "这个菜吗？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -3452,6 +4097,9 @@
       "patterns": [
         {
           "labelEn": "Continuing state or action",
+          "appliesToZh": [
+            "着"
+          ],
           "pattern": "Verb + 着",
           "formationEn": "Place neutral-tone 着 immediately after the verb.",
           "usageEn": "Keeps the verb's state or activity in effect at the reference time."
@@ -3460,6 +4108,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "着"
+          ],
           "textEn": "The surrounding verb determines whether the continuation is understood mainly as a state or an action."
         }
       ],
@@ -3520,6 +4171,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_920777593f004398a85537cb1a1378ff",
+          "zh": "门还开着吗？",
+          "pinyin": "Mén hái kāizhe ma?",
+          "translationEn": "Is the door still open?",
+          "analyses": [
+            {
+              "textEn": "着 follows 开 and presents the door's open state as continuing, while 还 asks whether it remains so."
+            }
+          ],
+          "parts": [
+            {
+              "text": "门还开",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "着",
+              "emphasized": true,
+              "role": "aspect_particle"
+            },
+            {
+              "text": "吗？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -3538,6 +4217,12 @@
       "patterns": [
         {
           "labelEn": "Sentence-final stance",
+          "appliesToZh": [
+            "呢",
+            "吧",
+            "的",
+            "啊"
+          ],
           "pattern": "Clause + 呢/吧/的/啊",
           "formationEn": "Place the selected neutral-tone particle at the end of the clause.",
           "usageEn": "Adds the speaker's question stance, uncertainty, assurance, or emotional response."
@@ -3546,10 +4231,22 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "呢",
+            "吧",
+            "的",
+            "啊"
+          ],
           "textEn": "吧2 differs from suggestion 吧1 because it asks the listener to confirm an assumption."
         },
         {
           "kind": "usage",
+          "appliesToZh": [
+            "呢",
+            "吧",
+            "的",
+            "啊"
+          ],
           "textEn": "Sentence-final 的2 does not modify a following noun."
         }
       ],
@@ -3685,10 +4382,16 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动补短语"
+          ],
           "textEn": "Result complements and 得-complements are two HSK 2 examples of this broader structural category."
         },
         {
           "kind": "formation",
+          "appliesToZh": [
+            "动补短语"
+          ],
           "textEn": "The complement follows the verb it completes or describes."
         }
       ],
@@ -3767,6 +4470,9 @@
       "patterns": [
         {
           "labelEn": "Understood head noun",
+          "appliesToZh": [
+            "修饰语 + 的"
+          ],
           "pattern": "Modifier + 的",
           "formationEn": "End the modifier with 的 and omit the noun that context already identifies.",
           "usageEn": "Means 'the one(s) that...' or 'the ... one(s).'"
@@ -3775,6 +4481,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "修饰语 + 的"
+          ],
           "textEn": "The modifier may describe a property, possessor, or action associated with the understood noun."
         }
       ],
@@ -3853,6 +4562,9 @@
       "patterns": [
         {
           "labelEn": "Shared-subject action sequence",
+          "appliesToZh": [
+            "动词短语1 + 动词短语2"
+          ],
           "pattern": "Subject + Verb phrase 1 + Verb phrase 2",
           "formationEn": "Place the verb phrases in their natural sequence without a conjunction.",
           "usageEn": "Expresses movement plus purpose, means plus destination, or another close action sequence."
@@ -3861,10 +4573,13 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "动词短语1 + 动词短语2"
+          ],
           "textEn": "The first action may enable or provide the setting for the second."
         }
       ],
-      "watchOutEn": "The verbs share one subject, and their order normally follows the real sequence or purpose relation.",
+      "watchOutEn": "The verb phrases normally share one subject: 我去商场买衣服. Do not insert 和 between the two full actions as in *我去商场和买衣服.",
       "examples": [
         {
           "id": "gexample_48a957dfcd67488f844b5e0f037358de",
@@ -3921,6 +4636,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_8f20facd48af44b08ceed45c2a168c69",
+          "zh": "你去商场买什么？",
+          "pinyin": "Nǐ qù shāngchǎng mǎi shénme?",
+          "translationEn": "What are you going to the shopping center to buy?",
+          "analyses": [
+            {
+              "textEn": "去商场 and 买什么 share subject 你; the first movement supplies the purpose setting for the purchase."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "去商场买什么",
+              "emphasized": true,
+              "role": "serial_predicate"
+            },
+            {
+              "text": "？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -3939,6 +4682,9 @@
       "patterns": [
         {
           "labelEn": "Shared middle participant",
+          "appliesToZh": [
+            "动词1 + 兼语 + 动词2"
+          ],
           "pattern": "Verb 1 + Person + Verb 2",
           "formationEn": "Put the person after the requesting or causative verb and before the action that person performs.",
           "usageEn": "Links the first verb to a second action carried out by its object."
@@ -3947,6 +4693,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动词1 + 兼语 + 动词2"
+          ],
           "textEn": "Common HSK 2 first verbs in this pattern include 请, 叫, and 让."
         }
       ],
@@ -4007,6 +4756,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_24123de1d5ee40e380f88e2504bc607a",
+          "zh": "老师不让我们出去。",
+          "pinyin": "Lǎoshī bù ràng wǒmen chūqù.",
+          "translationEn": "The teacher does not allow us to go out.",
+          "analyses": [
+            {
+              "textEn": "我们 is the object of 让 and the understood subject of 出去; 不 negates the allowing event."
+            }
+          ],
+          "parts": [
+            {
+              "text": "老师不",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "让我们出去",
+              "emphasized": true,
+              "role": "pivotal_sequence"
+            },
+            {
+              "text": "。",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -4026,6 +4803,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "名词性短语"
+          ],
           "textEn": "Nominal phrases can identify people or things and can occupy subject or object position."
         }
       ],
@@ -4095,6 +4875,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动词性短语"
+          ],
           "textEn": "Verbal phrases range from a verb-object unit to a longer sequence with time or aspect material."
         }
       ],
@@ -4174,6 +4957,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "形容词性短语"
+          ],
           "textEn": "An adjectival phrase may be a predicate or may modify a noun with 的."
         }
       ],
@@ -4252,6 +5038,9 @@
       "patterns": [
         {
           "labelEn": "Non-exhaustive list",
+          "appliesToZh": [
+            "什么的"
+          ],
           "pattern": "Example A、Example B + 什么的",
           "formationEn": "Place 什么的 after one or more representative list items.",
           "usageEn": "Signals that the list is illustrative rather than complete."
@@ -4260,6 +5049,9 @@
       "notes": [
         {
           "kind": "pragmatics",
+          "appliesToZh": [
+            "什么的"
+          ],
           "textEn": "The expression is common in informal speech and keeps the remaining items deliberately vague."
         }
       ],
@@ -4338,6 +5130,9 @@
       "patterns": [
         {
           "labelEn": "Preferred recommendation",
+          "appliesToZh": [
+            "还是……吧"
+          ],
           "pattern": "Subject + 还是 + Predicate + 吧",
           "formationEn": "Place 还是 before the recommended action and 吧 at sentence end.",
           "usageEn": "Presents the action as the sensible choice while softening the advice."
@@ -4346,6 +5141,9 @@
       "notes": [
         {
           "kind": "pragmatics",
+          "appliesToZh": [
+            "还是……吧"
+          ],
           "textEn": "The construction often implies that another option was considered and set aside."
         }
       ],
@@ -4444,6 +5242,11 @@
       "patterns": [
         {
           "labelEn": "Approaching change",
+          "appliesToZh": [
+            "要……了",
+            "快要……了",
+            "就要……了"
+          ],
           "pattern": "要/快要/就要 + Event + 了",
           "formationEn": "Put the imminence marker before the event and 了 at the end of the clause.",
           "usageEn": "Presents the event as close to becoming the new reality."
@@ -4452,6 +5255,11 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "要……了",
+            "快要……了",
+            "就要……了"
+          ],
           "textEn": "快要 emphasizes closeness; 就要 often adds a sense of immediacy or a known schedule."
         }
       ],
@@ -4588,6 +5396,9 @@
       "patterns": [
         {
           "labelEn": "Reached threshold",
+          "appliesToZh": [
+            "都……了"
+          ],
           "pattern": "都 + Reached point/Predicate + 了",
           "formationEn": "Place 都 before the emphasized point and 了 at the end of its clause.",
           "usageEn": "Draws attention to the fact that the threshold is already current."
@@ -4596,6 +5407,9 @@
       "notes": [
         {
           "kind": "pragmatics",
+          "appliesToZh": [
+            "都……了"
+          ],
           "textEn": "The pattern often prepares a reaction to the lateness or extent of the situation."
         }
       ],
@@ -4671,6 +5485,39 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_9e5bd5fe9e0349d9b0fa05175d511e05",
+          "zh": "都十点了，你怎么还不回家？",
+          "pinyin": "Dōu shí diǎn le, nǐ zěnme hái bù huí jiā?",
+          "translationEn": "It is already ten o'clock; why are you still not going home?",
+          "analyses": [
+            {
+              "textEn": "都 and 了 frame ten o'clock as a point already reached, making the continued failure to go home noteworthy."
+            }
+          ],
+          "parts": [
+            {
+              "text": "都",
+              "emphasized": true,
+              "role": "emphasis_marker"
+            },
+            {
+              "text": "十点",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "了",
+              "emphasized": true,
+              "role": "change_particle"
+            },
+            {
+              "text": "，你怎么还不回家？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -4689,6 +5536,9 @@
       "patterns": [
         {
           "labelEn": "Affected subject",
+          "appliesToZh": [
+            "受事 + 动词性谓语"
+          ],
           "pattern": "Patient + Verb + Result",
           "formationEn": "Place the affected entity before a predicate describing what has happened to it.",
           "usageEn": "Focuses the resulting state without naming an agent."
@@ -4697,6 +5547,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "受事 + 动词性谓语"
+          ],
           "textEn": "This word order is natural when the affected item is already known or is the main topic."
         }
       ],
@@ -4747,6 +5600,29 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_62c48110387e49d7bee63c7159c9904e",
+          "zh": "饭还没有做好。",
+          "pinyin": "Fàn hái méiyǒu zuòhǎo.",
+          "translationEn": "The food is still not ready.",
+          "analyses": [
+            {
+              "textEn": "饭 is the patient affected by 做; 还没有 negates arrival at the ready result expressed by 好."
+            }
+          ],
+          "parts": [
+            {
+              "text": "饭",
+              "emphasized": true,
+              "role": "patient_subject"
+            },
+            {
+              "text": "还没有做好。",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -4765,6 +5641,9 @@
       "patterns": [
         {
           "labelEn": "Direct nominal predicate",
+          "appliesToZh": [
+            "主语 + 名词性谓语"
+          ],
           "pattern": "Subject + Nominal phrase",
           "formationEn": "Place the nominal expression directly after the subject without 是.",
           "usageEn": "States a calendar, age, quantity, or similarly classifying fact."
@@ -4773,6 +5652,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "主语 + 名词性谓语"
+          ],
           "textEn": "Time and age expressions are especially common nominal predicates at this level."
         }
       ],
@@ -4851,6 +5733,10 @@
       "patterns": [
         {
           "labelEn": "Clause-like noun modifier",
+          "appliesToZh": [
+            "动词性短语 + 的 + 名词",
+            "主谓短语 + 的 + 名词"
+          ],
           "pattern": "Verbal/Subject-predicate phrase + 的 + Noun",
           "formationEn": "Place the complete modifier before 的 and the noun it identifies.",
           "usageEn": "Selects the noun through an associated action or proposition."
@@ -4859,6 +5745,10 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "动词性短语 + 的 + 名词",
+            "主谓短语 + 的 + 名词"
+          ],
           "textEn": "A verbal modifier has no expressed internal subject; a subject-predicate modifier includes its own subject."
         }
       ],
@@ -4927,6 +5817,13 @@
       "patterns": [
         {
           "labelEn": "Verb plus achieved result",
+          "appliesToZh": [
+            "动词 + 错",
+            "动词 + 懂",
+            "动词 + 好",
+            "动词 + 会",
+            "动词 + 完"
+          ],
           "pattern": "Verb + 错/懂/好/会/完",
           "formationEn": "Place the result complement immediately after the action verb.",
           "usageEn": "States what result the action reaches."
@@ -4935,6 +5832,13 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动词 + 错",
+            "动词 + 懂",
+            "动词 + 好",
+            "动词 + 会",
+            "动词 + 完"
+          ],
           "textEn": "Choose the complement for the result: error, comprehension, readiness, acquired skill, or completion."
         }
       ],
@@ -5097,6 +6001,10 @@
       "patterns": [
         {
           "labelEn": "Viewpoint direction",
+          "appliesToZh": [
+            "动词 + 来",
+            "动词 + 去"
+          ],
           "pattern": "Verb + 来/去",
           "formationEn": "Add 来 for motion toward the viewpoint or 去 for motion away from it.",
           "usageEn": "Locates the action relative to the speaker or contextual reference point."
@@ -5105,6 +6013,10 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动词 + 来",
+            "动词 + 去"
+          ],
           "textEn": "The same physical action can select 来 or 去 when the conversational viewpoint changes."
         }
       ],
@@ -5183,6 +6095,14 @@
       "patterns": [
         {
           "labelEn": "Basic path after a verb",
+          "appliesToZh": [
+            "动词 + 上",
+            "动词 + 下",
+            "动词 + 进",
+            "动词 + 出",
+            "动词 + 过",
+            "动词 + 回"
+          ],
           "pattern": "Movement verb + 上/下/进/出/过/回",
           "formationEn": "Place the path complement directly after the movement verb.",
           "usageEn": "Adds the action's path without yet encoding toward-versus-away viewpoint."
@@ -5191,6 +6111,14 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动词 + 上",
+            "动词 + 下",
+            "动词 + 进",
+            "动词 + 出",
+            "动词 + 过",
+            "动词 + 回"
+          ],
           "textEn": "The six complements encode distinct paths; later compounds add 来 or 去 for viewpoint."
         }
       ],
@@ -5381,6 +6309,21 @@
       "patterns": [
         {
           "labelEn": "Path plus viewpoint",
+          "appliesToZh": [
+            "动词 + 出来",
+            "动词 + 出去",
+            "动词 + 过来",
+            "动词 + 过去",
+            "动词 + 回来",
+            "动词 + 回去",
+            "动词 + 进来",
+            "动词 + 进去",
+            "动词 + 起来",
+            "动词 + 上来",
+            "动词 + 上去",
+            "动词 + 下来",
+            "动词 + 下去"
+          ],
           "pattern": "Movement verb + Path + 来/去",
           "formationEn": "Choose the path component, then use 来 for motion toward the viewpoint or 去 for motion away.",
           "usageEn": "Combines route and conversational direction in one complement."
@@ -5389,6 +6332,21 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动词 + 出来",
+            "动词 + 出去",
+            "动词 + 过来",
+            "动词 + 过去",
+            "动词 + 回来",
+            "动词 + 回去",
+            "动词 + 进来",
+            "动词 + 进去",
+            "动词 + 起来",
+            "动词 + 上来",
+            "动词 + 上去",
+            "动词 + 下来",
+            "动词 + 下去"
+          ],
           "textEn": "起来 lexicalizes the upward movement without a contrasting 去 form in this inventory."
         }
       ],
@@ -5775,6 +6733,9 @@
       "patterns": [
         {
           "labelEn": "Performance description",
+          "appliesToZh": [
+            "动词 + 得 + 形容词性短语"
+          ],
           "pattern": "Verb + 得 + Adjectival phrase",
           "formationEn": "Put 得 after the action verb and the adjectival description after 得.",
           "usageEn": "Evaluates the action's manner, state, or degree."
@@ -5783,6 +6744,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "动词 + 得 + 形容词性短语"
+          ],
           "textEn": "With an object, a common order is Object + Verb + 得 + Description, as in 汉语说得很好."
         }
       ],
@@ -5853,6 +6817,39 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_e1cd670c7843481198f53d5cff3e8470",
+          "zh": "他跑得快不快？",
+          "pinyin": "Tā pǎo de kuài bu kuài?",
+          "translationEn": "Does he run fast or not?",
+          "analyses": [
+            {
+              "textEn": "得 follows 跑 and introduces 快不快, an affirmative-negative state complement asking about his running speed."
+            }
+          ],
+          "parts": [
+            {
+              "text": "他跑",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "得",
+              "emphasized": true,
+              "role": "complement_link"
+            },
+            {
+              "text": "快不快",
+              "emphasized": true,
+              "role": "state_complement"
+            },
+            {
+              "text": "？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -5871,6 +6868,9 @@
       "patterns": [
         {
           "labelEn": "Action duration",
+          "appliesToZh": [
+            "动词 + 时量短语"
+          ],
           "pattern": "Verb + 了 + Duration",
           "formationEn": "Place the duration after the verb and its aspect marker when the event is realized.",
           "usageEn": "Measures the span for which the action lasts."
@@ -5879,6 +6879,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "动词 + 时量短语"
+          ],
           "textEn": "Simple intransitive actions can take the duration directly after the verb."
         }
       ],
@@ -5939,6 +6942,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_fb29ba0610a9491a84addf596c001587",
+          "zh": "你学了多长时间汉语？",
+          "pinyin": "Nǐ xuéle duō cháng shíjiān Hànyǔ?",
+          "translationEn": "How long did you study Chinese?",
+          "analyses": [
+            {
+              "textEn": "多长时间 follows 学了 and asks for the duration of the completed period of studying Chinese."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你学了",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "多长时间",
+              "emphasized": true,
+              "role": "duration_complement"
+            },
+            {
+              "text": "汉语？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -5957,6 +6988,9 @@
       "patterns": [
         {
           "labelEn": "Measured property",
+          "appliesToZh": [
+            "形容词 + 数量短语"
+          ],
           "pattern": "Adjective + Quantity",
           "formationEn": "Place the quantity immediately after the adjective.",
           "usageEn": "States how much the property differs or reaches."
@@ -5965,6 +6999,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "形容词 + 数量短语"
+          ],
           "textEn": "Age, price, and small degree differences commonly appear in this structure at HSK 2."
         }
       ],
@@ -6053,6 +7090,9 @@
       "patterns": [
         {
           "labelEn": "Topic plus internal description",
+          "appliesToZh": [
+            "大主语 + [小主语 + 谓语]"
+          ],
           "pattern": "Topic + [Subject + Predicate]",
           "formationEn": "State the overall topic, then use a smaller subject-predicate phrase to describe one of its aspects.",
           "usageEn": "Organizes a description from whole topic to relevant part or property."
@@ -6061,6 +7101,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "大主语 + [小主语 + 谓语]"
+          ],
           "textEn": "Body-part descriptions are common: the person is the topic and the body part is the internal subject."
         }
       ],
@@ -6139,6 +7182,9 @@
       "patterns": [
         {
           "labelEn": "Choose A or B",
+          "appliesToZh": [
+            "A还是B？"
+          ],
           "pattern": "Alternative A + 还是 + Alternative B？",
           "formationEn": "Put 还是 between two parallel alternatives and use question intonation.",
           "usageEn": "Requests selection rather than a yes-or-no judgment."
@@ -6147,10 +7193,13 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "A还是B？"
+          ],
           "textEn": "Repeat the verb when the alternatives involve different complete actions."
         }
       ],
-      "watchOutEn": "Do not add 吗 to a question already formed with 还是 alternatives.",
+      "watchOutEn": "还是 already forms the choice question: say 你喝茶还是咖啡？, not *你喝茶还是咖啡吗？",
       "examples": [
         {
           "id": "gexample_1261c79468744752a75e77e879887276",
@@ -6207,6 +7256,34 @@
               "role": ""
             }
           ]
+        },
+        {
+          "id": "gexample_31a34e520d5743beb09e78942f39ea27",
+          "zh": "你今天去还是明天去？",
+          "pinyin": "Nǐ jīntiān qù háishi míngtiān qù?",
+          "translationEn": "Are you going today or tomorrow?",
+          "analyses": [
+            {
+              "textEn": "还是 separates 今天去 and 明天去 as two complete time alternatives for the same action."
+            }
+          ],
+          "parts": [
+            {
+              "text": "你今天去",
+              "emphasized": false,
+              "role": ""
+            },
+            {
+              "text": "还是",
+              "emphasized": true,
+              "role": "alternative_connector"
+            },
+            {
+              "text": "明天去？",
+              "emphasized": false,
+              "role": ""
+            }
+          ]
         }
       ]
     },
@@ -6225,6 +7302,9 @@
       "patterns": [
         {
           "labelEn": "Negative instruction",
+          "appliesToZh": [
+            "别 + 动词"
+          ],
           "pattern": "(Subject) + 别 + Verb phrase",
           "formationEn": "Place 别 immediately before the action the listener should avoid.",
           "usageEn": "Forms a direct negative request or command."
@@ -6233,6 +7313,9 @@
       "notes": [
         {
           "kind": "pragmatics",
+          "appliesToZh": [
+            "别 + 动词"
+          ],
           "textEn": "Tone and context determine whether the sentence sounds like advice, a warning, or a firm command."
         }
       ],
@@ -6306,6 +7389,9 @@
       "patterns": [
         {
           "labelEn": "Nominal characterization",
+          "appliesToZh": [
+            "主语 + 是 + 名词性说明"
+          ],
           "pattern": "Subject + 是 + Descriptive nominal phrase",
           "formationEn": "Put 是 between the subject and a noun-like expression that explains its characteristic.",
           "usageEn": "Classifies or describes what kind of thing the subject is."
@@ -6314,6 +7400,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "主语 + 是 + 名词性说明"
+          ],
           "textEn": "A color phrase ending in 的 can serve as the descriptive expression after 是."
         }
       ],
@@ -6402,6 +7491,9 @@
       "patterns": [
         {
           "labelEn": "Quantity attained so far",
+          "appliesToZh": [
+            "情况 + 有 + 数量（+ 了）"
+          ],
           "pattern": "Event/Situation + 有 + Quantity (+ 了)",
           "formationEn": "Place 有 before the reached quantity; add final 了 when relating the attained duration to now.",
           "usageEn": "States the amount or duration that the situation has reached."
@@ -6410,6 +7502,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "情况 + 有 + 数量（+ 了）"
+          ],
           "textEn": "The pattern commonly describes an activity that began earlier and remains relevant now."
         }
       ],
@@ -6508,6 +7603,9 @@
       "patterns": [
         {
           "labelEn": "Entity present at a location",
+          "appliesToZh": [
+            "处所 + 动词 + 着 (+ 数量短语) + 名词"
+          ],
           "pattern": "Place + Verb + 着 + (Numeral-Measure) + Noun",
           "formationEn": "Begin with the place, add the posture or state verb plus 着, then introduce the entity.",
           "usageEn": "Presents what is found at the location and how it is situated."
@@ -6516,6 +7614,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "处所 + 动词 + 着 (+ 数量短语) + 名词"
+          ],
           "textEn": "The post-verbal noun phrase is often indefinite because the sentence introduces it into the discourse."
         }
       ],
@@ -6604,6 +7705,9 @@
       "patterns": [
         {
           "labelEn": "Greater property",
+          "appliesToZh": [
+            "A比B + 形容词"
+          ],
           "pattern": "A + 比 + B + Adjective",
           "formationEn": "Place 比 and the comparison standard B before the adjective.",
           "usageEn": "States that A exceeds B in that property."
@@ -6612,6 +7716,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "A比B + 形容词"
+          ],
           "textEn": "A and B should be comparable in the property named by the adjective."
         }
       ],
@@ -6710,6 +7817,10 @@
       "patterns": [
         {
           "labelEn": "Specified comparison gap",
+          "appliesToZh": [
+            "A比B + 形容词 + 数量补语",
+            "A比B + 形容词 + 程度补语"
+          ],
           "pattern": "A + 比 + B + Adjective + Quantity/Degree complement",
           "formationEn": "Build the basic 比 comparison, then place the measuring complement after the adjective.",
           "usageEn": "Makes the size of the difference explicit or approximate."
@@ -6718,6 +7829,10 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "A比B + 形容词 + 数量补语",
+            "A比B + 形容词 + 程度补语"
+          ],
           "textEn": "Use an exact measure such as 两岁 or an approximate degree such as 一点儿."
         }
       ],
@@ -6816,6 +7931,12 @@
       "patterns": [
         {
           "labelEn": "Reach a comparison standard",
+          "appliesToZh": [
+            "A有B（+这么/那么）+形容词",
+            "A没有B（+这么/那么）+形容词",
+            "这么",
+            "那么"
+          ],
           "pattern": "A + 有/没有 + B (+ 这么/那么) + Adjective",
           "formationEn": "Place 有 or 没有 before B, optionally add the degree demonstrative, then state the property.",
           "usageEn": "Expresses equality or failure to reach B's degree."
@@ -6824,6 +7945,12 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "A有B（+这么/那么）+形容词",
+            "A没有B（+这么/那么）+形容词",
+            "这么",
+            "那么"
+          ],
           "textEn": "这么 and 那么 make the referenced degree more explicit; context guides the deictic choice."
         }
       ],
@@ -6928,12 +8055,18 @@
       "patterns": [
         {
           "labelEn": "比 phrase before the verb",
+          "appliesToZh": [
+            "A比B + 动词 + 得 + 形容词"
+          ],
           "pattern": "A + 比 + B + Verb + 得 + Adjective",
           "formationEn": "Place the comparison standard before the verb, then use 得 to describe performance.",
           "usageEn": "Compares how A and B perform the same action."
         },
         {
           "labelEn": "比 phrase after 得",
+          "appliesToZh": [
+            "A + 动词 + 得 + 比B + 形容词"
+          ],
           "pattern": "A + Verb + 得 + 比 + B + Adjective",
           "formationEn": "State A's verb first, then place 比 B inside the 得-complement.",
           "usageEn": "Gives the same performance comparison with a different information order."
@@ -6942,10 +8075,14 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "A比B + 动词 + 得 + 形容词",
+            "A + 动词 + 得 + 比B + 形容词"
+          ],
           "textEn": "Keep 得 immediately after the performance verb in either variant."
         }
       ],
-      "watchOutEn": "Both orders are licensed: the 比 phrase may come before the verb or inside the 得-complement after 得.",
+      "watchOutEn": "Keep 得 after the action verb: 他比我跑得快 or 他跑得比我快. *他跑比我得快 is incorrect.",
       "examples": [
         {
           "id": "gexample_92ec3e1fe02b4028a974b59a79669209",
@@ -7030,6 +8167,12 @@
       "patterns": [
         {
           "labelEn": "Focused event circumstance",
+          "appliesToZh": [
+            "是 + 时间 + 动词 + 的",
+            "是 + 处所 + 动词 + 的",
+            "是 + 方式 + 动词 + 的",
+            "是 + 动作者 + 动词 + 的"
+          ],
           "pattern": "Subject + 是 + Focus + Verb + 的",
           "formationEn": "Place 是 before the focused circumstance and 的 after the event predicate.",
           "usageEn": "Contrasts one event detail while presupposing the event occurred."
@@ -7038,10 +8181,22 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "是 + 时间 + 动词 + 的",
+            "是 + 处所 + 动词 + 的",
+            "是 + 方式 + 动词 + 的",
+            "是 + 动作者 + 动词 + 的"
+          ],
           "textEn": "The focused material can be time, place, manner, or the event's doer."
         },
         {
           "kind": "constraint",
+          "appliesToZh": [
+            "是 + 时间 + 动词 + 的",
+            "是 + 处所 + 动词 + 的",
+            "是 + 方式 + 动词 + 的",
+            "是 + 动作者 + 动词 + 的"
+          ],
           "textEn": "Do not use this focus frame for an event that is merely planned and not yet realized."
         }
       ],
@@ -7236,6 +8391,11 @@
       "patterns": [
         {
           "labelEn": "Person caused or requested to act",
+          "appliesToZh": [
+            "请 + 人 + 动词",
+            "叫 + 人 + 动词",
+            "让 + 人 + 动词"
+          ],
           "pattern": "Subject + 请/叫/让 + Person + Verb + Object",
           "formationEn": "Put the acting person after the requesting or causative verb and before that person's action.",
           "usageEn": "Varies from polite request to instruction or permission/causation."
@@ -7244,6 +8404,11 @@
       "notes": [
         {
           "kind": "pragmatics",
+          "appliesToZh": [
+            "请 + 人 + 动词",
+            "叫 + 人 + 动词",
+            "让 + 人 + 动词"
+          ],
           "textEn": "请 is polite, 叫 commonly conveys telling, and 让 can mean either allow or cause depending on context."
         }
       ],
@@ -7365,6 +8530,9 @@
       "patterns": [
         {
           "labelEn": "Transfer to a recipient",
+          "appliesToZh": [
+            "动词 + 给 + 接受者 + 事物"
+          ],
           "pattern": "Subject + Verb + 给 + Recipient + Thing",
           "formationEn": "Attach 给 to the transfer verb, then place the recipient before the transferred thing.",
           "usageEn": "Expresses who receives what through the action."
@@ -7373,6 +8541,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "动词 + 给 + 接受者 + 事物"
+          ],
           "textEn": "This order differs from prepositional 给 + Person placed before an unrelated main verb."
         }
       ],
@@ -7471,6 +8642,9 @@
       "patterns": [
         {
           "labelEn": "Choice between situations",
+          "appliesToZh": [
+            "（是）分句1，还是分句2"
+          ],
           "pattern": "(是) + Clause A，还是 + Clause B？",
           "formationEn": "State the first possibility, optionally with 是, and introduce the second with 还是.",
           "usageEn": "Requests a choice between two full situations or actions."
@@ -7479,6 +8653,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "（是）分句1，还是分句2"
+          ],
           "textEn": "The initial 是 can frame the contrast but is not required when the alternatives are already clear."
         }
       ],
@@ -7567,6 +8744,9 @@
       "patterns": [
         {
           "labelEn": "Conceded fact and contrast",
+          "appliesToZh": [
+            "虽然……，但是……"
+          ],
           "pattern": "虽然 + Clause A，但是 + Clause B",
           "formationEn": "Put 虽然 before the conceded clause and 但是 before the contrasting main clause.",
           "usageEn": "Shows that Clause B holds despite Clause A."
@@ -7575,6 +8755,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "虽然……，但是……"
+          ],
           "textEn": "但 may replace 但是 in a more compact version, but the full paired format is the target here."
         }
       ],
@@ -7668,6 +8851,9 @@
       "patterns": [
         {
           "labelEn": "Cause and consequence",
+          "appliesToZh": [
+            "因为……，所以……"
+          ],
           "pattern": "因为 + Cause，所以 + Result",
           "formationEn": "Put 因为 before the cause clause and 所以 before the result clause.",
           "usageEn": "Makes the causal relation between two clauses explicit."
@@ -7676,6 +8862,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "因为……，所以……"
+          ],
           "textEn": "In context one connector may sometimes be omitted, but the full paired construction displays both roles clearly."
         }
       ],
@@ -7764,6 +8953,9 @@
       "patterns": [
         {
           "labelEn": "Immediate trigger and result",
+          "appliesToZh": [
+            "一……就……"
+          ],
           "pattern": "一 + Trigger，就 + Result",
           "formationEn": "Place 一 before the trigger predicate and 就 before the following result predicate.",
           "usageEn": "Links the result tightly and promptly to the trigger."
@@ -7772,6 +8964,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "一……就……"
+          ],
           "textEn": "The construction can describe a specific immediate sequence or a regular whenever-then relationship."
         }
       ],
@@ -7870,6 +9065,9 @@
       "patterns": [
         {
           "labelEn": "State kept in effect",
+          "appliesToZh": [
+            "动词 + 着"
+          ],
           "pattern": "State/Posture verb + 着",
           "formationEn": "Place neutral-tone 着 after the verb naming the maintained state or posture.",
           "usageEn": "Presents the state as continuing at the reference time."
@@ -7878,6 +9076,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动词 + 着"
+          ],
           "textEn": "Open, held, worn, and seated postures commonly receive this state reading."
         }
       ],
@@ -7956,6 +9157,9 @@
       "patterns": [
         {
           "labelEn": "Activity in progress",
+          "appliesToZh": [
+            "动作动词 + 着"
+          ],
           "pattern": "Activity verb + 着",
           "formationEn": "Place neutral-tone 着 after the activity verb.",
           "usageEn": "Keeps the activity ongoing through the reference interval."
@@ -7964,6 +9168,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "动作动词 + 着"
+          ],
           "textEn": "This function emphasizes the continuing activity rather than a resulting posture."
         }
       ],
@@ -8042,6 +9249,9 @@
       "patterns": [
         {
           "labelEn": "Have ever done",
+          "appliesToZh": [
+            "动词 + 过"
+          ],
           "pattern": "Subject + Verb + 过 (+ Object)",
           "formationEn": "Place neutral-tone 过 after the experienced action.",
           "usageEn": "Adds the action to the subject's prior experience."
@@ -8050,6 +9260,9 @@
       "notes": [
         {
           "kind": "constraint",
+          "appliesToZh": [
+            "动词 + 过"
+          ],
           "textEn": "Negate an absent experience as 没 + Verb + 过."
         }
       ],
@@ -8128,6 +9341,9 @@
       "patterns": [
         {
           "labelEn": "Numbered position or label",
+          "appliesToZh": [
+            "数词 + 量词"
+          ],
           "pattern": "Numeral + Measure/Label",
           "formationEn": "Put the numeral directly before a conventional floor, date, or label unit.",
           "usageEn": "Identifies order when the context supplies an ordered series."
@@ -8136,10 +9352,13 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "数词 + 量词"
+          ],
           "textEn": "Floors and calendar dates commonly omit 第 in ordinary expressions."
         }
       ],
-      "watchOutEn": "Context makes the expression ordinal; 三楼 identifies the third floor rather than counting three buildings.",
+      "watchOutEn": "Without 第, an ordinal reading needs a recognized label such as 三楼 or 五月二号. 三本书 means three books; 第三本书 means the third book.",
       "examples": [
         {
           "id": "gexample_1b963e53f61b419f8cef409584a84a14",
@@ -8214,6 +9433,9 @@
       "patterns": [
         {
           "labelEn": "Small approximate count",
+          "appliesToZh": [
+            "几 + 量词"
+          ],
           "pattern": "几 + Measure + Noun",
           "formationEn": "Put 几 before the measure word and optional noun.",
           "usageEn": "Leaves a small count intentionally inexact in a declarative context."
@@ -8222,6 +9444,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "几 + 量词"
+          ],
           "textEn": "Aspect and sentence context distinguish an approximate statement from an information question."
         }
       ],
@@ -8300,6 +9525,9 @@
       "patterns": [
         {
           "labelEn": "Just over a round count",
+          "appliesToZh": [
+            "数词 + 多 + 量词"
+          ],
           "pattern": "Round numeral + 多 + Measure + Noun",
           "formationEn": "Put 多 after the round numeral and before the classifier or measure.",
           "usageEn": "Leaves the exact amount unspecified above that round number."
@@ -8308,6 +9536,9 @@
       "notes": [
         {
           "kind": "formation",
+          "appliesToZh": [
+            "数词 + 多 + 量词"
+          ],
           "textEn": "The base is normally a round value such as 十 or 二十."
         }
       ],
@@ -8386,6 +9617,9 @@
       "patterns": [
         {
           "labelEn": "More than whole units",
+          "appliesToZh": [
+            "数词 + 量词 + 多"
+          ],
           "pattern": "Numeral + Measure + 多 (+ Noun)",
           "formationEn": "Place 多 after the measure unit and before any following noun.",
           "usageEn": "States the completed whole units plus an unspecified amount short of the next unit."
@@ -8394,6 +9628,9 @@
       "notes": [
         {
           "kind": "usage",
+          "appliesToZh": [
+            "数词 + 量词 + 多"
+          ],
           "textEn": "Time quantities such as 一个多小时 and 两年多 commonly use this order."
         }
       ],
@@ -8460,7 +9697,7 @@
   ]
 };
   if (!root || typeof root !== "object") return;
-  if (payload.schemaVersion !== "1" || payload.syllabusId !== "hsk-2025-11" || payload.level !== 2 || !Array.isArray(payload.officialPointIds) || payload.officialPointIds.length !== 78 || !Array.isArray(payload.categories) || !Array.isArray(payload.lessons)) return;
+  if (payload.schemaVersion !== "2" || payload.syllabusId !== "hsk-2025-11" || payload.level !== 2 || !Array.isArray(payload.officialPointIds) || payload.officialPointIds.length !== 78 || !Array.isArray(payload.categories) || !Array.isArray(payload.lessons)) return;
   var catalogs = root.grammarCatalogByLevel;
   if (!catalogs || typeof catalogs !== "object" || Array.isArray(catalogs)) {
     catalogs = {};

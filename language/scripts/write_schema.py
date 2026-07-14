@@ -44,7 +44,7 @@ DESCRIPTIONS = {
     "issues.csv": "Tracked linguistic or data-quality issues.",
     "waivers.csv": "Explicit, time-bounded exceptions to audit rules.",
     "vocabulary_cards.csv": "Product-owned active vocabulary order and legacy positional keys.",
-    "sentence_cards.csv": "Product-owned sentence direction, deck, order, and runtime identity.",
+    "sentence_cards.csv": "Product-owned sentence activation, direction, deck, historical order, and runtime identity.",
     "hanzi_cards.csv": "Product-owned active hanzi study bindings.",
     "measure_word_cards.csv": "Product-owned active classifier-card bindings.",
     "grammar_page_lessons.csv": "Product-owned Grammar-page activation and per-level display order.",

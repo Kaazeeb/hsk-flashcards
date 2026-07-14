@@ -122,44 +122,64 @@ def compile_vocabulary(data: dict[str, list[dict[str, str]]]) -> list[dict[str, 
     return cards
 
 
-def compile_sentences(data: dict[str, list[dict[str, str]]]) -> list[dict[str, Any]]:
+def ordered_sentence_bindings(
+    data: dict[str, list[dict[str, str]]]
+) -> list[dict[str, str]]:
+    bindings = sorted(data["sentence_cards.csv"], key=lambda row: int(row["runtime_order"]))
+    ensure_unique(bindings, "card_id", "sentence_cards.csv")
+    deck_orders: dict[str, list[int]] = defaultdict(list)
+    for expected_order, binding in enumerate(bindings, start=1):
+        if int(binding["runtime_order"]) != expected_order:
+            raise ValueError("Historical sentence runtime_order must be contiguous from 1")
+        strict_bool(binding["active"], "active", binding["card_id"])
+        deck_orders[binding["deck_id"]].append(int(binding["deck_order"]))
+    for deck_id, orders in deck_orders.items():
+        if orders != list(range(1, len(orders) + 1)):
+            raise ValueError(f"Historical sentence deck_order must be contiguous in {deck_id}")
+    return bindings
+
+
+def compile_sentences(
+    data: dict[str, list[dict[str, str]]], *, include_inactive: bool = False
+) -> list[dict[str, Any]]:
     sentences = index_by(data["sentences.csv"], "sentence_id", "sentences.csv")
     translations = locale_index(data["sentence_translations.csv"], "sentence_id", "en", "sentence_translations.csv")
     utterances = group_by(data["sentence_utterances.csv"], "sentence_id", "turn_order")
     vocab_links = group_by(data["sentence_vocabulary.csv"], "sentence_id", "position")
     grammar_links = group_by(data["sentence_grammar.csv"], "sentence_id", "position")
-    bindings = sorted(data["sentence_cards.csv"], key=lambda row: int(row["runtime_order"]))
-    ensure_unique(bindings, "card_id", "sentence_cards.csv")
+    bindings = ordered_sentence_bindings(data)
     cards = []
-    for expected_order, binding in enumerate(bindings, start=1):
-        if int(binding["runtime_order"]) != expected_order:
-            raise ValueError("Sentence runtime_order must be contiguous from 1")
+    for binding in bindings:
+        active = strict_bool(binding["active"], "active", binding["card_id"])
+        if not active and not include_inactive:
+            continue
         sentence_id = binding["sentence_id"]
         sentence = sentences[sentence_id]
         translation = translations.get(sentence_id)
         turns = utterances.get(sentence_id, [])
         if not translation or not turns:
             raise ValueError(f"Incomplete sentence content for {sentence_id}")
-        require_publishable(sentence, "curation_status", sentence_id)
-        require_publishable(sentence, "linguistic_review_status", sentence_id)
-        require_publishable(translation, "review_status", f"{sentence_id}:en")
-        for turn in turns:
-            require_publishable(turn, "review_status", f"{sentence_id}:turn:{turn['turn_order']}")
+        if active:
+            require_publishable(sentence, "curation_status", sentence_id)
+            require_publishable(sentence, "linguistic_review_status", sentence_id)
+            require_publishable(translation, "review_status", f"{sentence_id}:en")
+            for turn in turns:
+                require_publishable(turn, "review_status", f"{sentence_id}:turn:{turn['turn_order']}")
         direction = binding["direction"]
         full_zh = sentence["full_zh"]
         english = translation["text"]
         if direction == "zh_to_en":
-            if len(turns) != 1 or turns[0]["role"] != "statement":
-                raise ValueError(f"zh_to_en sentence requires one statement: {sentence_id}")
+            if len(turns) != 1 or turns[0]["role"] not in {"statement", "question"}:
+                raise ValueError(f"zh_to_en sentence requires one statement or question: {sentence_id}")
             front, back = turns[0]["zh_text"], english
             if full_zh != front:
-                raise ValueError(f"full_zh differs from the statement utterance: {sentence_id}")
+                raise ValueError(f"full_zh differs from the single utterance: {sentence_id}")
         elif direction == "en_to_zh":
-            if len(turns) != 1 or turns[0]["role"] != "statement":
-                raise ValueError(f"en_to_zh sentence requires one statement: {sentence_id}")
+            if len(turns) != 1 or turns[0]["role"] not in {"statement", "question"}:
+                raise ValueError(f"en_to_zh sentence requires one statement or question: {sentence_id}")
             front, back = english, turns[0]["zh_text"]
             if full_zh != back:
-                raise ValueError(f"full_zh differs from the statement utterance: {sentence_id}")
+                raise ValueError(f"full_zh differs from the single utterance: {sentence_id}")
         elif direction == "zh_qa":
             roles = {row["role"]: row["zh_text"] for row in turns}
             required = {"question", "positive_answer", "negative_answer"}
@@ -172,13 +192,15 @@ def compile_sentences(data: dict[str, list[dict[str, str]]]) -> list[dict[str, A
                 raise ValueError(f"full_zh differs from the Q&A utterances: {sentence_id}")
         else:
             raise ValueError(f"Unsupported direction {direction!r}")
-        for link in vocab_links.get(sentence_id, []):
-            require_publishable(link, "review_status", f"{sentence_id}:vocab:{link['position']}")
-        for link in grammar_links.get(sentence_id, []):
-            require_publishable(link, "review_status", f"{sentence_id}:grammar:{link['position']}")
+        if active:
+            for link in vocab_links.get(sentence_id, []):
+                require_publishable(link, "review_status", f"{sentence_id}:vocab:{link['position']}")
+            for link in grammar_links.get(sentence_id, []):
+                require_publishable(link, "review_status", f"{sentence_id}:grammar:{link['position']}")
         cards.append({
             "id": binding["card_id"], "level": int(sentence["level"]),
             "deckId": binding["deck_id"], "deckName": binding["deck_name"],
+            "visibilityIndex": int(binding["deck_order"]) - 1,
             "direction": direction, "front": front, "back": back,
             "chinese": full_zh, "english": english,
             "grammarTags": [
@@ -358,11 +380,46 @@ def validate_legacy_immutability(
     utterances = group_by(data["sentence_utterances.csv"], "sentence_id", "turn_order")
     vocab_links = group_by(data["sentence_vocabulary.csv"], "sentence_id", "position")
     grammar_links = group_by(data["sentence_grammar.csv"], "sentence_id", "position")
-    sentence_bindings = sorted(data["sentence_cards.csv"], key=lambda row: int(row["runtime_order"]))
-    for index, (binding, card) in enumerate(zip(sentence_bindings, compiled["sentences"])):
+    sentence_bindings = ordered_sentence_bindings(data)
+    bindings_by_card_id = index_by(sentence_bindings, "card_id", "sentence_cards.csv")
+    baseline_sentences = index_by(baseline["sentences"], "id", "immutable sentence snapshot")
+    missing_bindings = set(baseline_sentences) - set(bindings_by_card_id)
+    if missing_bindings:
+        missing = sorted(missing_bindings)[0]
+        raise ValueError(f"Missing immutable sentence card binding {missing}; retain it as inactive history")
+
+    baseline_deck_orders: dict[str, int] = defaultdict(int)
+    for runtime_order, old in enumerate(baseline["sentences"], start=1):
+        card_id = str(old["id"])
+        binding = bindings_by_card_id[card_id]
+        deck_id = str(old.get("deckId", ""))
+        baseline_deck_orders[deck_id] += 1
+        expected = {
+            "runtime_order": str(runtime_order),
+            "deck_order": str(baseline_deck_orders[deck_id]),
+            "sentence_id": card_id,
+            "direction": str(old.get("direction", "")),
+            "deck_id": deck_id,
+            "deck_name": str(old.get("deckName", "")),
+            "response_style": "labeled_ab_lines" if old.get("direction") == "zh_qa" else "direction_default",
+            "tags": "|".join(str(tag) for tag in (old.get("tags") or [])),
+        }
+        for field, value in expected.items():
+            if binding[field] != value:
+                raise ValueError(
+                    f"Immutable sentence binding drift in {card_id} field {field}; "
+                    "preserve the historical binding"
+                )
+
+    all_compiled_sentences = {
+        card["id"]: card for card in compile_sentences(data, include_inactive=True)
+    }
+    for binding in sentence_bindings:
+        card = all_compiled_sentences[binding["card_id"]]
         sentence_id = binding["sentence_id"]
         sentence = sentences[sentence_id]
-        old = baseline["sentences"][index] if index < len(baseline["sentences"]) else None
+        old = baseline_sentences.get(binding["card_id"])
+        active = strict_bool(binding["active"], "active", binding["card_id"])
         if sentence["curation_status"] == "legacy_unreviewed" or sentence["linguistic_review_status"] == "legacy_unreviewed":
             if old is None or int(sentence["level"]) != int(old.get("level") or 0) or sentence["full_zh"] != old.get("chinese"):
                 raise ValueError(f"Legacy sentence drift in {sentence_id}; approve it first")
@@ -392,10 +449,17 @@ def validate_legacy_immutability(
                     raise ValueError(f"Legacy relation drift in {sentence_id} {old_key} position {position + 1}")
                 if row["review_status"] == "legacy_unreviewed" and position >= len(old_values):
                     raise ValueError(f"Legacy relation drift in {sentence_id} {old_key} position {position + 1}")
-    for binding in sentence_bindings[len(baseline["sentences"]):]:
-        sentence = sentences[binding["sentence_id"]]
-        if sentence["curation_status"] != "approved" or sentence["linguistic_review_status"] != "approved":
-            raise ValueError(f"New active sentence {binding['sentence_id']} must be approved")
+        if old is None and active:
+            approval_rows = [
+                (sentence, "curation_status"),
+                (sentence, "linguistic_review_status"),
+                (sentence_translations[sentence_id], "review_status"),
+                *((turn, "review_status") for turn in utterances.get(sentence_id, [])),
+                *((link, "review_status") for link in vocab_links.get(sentence_id, [])),
+                *((link, "review_status") for link in grammar_links.get(sentence_id, [])),
+            ]
+            if any(row[field] != "approved" for row, field in approval_rows):
+                raise ValueError(f"New active sentence card {binding['card_id']} must use fully approved content")
 
     hanzi_readings = index_by(data["hanzi_readings.csv"], "reading_id", "hanzi_readings.csv")
     hanzi_bindings = sorted(data["hanzi_cards.csv"], key=lambda row: int(row["runtime_order"]))

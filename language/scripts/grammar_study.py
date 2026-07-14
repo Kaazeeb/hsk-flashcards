@@ -18,7 +18,7 @@ from catalog_io import (
     write_csv,
 )
 
-GRAMMAR_SCHEMA_VERSION = "1"
+GRAMMAR_SCHEMA_VERSION = "2"
 GRAMMAR_SYLLABUS_ID = "hsk-2025-11"
 GRAMMAR_DATA_DIR = PROJECT_ROOT / "js" / "data" / "grammar"
 EXPECTED_POINT_COUNTS = {1: 70, 2: 78, 3: 96}
@@ -28,6 +28,7 @@ AUTHORIZED_VOCABULARY_EXCEPTION_SCOPES = {
     ("hsk26-g1-013", "杯", 1, "classifier"),
     ("hsk26-g3-023", "不必", 3, "negative_modal"),
 }
+NEGATIVE_SURFACES = {"不", "没", "没有", "别", "不要", "不用", "不必", "无", "未"}
 
 _UUID4_HEX = r"[0-9a-f]{12}4[0-9a-f]{3}[89ab][0-9a-f]{15}"
 ID_PATTERNS = {
@@ -302,6 +303,9 @@ def _empty_summary(tables: dict[str, list[dict[str, str]]]) -> dict[str, Any]:
         "elements_by_kind": {},
         "lessons_by_level": {},
         "examples_by_level": {},
+        "question_examples_by_level": {},
+        "negative_examples_by_level": {},
+        "lessons_below_three_examples_by_level": {},
         "active_lessons": 0,
         "active_examples": 0,
         "authorized_vocabulary_exceptions": len(tables["grammar_vocabulary_exceptions.csv"]),
@@ -946,6 +950,29 @@ def validate_grammar_study(
         _integer(lessons[row["grammar_lesson_id"]], "level_introduced")
         for row in active_examples if row["grammar_lesson_id"] in lessons
     )
+    question_level_counts: Counter[int] = Counter()
+    negative_level_counts: Counter[int] = Counter()
+    for example in active_examples:
+        lesson = lessons.get(example["grammar_lesson_id"])
+        sentence = sentences.get(example["sentence_id"])
+        if not lesson or not sentence:
+            continue
+        level = _integer(lesson, "level_introduced")
+        chinese = sentence.get("full_zh", "")
+        if "？" in chinese or "?" in chinese:
+            question_level_counts[level] += 1
+        has_linked_negative = any(
+            row.get("surface_form") in NEGATIVE_SURFACES
+            for row in sentence_vocab.get(example["sentence_id"], [])
+        )
+        has_authorized_unlinked_negative = "不必" in chinese
+        if has_linked_negative or has_authorized_unlinked_negative:
+            negative_level_counts[level] += 1
+    lessons_below_three_counts = Counter(
+        _integer(lessons[lesson_id], "level_introduced")
+        for lesson_id in active_lesson_ids
+        if lesson_id in lessons and len(examples_by_lesson.get(lesson_id, [])) < 3
+    )
     summary = {
         "enabled": True,
         "official_point_coverage": {
@@ -959,6 +986,15 @@ def validate_grammar_study(
         ).items())),
         "lessons_by_level": {str(level): lesson_level_counts[level] for level in EXPECTED_POINT_COUNTS},
         "examples_by_level": {str(level): example_level_counts[level] for level in EXPECTED_POINT_COUNTS},
+        "question_examples_by_level": {
+            str(level): question_level_counts[level] for level in EXPECTED_POINT_COUNTS
+        },
+        "negative_examples_by_level": {
+            str(level): negative_level_counts[level] for level in EXPECTED_POINT_COUNTS
+        },
+        "lessons_below_three_examples_by_level": {
+            str(level): lessons_below_three_counts[level] for level in EXPECTED_POINT_COUNTS
+        },
         "active_lessons": len(active_lesson_ids),
         "active_examples": len(active_examples),
         "authorized_vocabulary_exceptions": len(tables["grammar_vocabulary_exceptions.csv"]),
@@ -993,8 +1029,14 @@ def compile_grammar_by_level(
             )
 
     points = {row["grammar_point_id"]: row for row in tables["grammar_points.csv"]}
+    elements = {
+        row["grammar_element_id"]: row for row in tables["grammar_point_elements.csv"]
+    }
     lessons = {row["grammar_lesson_id"]: row for row in tables["grammar_lessons.csv"]}
     lesson_points = _group(tables["grammar_lesson_points.csv"], "grammar_lesson_id", "relation_order")
+    lesson_elements = _group(
+        tables["grammar_lesson_elements.csv"], "grammar_lesson_id", "relation_order"
+    )
     notes = _group(tables["grammar_lesson_notes.csv"], "grammar_lesson_id", "note_order")
     patterns = _group(tables["grammar_lesson_patterns.csv"], "grammar_lesson_id", "pattern_order")
     examples = _group(tables["grammar_lesson_examples.csv"], "grammar_lesson_id", "example_order")
@@ -1042,6 +1084,21 @@ def compile_grammar_by_level(
         compiled_lessons = []
         for lesson, primary_points in lesson_contexts:
             lesson_id = lesson["grammar_lesson_id"]
+
+            def applies_to_zh(row: dict[str, str]) -> list[str]:
+                explicit_element_id = row.get("grammar_element_id", "")
+                element_ids = [explicit_element_id] if explicit_element_id else [
+                    relation["grammar_element_id"]
+                    for relation in lesson_elements.get(lesson_id, [])
+                    if relation.get("relation_role") == "primary"
+                ]
+                targets = list(dict.fromkeys(
+                    elements[element_id]["target_zh"]
+                    for element_id in element_ids
+                    if element_id in elements and elements[element_id].get("target_zh")
+                ))
+                return targets or [lesson["target_form_zh"]]
+
             compiled_examples = []
             for example in examples.get(lesson_id, []):
                 sentence = sentences[example["sentence_id"]]
@@ -1076,6 +1133,7 @@ def compile_grammar_by_level(
                 "patterns": [
                     {
                         "labelEn": row["label_en"],
+                        "appliesToZh": applies_to_zh(row),
                         "pattern": row["pattern"],
                         "formationEn": row["formation_en"],
                         "usageEn": row["usage_en"],
@@ -1083,7 +1141,11 @@ def compile_grammar_by_level(
                     for row in patterns.get(lesson_id, [])
                 ],
                 "notes": [
-                    {"kind": row["note_kind"], "textEn": row["text_en"]}
+                    {
+                        "kind": row["note_kind"],
+                        "appliesToZh": applies_to_zh(row),
+                        "textEn": row["text_en"],
+                    }
                     for row in notes.get(lesson_id, [])
                 ],
                 "watchOutEn": lesson["watch_out_en"],
@@ -1232,8 +1294,8 @@ def grammar_markdown_report(
         f"Status: **{'PASS' if not errors else 'FAIL'}**.", "",
         f"Feature activation: **{'ACTIVE' if summary['enabled'] else 'EMPTY / PRE-CURATION'}**.", "",
         "## Official row coverage", "",
-        "| HSK | Primary coverage | Official categories | Active lessons | Active examples |",
-        "| ---: | ---: | ---: | ---: | ---: |",
+        "| HSK | Primary coverage | Categories | Lessons | Examples | Questions | Negatives | Lessons with <3 examples |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for level, expected in EXPECTED_POINT_COUNTS.items():
         coverage = summary["official_point_coverage"][str(level)]
@@ -1241,8 +1303,17 @@ def grammar_markdown_report(
             f"| {level} | {coverage['covered']}/{expected} | "
             f"{summary.get('official_category_counts', {}).get(str(level), 0)} | "
             f"{summary.get('lessons_by_level', {}).get(str(level), 0)} | "
-            f"{summary.get('examples_by_level', {}).get(str(level), 0)} |"
+            f"{summary.get('examples_by_level', {}).get(str(level), 0)} | "
+            f"{summary.get('question_examples_by_level', {}).get(str(level), 0)} | "
+            f"{summary.get('negative_examples_by_level', {}).get(str(level), 0)} | "
+            f"{summary.get('lessons_below_three_examples_by_level', {}).get(str(level), 0)} |"
         )
+    lines.extend([
+        "",
+        "Negative counts require an exact negative-marker vocabulary relation; the authorized "
+        "`不必` grammar exception is counted explicitly. Lexicalized forms such as `不但`, "
+        "`不一会儿`, `别的`, `特别`, and `差不多` are excluded.",
+    ])
     lines.extend(["", "## Elements", ""])
     if summary.get("elements_by_kind"):
         lines.extend(["| Kind | Count |", "| --- | ---: |"])

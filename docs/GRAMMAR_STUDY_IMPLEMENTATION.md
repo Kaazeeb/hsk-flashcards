@@ -1,21 +1,21 @@
 # Grammar Study implementation
 
-Release: 2.3.0
+Release: 2.5.0
 
 ## Architecture
 
-Grammar Study is a signed-in, read-only page in the existing static application shell. `js/main-grammar-page.js` owns transient level, category, search, disclosure, loading, and retry state. It loads one generated same-origin JavaScript chunk for the selected level, validates the complete payload, caches successful loads and in-flight requests, and renders with safe DOM APIs.
+Grammar Study is a signed-in, read-only page in the existing static application shell. `js/main-grammar-page.js` owns transient level, category, search, disclosure, loading, and retry state. It loads one generated same-origin JavaScript chunk for the selected level, validates the complete payload, caches successful loads and in-flight requests, and renders with safe DOM APIs. Runtime schema 2 carries an `appliesToZh` inventory for every pattern and explanatory note so learners can see exactly which Chinese forms a rule covers.
 
-The browser does not read catalog CSV files. Linguistic source data remains under `language/data/catalog/`, page activation and order remain in `language/data/product_bindings/grammar_page_lessons.csv`, and `language/scripts/compile_runtime_catalog.py` generates the three lazy runtime chunks. Existing flashcard chunks remain byte-for-byte unchanged.
+The browser does not read catalog CSV files. Linguistic source data remains under `language/data/catalog/`, page activation and order remain in `language/data/product_bindings/grammar_page_lessons.csv`, and `language/scripts/compile_runtime_catalog.py` generates the three lazy runtime chunks. The grammar review did not activate new sentence cards or change sentence-card bindings.
 
 ## Coverage
 
-| Introduced level | Official rows | Active lessons | Examples |
-| ---: | ---: | ---: | ---: |
-| HSK 1 | 70/70 | 70 | 145 |
-| HSK 2 | 78/78 | 78 | 201 |
-| HSK 3 | 96/96 | 96 | 225 |
-| **Total** | **244/244** | **244** | **571** |
+| Introduced level | Official rows | Lessons | Examples | Questions | Negative forms | Lessons with fewer than 3 examples |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| HSK 1 | 70/70 | 70 | 170 | 27 | 17 | 43 |
+| HSK 2 | 78/78 | 78 | 221 | 25 | 25 | 42 |
+| HSK 3 | 96/96 | 96 | 250 | 26 | 40 | 58 |
+| **Total** | **244/244** | **244** | **641** | **78** | **82** | **143** |
 
 The approved decomposition contains 547 grammar elements:
 
@@ -28,9 +28,11 @@ The approved decomposition contains 547 grammar elements:
 | `inventory_member` | 228 |
 | `morphology` | 10 |
 
-All 244 grammar points, 244 lessons, 547 elements, 571 examples, and their published relations have current approval evidence. The active feature has no open editorial issue. The catalog audit still reports 8 legacy review warnings and 11 unrelated pre-existing issues; neither backlog is used by Grammar Study.
+All 244 grammar points, 244 lessons, 547 elements, 641 examples, 659 example-to-point analyses, 749 literal targets, and their published relations have current approval evidence. The active feature has no open editorial issue. The catalog audit still reports 8 legacy review warnings and 11 unrelated pre-existing issues; neither backlog is used by Grammar Study.
 
-HSK 1 and HSK 2 received independent cross-review after curation. HSK 3 received a complete curator review and a focused independent sample review; this record does not claim a second complete HSK 3 editorial pass.
+The 70 added examples and 30 lesson revisions received an independent port review. The review corrected two pedagogically weak examples, one inaccurate example analysis, and four watch-outs that treated context-dependent strings as universally ungrammatical. Seven proposed in-place rewrites of already-published HSK 3 sentences were not imported because they would have changed existing grammar entities, two active sentence cards, or an inactive historical tombstone under frozen IDs.
+
+Question counts use Chinese question punctuation. Negative counts require an exact negative-marker vocabulary relation, plus the authorized point-scoped `不必` exception; lexicalized forms such as `不但`, `不一会儿`, `别的`, `特别`, and `差不多` do not inflate the metric.
 
 ## Editorial decisions
 
@@ -47,19 +49,19 @@ Known source anomalies and grouping decisions are recorded in `language/referenc
 
 | Chunk | Source bytes | `gzip -9` artifact bytes |
 | --- | ---: | ---: |
-| HSK 1 | 194,186 | 34,455 |
-| HSK 2 | 268,190 | 46,668 |
-| HSK 3 | 307,927 | 57,443 |
-| **Total lazy data** | **770,303** | **138,566** |
+| HSK 1 | 230,879 | 39,043 |
+| HSK 2 | 301,826 | 50,807 |
+| HSK 3 | 350,625 | 63,213 |
+| **Total lazy data** | **883,330** | **153,063** |
 
-The initial linked source footprint was measured with the same local HTML resource parser at 1,451,889 bytes before the feature and 1,484,614 bytes after it, a 32,725-byte increase (2.25%). Grammar lesson chunks are absent from the initial `index.html` script list. The gzip figures above are reproducible artifact-compression measurements, not browser encoded-response measurements.
+Grammar lesson chunks remain absent from the initial `index.html` script list and are loaded one level at a time. The gzip figures above are reproducible artifact-compression measurements, not browser encoded-response measurements.
 
 ## Verification
 
 - Catalog audit: PASS, 0 structural errors, exact 70/78/96 coverage, 2 authorized exceptions, and runtime semantic synchronization confirmed.
-- Compiler: validation and write completed; `--check-runtime` reported semantic equality for 1,000 vocabulary cards, 1,562 sentence cards, 655 hanzi records, 268 measure-word records, and all 3 grammar chunks.
-- JavaScript: syntax checks passed for the controller, integration modules, and all three chunks. The standalone controller contract test passed.
-- Python pipeline: the full 25-test run produced 24 passes and exposed one stale assertion that counted all canonical grammar examples as flashcards. The assertion was corrected to count card bindings, and that test passed independently. The full 190-second suite was not repeated after this test-only correction, following the instruction to limit further test-environment work.
-- Compatibility: generated legacy flashcard chunks have no byte-level diff.
+- Compiler: validation and write completed for 1,000 vocabulary cards, 1,092 active sentence cards, 655 hanzi records, 268 measure-word records, and all 3 grammar chunks.
+- Grammar runtime: schema 2 applicability labels are validated as non-empty and duplicate-free before rendering.
+- Focused regression checks: the compiler round-trip, grammar chunk contract, pinyin validator, and standalone Grammar page controller tests passed. The full test suite was not run for this port.
+- Compatibility: no sentence-card binding, runtime order, deck order, or frozen visibility index changed during this port.
 
 Browser/manual QA, screenshots, the five-viewport matrix, browser decoded/encoded response measurements, and regression smoke tests were not completed at the user's direction. No browser-runtime, accessibility, responsive-layout, or network-timing claim is inferred from syntax checks or source inspection.

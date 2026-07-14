@@ -1401,6 +1401,23 @@ summary:focus-visible {
   font-weight: 600;
 }
 
+.grammar-applies-to {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.grammar-applies-to-label {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.grammar-applies-to-forms {
+  color: var(--text);
+}
+
 .grammar-pattern-code {
   display: block;
   max-width: 100%;

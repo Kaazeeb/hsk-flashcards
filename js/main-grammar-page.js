@@ -4,7 +4,7 @@
 (function (ns) {
   const runtime = ns.mainRuntime = ns.mainRuntime || {};
   const { state } = runtime;
-  const GRAMMAR_SCHEMA_VERSION = "1";
+  const GRAMMAR_SCHEMA_VERSION = "2";
   const GRAMMAR_SYLLABUS_ID = "hsk-2025-11";
   const GRAMMAR_LEVELS = Object.freeze([1, 2, 3]);
   const EXPECTED_POINT_COUNTS = Object.freeze({ 1: 70, 2: 78, 3: 96 });
@@ -122,6 +122,12 @@
         const patternPath = `${path}.patterns[${patternIndex}]`;
         const pattern = requireRecord(rawPattern, patternPath);
         requireString(pattern.labelEn, `${patternPath}.labelEn`, { allowEmpty: true });
+        const patternTargets = new Set();
+        requireArray(pattern.appliesToZh, `${patternPath}.appliesToZh`, { min: 1 }).forEach((target, targetIndex) => {
+          const targetPath = `${patternPath}.appliesToZh[${targetIndex}]`;
+          requireString(target, targetPath);
+          requireUnique(target, patternTargets, targetPath);
+        });
         requireString(pattern.pattern, `${patternPath}.pattern`);
         requireString(pattern.formationEn, `${patternPath}.formationEn`, { allowEmpty: true });
         requireString(pattern.usageEn, `${patternPath}.usageEn`, { allowEmpty: true });
@@ -131,6 +137,12 @@
         const notePath = `${path}.notes[${noteIndex}]`;
         const note = requireRecord(rawNote, notePath);
         if (!NOTE_KINDS.has(note.kind)) invalid(`${notePath}.kind`, `unknown note kind ${String(note.kind)}`);
+        const noteTargets = new Set();
+        requireArray(note.appliesToZh, `${notePath}.appliesToZh`, { min: 1 }).forEach((target, targetIndex) => {
+          const targetPath = `${notePath}.appliesToZh[${targetIndex}]`;
+          requireString(target, targetPath);
+          requireUnique(target, noteTargets, targetPath);
+        });
         requireString(note.textEn, `${notePath}.textEn`);
       });
 
@@ -187,8 +199,14 @@
       lesson.purposeEn,
       lesson.watchOutEn
     ];
-    lesson.patterns.forEach((pattern) => fields.push(pattern.labelEn, pattern.pattern, pattern.formationEn, pattern.usageEn));
-    lesson.notes.forEach((note) => fields.push(note.textEn));
+    lesson.patterns.forEach((pattern) => fields.push(
+      pattern.labelEn,
+      ...pattern.appliesToZh,
+      pattern.pattern,
+      pattern.formationEn,
+      pattern.usageEn
+    ));
+    lesson.notes.forEach((note) => fields.push(...note.appliesToZh, note.textEn));
     lesson.examples.forEach((example) => {
       fields.push(example.pinyin);
       example.analyses.forEach((analysis) => fields.push(analysis.textEn));
@@ -404,6 +422,7 @@
     lesson.patterns.forEach((pattern) => {
       const patternBlock = createElement("div", "grammar-pattern");
       if (pattern.labelEn) patternBlock.appendChild(createElement("p", "grammar-pattern-label", pattern.labelEn));
+      patternBlock.appendChild(renderAppliesTo(pattern.appliesToZh));
       const formula = createElement("code", "grammar-pattern-code");
       appendMarkedChineseText(formula, pattern.pattern);
       patternBlock.appendChild(formula);
@@ -412,6 +431,16 @@
       section.appendChild(patternBlock);
     });
     return section;
+  }
+
+  function renderAppliesTo(targets) {
+    const line = createElement("span", "grammar-applies-to");
+    line.appendChild(createElement("span", "grammar-applies-to-label", "Applies to:"));
+    line.appendChild(document.createTextNode(" "));
+    const forms = createElement("span", "grammar-applies-to-forms", targets.join("、"));
+    forms.lang = "zh-Hans";
+    line.appendChild(forms);
+    return line;
   }
 
   function renderExample(example) {
@@ -452,7 +481,12 @@
     const notes = createElement("section", "grammar-lesson-section");
     notes.appendChild(createElement("h4", "grammar-section-title", "How it works"));
     const noteList = createElement("ul", "grammar-note-list");
-    lesson.notes.forEach((note) => noteList.appendChild(createElement("li", "", note.textEn)));
+    lesson.notes.forEach((note) => {
+      const item = createElement("li");
+      item.appendChild(renderAppliesTo(note.appliesToZh));
+      item.appendChild(document.createTextNode(note.textEn));
+      noteList.appendChild(item);
+    });
     notes.appendChild(noteList);
     body.appendChild(notes);
 

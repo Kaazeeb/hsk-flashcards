@@ -225,6 +225,11 @@ window.HSKFlashcards = window.HSKFlashcards || {};
       return {
         id,
         index: index + 1,
+        visibilityIndex: card.visibilityIndex !== null && card.visibilityIndex !== undefined
+          && card.visibilityIndex !== "" && Number.isInteger(Number(card.visibilityIndex))
+          && Number(card.visibilityIndex) >= 0
+          ? Number(card.visibilityIndex)
+          : null,
         cardKind: card.cardKind === "study" ? "study" : "sentence",
         level,
         direction,

@@ -7,6 +7,8 @@ Key design choices:
 - `vocab_id` identifies a syllabus sense, not just a printed hanzi surface. Numbered syllabus forms such as `本1` retain their sense number.
 - Translations are separate locale-keyed tables so adding Portuguese or another language does not change Chinese lexical identity.
 - Sentence content is direction-neutral. Presentation fields live in product bindings.
+- Sentence-card bindings are append-only historical identities. Inactive rows remain as tombstones;
+  `runtime_order` and `deck_order` stay frozen while the active runtime projection may contain gaps.
 - Sentence-vocabulary and sentence-grammar links are normalized relationship tables with explicit review status.
 - Official grammar rows and legacy free-form grammar labels are distinct until reviewed.
 - Grammar lessons map explicitly to official rows and normalized elements; primary mappings provide exact row and variant coverage without equating a syllabus row with a lesson.

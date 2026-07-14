@@ -1,6 +1,6 @@
 # HSK Flashcards technical overview
 
-Version: 2.3.0
+Version: 2.5.0
 
 ## Runtime model
 
@@ -24,7 +24,7 @@ Grammar lesson payloads are an exception to the eager data path: the Grammar con
 - `fsrs-lib.js`: browser FSRS scheduler build.
 - `supabase_starter.sql`: current database starter script.
 - `SUPABASE.md`: current Supabase schema and API-call documentation.
-- `VERSION.txt`: release marker; current value is `2.3.0`.
+- `VERSION.txt`: release marker; current value is `2.5.0`.
 - `JS_LINE_COUNTS.txt`: current JavaScript line-count snapshot.
 - `PROJECT_IMPORTANT_UPDATES.md`: consolidated high-signal project updates only.
 
@@ -33,7 +33,7 @@ Grammar lesson payloads are an exception to the eager data path: the Grammar con
 Data/catalog modules:
 
 - `js/data/flashcards/hsk1-data-part-1.js` through `js/data/flashcards/hsk1-data-part-5.js`: built-in HSK vocabulary chunks.
-- `js/data/flashcards/sentence-cards-data-part-1.js` through `js/data/flashcards/sentence-cards-data-part-7.js`: built-in sentence cards.
+- `js/data/flashcards/sentence-cards-data-part-1.js` through `js/data/flashcards/sentence-cards-data-part-5.js`: built-in active sentence cards.
 - `js/data/flashcards/hanzi-cards-data-part-1.js` through `js/data/flashcards/hanzi-cards-data-part-3.js`: hardcoded hanzi metadata used to generate pinyin and stroke-sequence study cards.
 - `js/data/flashcards/measure-word-cards-data-part-1.js` through `js/data/flashcards/measure-word-cards-data-part-3.js`: hardcoded measure-word study-card metadata.
 - `js/data/flashcards/image-cards-data.js`: image-card catalog scaffold. It is currently empty, so the app loads zero image cards until entries/assets are added.
@@ -76,13 +76,14 @@ Core modules:
 - Vocabulary is built-in only: 1,000 cards loaded from the split HSK chunks.
 - User-created/imported vocabulary catalogs are disabled. Legacy remote custom-vocabulary data is ignored by the current normalizer.
 - Custom vocabulary sets are disabled. The standard vocabulary scope is `All cards`; per-card Learn/Practice visibility is managed in Setup.
-- Sentence/study content totals 3,140 cards:
-  - 1,562 sentence cards across HSK 1, HSK 2, and HSK 3 sentence decks.
+- Sentence/study content totals 2,670 cards:
+  - 1,092 active sentence cards: 310 HSK 1, 232 HSK 2, and 550 HSK 3.
   - 1,578 generated study cards.
+- Sentence-card product bindings are append-only. Inactive historical bindings remain as tombstones, and each active runtime card carries its frozen historical visibility index so compact per-user visibility bits do not shift. The active projections combine 226 historical cards, 70 approved grammar examples, and 14 approved editorial sentences for HSK 1; 129 historical cards, 78 grammar examples, and 25 editorial sentences for HSK 2; and 383 historical cards, 96 grammar examples, and 71 editorial sentences for HSK 3. Exact stable-ID relations give every vocabulary sense through HSK 3 at least two distinct active contexts in its level portfolio.
 - Sentence/study direction breakdown is generated from the loaded card data. Sentence cards include Chinese-to-English, English-to-Chinese, and Chinese Q&A directions; generated study cards include `hanzi_to_pinyin`, `measure_word`, and `stroke_sequence`.
 - Image cards are scaffolded but the current catalog has 0 active cards.
-- Grammar Study contains 244 approved lessons across HSK 1 through HSK 3: 70 HSK 1 lessons, 78 HSK 2 lessons, and 96 HSK 3 lessons. The lessons contain 547 modeled elements and 571 examples.
-- Grammar compilation is deterministic. The page controller validates chunk identity, ordered official grammar-point ids, primary lesson coverage, and payload structure before rendering a level.
+- Grammar Study contains 244 approved lessons across HSK 1 through HSK 3: 70 HSK 1 lessons, 78 HSK 2 lessons, and 96 HSK 3 lessons. The lessons contain 547 modeled elements and 641 examples.
+- Grammar compilation is deterministic. Runtime schema 2 includes exact `appliesToZh` forms for every pattern and explanatory note. The page controller validates chunk identity, ordered official grammar-point ids, primary lesson coverage, applicability arrays, and payload structure before rendering a level.
 - Grammar vocabulary policy has two exact editorial exceptions only: HSK 1 `杯` in classifier use and HSK 3 `不必` in negative-modal use. Neither exception creates a broad allowance for the word, level, or element type.
 
 ## Main learning flows

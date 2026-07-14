@@ -79,7 +79,21 @@
       const id = String(card?.id || "").trim();
       if (!deckId || !id) return;
       if (!byDeck[deckId]) byDeck[deckId] = [];
-      byDeck[deckId].push(id);
+      const hasVisibilityIndex = card?.visibilityIndex !== null && card?.visibilityIndex !== undefined
+        && card.visibilityIndex !== "";
+      const visibilityIndex = Number(card?.visibilityIndex);
+      if (!hasVisibilityIndex || !Number.isInteger(visibilityIndex) || visibilityIndex < 0) {
+        byDeck[deckId].push(id);
+        return;
+      }
+      while (byDeck[deckId].length <= visibilityIndex) {
+        const slot = byDeck[deckId].length;
+        byDeck[deckId].push(`__inactive_visibility_slot__:${deckId}:${slot}`);
+      }
+      if (!byDeck[deckId][visibilityIndex].startsWith("__inactive_visibility_slot__:")) {
+        throw new Error(`Duplicate visibilityIndex ${visibilityIndex} in ${deckId}`);
+      }
+      byDeck[deckId][visibilityIndex] = id;
     });
     Object.keys(byDeck).forEach((deckId) => { byDeck[deckId] = normalizeIdList(byDeck[deckId]); });
     return byDeck;
@@ -251,6 +265,11 @@
         return {
           id: String(card?.id || `sentence_${index + 1}`).trim(),
           index: index + 1,
+          visibilityIndex: card?.visibilityIndex !== null && card?.visibilityIndex !== undefined
+            && card.visibilityIndex !== "" && Number.isInteger(Number(card.visibilityIndex))
+            && Number(card.visibilityIndex) >= 0
+            ? Number(card.visibilityIndex)
+            : null,
           cardKind: card?.cardKind === "study" ? "study" : "sentence",
           level: Math.max(0, Math.min(9, Math.floor(Number(card?.level) || 0))),
           direction,

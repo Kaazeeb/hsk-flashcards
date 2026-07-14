@@ -49,16 +49,17 @@ function makePayload() {
     purposeEn: "Exercise the grammar payload contract.",
     patterns: [{
       labelEn: "Test form",
+      appliesToZh: ["学习"],
       pattern: "Subject + 学习 + Object",
       formationEn: "Place the verb before its object.",
       usageEn: "Describe an act of study."
     }],
-    notes: [{ kind: "formation", textEn: "This is reviewed fixture content." }],
+    notes: [{ kind: "formation", appliesToZh: ["学习"], textEn: "This is reviewed fixture content." }],
     watchOutEn: "",
     examples: [makeExample(index * 2 + 1), makeExample(index * 2 + 2)]
   }));
   return {
-    schemaVersion: "1",
+    schemaVersion: "2",
     syllabusId: "hsk-2025-11",
     level: 1,
     officialPointIds,
@@ -100,7 +101,15 @@ brokenParts.lessons[0].examples[0].parts[0].text = "different";
 assert.throws(() => validateGrammarPayload(brokenParts, 1), /do not reconstruct/);
 
 const wrongSchema = structuredClone(valid);
-wrongSchema.schemaVersion = "2";
+wrongSchema.schemaVersion = "1";
 assert.throws(() => validateGrammarPayload(wrongSchema, 1), /schemaVersion/);
+
+const missingApplicability = structuredClone(valid);
+delete missingApplicability.lessons[0].notes[0].appliesToZh;
+assert.throws(() => validateGrammarPayload(missingApplicability, 1), /appliesToZh/);
+
+const duplicateApplicability = structuredClone(valid);
+duplicateApplicability.lessons[0].patterns[0].appliesToZh = ["学习", "学习"];
+assert.throws(() => validateGrammarPayload(duplicateApplicability, 1), /duplicate value/);
 
 console.log("Grammar page controller tests passed.");

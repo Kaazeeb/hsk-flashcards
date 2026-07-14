@@ -165,8 +165,8 @@ PRODUCT_FIELDS: dict[str, list[str]] = {
         "runtime_order", "vocab_id", "legacy_storage_key", "learn_default", "practice_default",
     ],
     "sentence_cards.csv": [
-        "runtime_order", "deck_order", "card_id", "sentence_id", "direction", "deck_id",
-        "deck_name", "response_style", "tags",
+        "runtime_order", "deck_order", "card_id", "sentence_id", "active", "direction",
+        "deck_id", "deck_name", "response_style", "tags",
     ],
     "hanzi_cards.csv": ["runtime_order", "card_id", "reading_id", "level"],
     "measure_word_cards.csv": ["runtime_order", "card_id", "measure_word_id"],

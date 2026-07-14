@@ -1394,7 +1394,7 @@
     "sentence_cards.csv": {
       "path": "language/data/product_bindings/sentence_cards.csv",
       "owner": "product_runtime",
-      "description": "Product-owned sentence direction, deck, order, and runtime identity.",
+      "description": "Product-owned sentence activation, direction, deck, historical order, and runtime identity.",
       "primary_key": [
         "runtime_order"
       ],
@@ -1403,6 +1403,7 @@
         "deck_order",
         "card_id",
         "sentence_id",
+        "active",
         "direction",
         "deck_id",
         "deck_name"
@@ -1412,6 +1413,7 @@
         "deck_order",
         "card_id",
         "sentence_id",
+        "active",
         "direction",
         "deck_id",
         "deck_name",
@@ -1423,6 +1425,7 @@
         "deck_order": "integer",
         "card_id": "string",
         "sentence_id": "string",
+        "active": "boolean",
         "direction": "sentence_direction",
         "deck_id": "string",
         "deck_name": "string",

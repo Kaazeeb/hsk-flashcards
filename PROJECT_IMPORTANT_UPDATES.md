@@ -10,6 +10,32 @@ This document replaces the previous collection of granular project-review and pa
 - Runtime JavaScript remains compatible with the static app but is now generated and checked from the CSV catalog.
 - Product presentation fields are isolated from linguistic content so language curation does not choose card direction, deck behavior, UI, or scheduling.
 
+## 2.5.0 sentence portfolios and grammar review
+
+- Updated `VERSION.txt` to `2.5.0`.
+- Reduced the active HSK 1 sentence deck from 440 to 310 cards and the HSK 2 deck from 378 to 232 cards, while retaining every published binding as immutable active or inactive history.
+- Selected 226 stronger historical cards, 70 approved Grammar Study examples, and 14 approved editorial sentences for HSK 1. Selected 129 stronger historical cards, 78 grammar examples, and 25 editorial sentences for HSK 2.
+- Rebalanced exact stable-ID coverage so all 300 HSK 1 vocabulary senses and all 200 HSK 2 vocabulary senses have at least two distinct active contexts. The best-effort third-context counts are 171 for HSK 1 and 58 for HSK 2.
+- Applied the requested direction priority after coverage and quality constraints: HSK 1 has 225 Chinese-to-English cards, 80 English-to-Chinese cards, and 5 Chinese Q&A cards; HSK 2 has 174, 56, and 2 respectively.
+- Chose the 232-card quality-first HSK 2 portfolio over a 229-card relaxation that would have reintroduced seven weak cards.
+- Kept 214 unselected HSK 1 historical bindings and 249 unselected HSK 2 historical bindings as inactive tombstones with frozen IDs and order.
+- Added focused per-level reports covering exact vocabulary repetition, all 70/78 official grammar points, direction mix, source composition, and tombstone preservation.
+- Expanded Grammar Study from 571 to 641 approved examples: 170 HSK 1, 221 HSK 2, and 250 HSK 3 examples. The reviewed catalog now has 659 example-to-point analyses and 749 literal grammar targets.
+- Added runtime schema 2 applicability labels so every pattern and explanatory note identifies the exact Chinese forms it covers.
+- Audited the incoming grammar review independently. Corrected ambiguous `会/能` and `可能` examples, one inaccurate `多` analysis, four overgeneralized watch-outs, and a character-based negative counter that misclassified lexicalized forms such as `不但` and `差不多`.
+- Preserved seven already-published HSK 3 sentence entities instead of importing in-place semantic rewrites from the review branch. No sentence-card binding, frozen card ID, or tombstone changed during the grammar port.
+
+## 2.4.0 HSK 3 sentence portfolio
+
+- Updated `VERSION.txt` to `2.4.0`.
+- Reduced the active HSK 3 sentence deck from 744 to 550 cards while retaining all published bindings as immutable active or inactive history.
+- Selected 383 stronger historical cards, activated 96 approved Grammar Study examples covering all 96 official HSK 3 grammar points, and added 71 approved editorial sentences for weak, scarce, or unresolved vocabulary contexts.
+- Rebalanced exact stable-ID coverage so all 500 HSK 3 vocabulary senses have at least two distinct active contexts; 257 have at least three. The optimizer now establishes the two-context floor before allocating third contexts, while sentence naturalness and lexical-sense accuracy remain hard editorial requirements.
+- Applied the requested direction priority after coverage and quality constraints: 387 Chinese-to-English cards, 146 English-to-Chinese cards, and 17 Chinese Q&A cards in the active HSK 3 deck.
+- Kept 361 unselected historical bindings and 19 superseded curated bindings as inactive tombstones with frozen IDs and order.
+- Added append-only sentence-card tombstones and sparse visibility indexes so removing a card from the active runtime does not shift existing users' compact visibility bits.
+- Regenerated the static runtime as six sentence-card chunks and verified catalog/runtime semantic equality.
+
 ## 2.3.0 Grammar Study page
 
 - Updated `VERSION.txt` to `2.3.0`.
@@ -52,14 +78,14 @@ This document replaces the previous collection of granular project-review and pa
 - Smart review uses FSRS ratings. Vocabulary uses the guided hanzi/pinyin/translation flow; sentence/study decks use flip-and-rate; image cards are scaffolded separately.
 - App/business data intentionally has no offline replay queue. Failed remote writes are logged and dropped after the in-memory diff baseline advances.
 
-## Content baseline after 2.3.0
+## Content baseline after 2.5.0
 
 - Vocabulary: 1,000 built-in cards.
-- Sentence cards: 1,562 total across HSK 1, HSK 2, and HSK 3 sentence decks.
+- Sentence cards: 1,092 active cards across HSK 1, HSK 2, and HSK 3 sentence decks.
 - Generated study cards: 1,578 total.
-- Sentence/study total: 3,140 cards.
+- Sentence/study total: 2,670 cards.
 - Image-card catalog: 0 active cards until entries/assets are added.
-- Grammar Study: 244 lessons, 547 elements, and 571 examples across HSK 1 through HSK 3.
+- Grammar Study: 244 lessons, 547 elements, and 641 examples across HSK 1 through HSK 3.
 
 ## Supabase baseline after cleanup
 

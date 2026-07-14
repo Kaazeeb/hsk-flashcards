@@ -156,8 +156,8 @@ REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "coverage_exceptions.csv": ("exception_id", "vocab_id", "surface_form", "coverage_type",
                                 "reason", "review_status"),
     "vocabulary_cards.csv": ("runtime_order", "vocab_id", "legacy_storage_key"),
-    "sentence_cards.csv": ("runtime_order", "deck_order", "card_id", "sentence_id", "direction",
-                           "deck_id", "deck_name"),
+    "sentence_cards.csv": ("runtime_order", "deck_order", "card_id", "sentence_id", "active",
+                           "direction", "deck_id", "deck_name"),
     "hanzi_cards.csv": ("runtime_order", "card_id", "reading_id", "level"),
     "measure_word_cards.csv": ("runtime_order", "card_id", "measure_word_id"),
     "grammar_page_lessons.csv": ("grammar_lesson_id", "active", "level_display_order"),
@@ -409,6 +409,15 @@ def validate_official_contract_and_domains(
         orders = [int(row["runtime_order"]) for row in rows]
         if not contiguous(orders):
             errors.append(issue("runtime_order", "runtime_order must be contiguous from 1", table=table))
+    sentence_deck_orders: dict[str, list[int]] = defaultdict(list)
+    for row in sorted(tables["sentence_cards.csv"], key=lambda item: int(item["runtime_order"])):
+        sentence_deck_orders[row["deck_id"]].append(int(row["deck_order"]))
+    for deck_id, orders in sentence_deck_orders.items():
+        if orders != list(range(1, len(orders) + 1)):
+            errors.append(issue(
+                "deck_order", "Historical deck_order must be contiguous when tombstones are included",
+                table="sentence_cards.csv", entity_id=deck_id,
+            ))
     for field in ("card_id",):
         for table in ("sentence_cards.csv", "hanzi_cards.csv", "measure_word_cards.csv"):
             values = [row[field] for row in tables[table]]
@@ -568,12 +577,15 @@ def validate_compatibility(
             errors.append(issue("compatibility_identity", f"Vocabulary surface differs at runtime order {index}",
                                 table="vocabulary_cards.csv", entity_id=binding["vocab_id"]))
 
-    sentence_bindings = sorted(tables["sentence_cards.csv"], key=lambda row: int(row["runtime_order"]))
-    deck_counts: Counter[str] = Counter()
+    historical_sentence_bindings = sorted(
+        tables["sentence_cards.csv"], key=lambda row: int(row["runtime_order"])
+    )
+    sentence_bindings = [row for row in historical_sentence_bindings if row["active"] == "true"]
+    historical_deck_counts = Counter(row["deck_id"] for row in historical_sentence_bindings)
+    active_deck_counts = Counter(row["deck_id"] for row in sentence_bindings)
     if len(sentence_bindings) != len(runtime["sentences"]):
         errors.append(issue("compatibility_count", "Sentence binding/runtime count mismatch", table="sentence_cards.csv"))
     for binding, card in zip(sentence_bindings, runtime["sentences"]):
-        deck_counts[binding["deck_id"]] += 1
         expected_fields = {
             "card_id": str(card.get("id", "")), "direction": str(card.get("direction", "")),
             "deck_id": str(card.get("deckId", "")), "deck_name": str(card.get("deckName", "")),
@@ -583,9 +595,9 @@ def validate_compatibility(
             if binding[field] != expected:
                 errors.append(issue("compatibility_binding", f"{field} changed from {expected!r} to {binding[field]!r}",
                                     table="sentence_cards.csv", entity_id=binding["card_id"]))
-        if int(binding["deck_order"]) != deck_counts[binding["deck_id"]]:
-            errors.append(issue("deck_order", "Per-deck order drifted", table="sentence_cards.csv",
-                                entity_id=binding["card_id"]))
+        if int(card.get("visibilityIndex", -1)) != int(binding["deck_order"]) - 1:
+            errors.append(issue("visibility_index", "Runtime visibility index differs from historical deck_order",
+                                table="sentence_cards.csv", entity_id=binding["card_id"]))
         if binding["sentence_id"] not in sentences:
             errors.append(issue("compatibility_binding", "Binding references missing sentence", table="sentence_cards.csv",
                                 entity_id=binding["card_id"]))
@@ -620,9 +632,12 @@ def validate_compatibility(
     summary = {
         "vocabulary_positional_bindings": len(vocab_bindings),
         "sentence_card_bindings": len(sentence_bindings),
+        "historical_sentence_card_bindings": len(historical_sentence_bindings),
+        "inactive_sentence_card_tombstones": len(historical_sentence_bindings) - len(sentence_bindings),
         "hanzi_card_bindings": len(hanzi_bindings),
         "measure_word_card_bindings": len(measure_bindings),
-        "frozen_sentence_decks": dict(sorted(deck_counts.items())),
+        "frozen_sentence_decks": dict(sorted(historical_deck_counts.items())),
+        "active_sentence_decks": dict(sorted(active_deck_counts.items())),
         "runtime_semantic_match": runtime_semantic_match,
         "runtime_semantic_differences": [
             {key: value for key, value in difference.items() if key not in {"compiled", "runtime"}}
@@ -961,7 +976,9 @@ def coverage_report(
     for row in tables["coverage_exceptions.csv"]:
         bound_surfaces_by_level[int(vocabulary[row["vocab_id"]]["level_min"])].add(row["surface_form"])
     sentences = {row["sentence_id"]: row for row in tables["sentences.csv"]}
-    bound_sentence_ids = {row["sentence_id"] for row in tables["sentence_cards.csv"]}
+    bound_sentence_ids = {
+        row["sentence_id"] for row in tables["sentence_cards.csv"] if row["active"] == "true"
+    }
     published_sentence_ids = {
         sentence_id for sentence_id in bound_sentence_ids
         if sentences[sentence_id]["curation_status"] in {"legacy_unreviewed", "approved"}
@@ -1105,7 +1122,7 @@ def coverage_report(
 
 def inventory(tables: dict[str, list[dict[str, str]]], selected_level: int | None) -> dict[str, Any]:
     sentence_rows = tables["sentences.csv"]
-    sentence_bindings = tables["sentence_cards.csv"]
+    sentence_bindings = [row for row in tables["sentence_cards.csv"] if row["active"] == "true"]
     if selected_level is not None:
         selected_ids = {row["sentence_id"] for row in sentence_rows if int(row["level"]) == selected_level}
         sentence_rows = [row for row in sentence_rows if row["sentence_id"] in selected_ids]
