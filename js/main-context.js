@@ -421,7 +421,6 @@
     const changed = await syncStoreToAuthScope();
     if (info?.event === "SIGNED_IN") {
       setAuthMessage("Signed in. Cloud sync active.", "ok");
-      state.currentPage = "flashcards";
     } else if (info?.event === "SIGNED_OUT") {
       setAuthMessage("Signed out.", "muted");
       state.currentPage = "login";
