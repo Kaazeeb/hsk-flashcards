@@ -137,11 +137,17 @@ button.ghost {
   border-color: var(--line);
 }
 
+button.danger {
+  color: var(--bad);
+  border-color: rgba(190, 24, 93, 0.35);
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
+.setup-progress-actions,
 .button-row,
 .controls,
 .mode-switch,
@@ -153,6 +159,11 @@ button:disabled {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.setup-progress-actions {
+  align-items: center;
+  margin: 12px 0 4px;
 }
 
 .button-row {

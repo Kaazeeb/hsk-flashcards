@@ -292,6 +292,31 @@
     render();
   }
 
+  async function handleResetSelectedDeckProgress() {
+    const deck = getSetupDeckById(getSelectedSetupDeckId());
+    if (!deck) return;
+    const cards = getSetupDeckCards(deck.id);
+    const ids = cards.map((card) => getSetupActionCardId(card, deck)).filter(Boolean);
+    if (!ids.length) {
+      state.elements.statusText.textContent = "No cards found in the selected deck.";
+      return;
+    }
+    const confirmed = window.confirm(`Reset Learn, Practice, and Smart progress for ${deck.name}? Overall progress for other decks will be kept.`);
+    if (!confirmed) return;
+    const changed = await state.store.resetProgressForCards(ids, {
+      kind: deck.kind,
+      deckId: deck.id,
+      setId: deck.id
+    });
+    resetRoundState();
+    clearSmartSessionDeferrals();
+    markManageListDirty();
+    state.elements.statusText.textContent = changed
+      ? `Progress reset for ${deck.name}. Other decks were kept.`
+      : `No saved progress found for ${deck.name}.`;
+    render();
+  }
+
   async function handleSaveNamedSet() {
     state.elements.statusText.textContent = "Custom user sets are disabled. Use Card setup visibility instead.";
   }
@@ -526,6 +551,7 @@
     if (state.elements.authSignOutBtn) state.elements.authSignOutBtn.addEventListener("click", handleAuthSignOut);
     state.elements.pageButtons.forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
     state.elements.resetProgressBtn.addEventListener("click", handleResetProgress);
+    if (state.elements.resetSelectedDeckProgressBtn) state.elements.resetSelectedDeckProgressBtn.addEventListener("click", handleResetSelectedDeckProgress);
     state.elements.shuffleBtn.addEventListener("click", shuffleCurrentMode);
     state.elements.resetOrderBtn.addEventListener("click", resetCurrentModeOrder);
     if (state.elements.startSessionBtn) state.elements.startSessionBtn.addEventListener("click", handleStartSession);
@@ -595,6 +621,7 @@
     applyRangeToMode,
     setAllForMode,
     handleResetProgress,
+    handleResetSelectedDeckProgress,
     handleSaveNamedSet,
     getCardsFromSetRangeInput,
     handleSetRangeAction,

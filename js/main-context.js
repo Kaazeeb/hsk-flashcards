@@ -185,6 +185,7 @@
       setupDeckLearnToggle: document.getElementById("setupDeckLearnToggle"),
       setupDeckPracticeToggle: document.getElementById("setupDeckPracticeToggle"),
       setupDeckMeta: document.getElementById("setupDeckMeta"),
+      resetSelectedDeckProgressBtn: document.getElementById("resetSelectedDeckProgressBtn"),
       rangeLearn: document.getElementById("rangeLearn"),
       rangePractice: document.getElementById("rangePractice"),
       rangeButtons: [...document.querySelectorAll("[data-range-action]")],
