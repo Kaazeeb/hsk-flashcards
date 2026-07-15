@@ -146,6 +146,41 @@
     bumpReviewEpoch(db, reason);
   }
 
+  function deleteKeys(bucket, ids) {
+    let changed = false;
+    if (!bucket || typeof bucket !== "object") return false;
+    ids.forEach((id) => {
+      if (Object.prototype.hasOwnProperty.call(bucket, id)) {
+        delete bucket[id];
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function resetProgressForCardIds(db, cardIds, options = {}) {
+    const ids = normalizeIdList(cardIds);
+    if (!ids.length) return false;
+    let changed = false;
+    changed = deleteKeys(db.progress?.seen, ids) || changed;
+    changed = deleteKeys(db.progress?.practice?.translation, ids) || changed;
+    changed = deleteKeys(db.progress?.practice?.pinyin, ids) || changed;
+    if (options.kind === "sentence") {
+      const deckId = String(options.deckId || "").trim();
+      if (deckId && db.sentenceSmartByDeck?.[deckId]) {
+        changed = deleteKeys(db.sentenceSmartByDeck[deckId], ids) || changed;
+        if (!Object.keys(db.sentenceSmartByDeck[deckId]).length) delete db.sentenceSmartByDeck[deckId];
+      }
+    } else {
+      const setId = String(options.setId || ALL_SET_ID).trim() || ALL_SET_ID;
+      if (db.smartBySet?.[setId]) {
+        changed = deleteKeys(db.smartBySet[setId], ids) || changed;
+        if (!Object.keys(db.smartBySet[setId]).length) delete db.smartBySet[setId];
+      }
+    }
+    return changed;
+  }
+
   function createDefaultUiState() {
     return {
       mode: "learn",
@@ -571,6 +606,12 @@
         await this.persist();
       },
 
+      async resetProgressForCards(cardIds, options = {}) {
+        const changed = resetProgressForCardIds(this.state, cardIds, options);
+        if (changed) await this.persist();
+        return changed;
+      },
+
       async update(mutator) {
         const next = mutator(this.state) || this.state;
         this.state = next;
@@ -593,6 +634,7 @@
     normalizeMeta,
     bumpReviewEpoch,
     resetReviewData,
+    resetProgressForCardIds,
     normalizeBuiltinVisibility,
     getDeckVisibility,
     getBuiltinCardVisibility
