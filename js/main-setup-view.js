@@ -200,7 +200,6 @@
         card.hanzi,
         card.pinyin,
         card.pinyinNumeric,
-        card.translation,
         card.partOfSpeech,
         card.example,
         card.front,
