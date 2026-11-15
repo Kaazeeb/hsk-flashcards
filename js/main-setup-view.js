@@ -247,7 +247,7 @@
     return "smart new";
   }
 
-  function createManageRow(card, deck, renderDate, vocabSmartBucket) {
+  function createManageRow(card, deck, renderDate, vocabSmartBucket, practiceProgress) {
     const localCardId = getSetupCardLocalId(card, deck);
     const current = getSetupCardVisibility(card, deck);
     const row = document.createElement("div");
@@ -269,7 +269,12 @@
     if (deck?.kind === "sentence") {
       stats.textContent = getSetupSmartMeta(card, deck, renderDate);
     } else {
-      const summary = getPracticeCardSummaryText(card);
+      // Setup shows global quiz counters; resolving the study review scope here
+      // would rebuild sentence-deck catalogs for every vocabulary row.
+      const translation = practiceProgress.translation[localCardId] || { shown: 0, correct: 0, wrong: 0 };
+      const pinyin = practiceProgress.pinyin[localCardId] || { shown: 0, correct: 0, wrong: 0 };
+      const translationSummary = `translation ${translation.correct}/${translation.wrong} · seen ${translation.shown}`;
+      const pinyinSummary = `pinyin ${pinyin.correct}/${pinyin.wrong} · seen ${pinyin.shown}`;
       let smartMeta = "smart inactive";
       if (current.practice !== false) {
         const smartEntry = vocabSmartBucket[localCardId] || smart.createSmartEntry(renderDate);
@@ -280,7 +285,7 @@
           smartMeta = "smart new";
         }
       }
-      stats.textContent = `${summary.translation} · ${summary.pinyin} · ${smartMeta}`;
+      stats.textContent = `${translationSummary} · ${pinyinSummary} · ${smartMeta}`;
     }
 
     meta.append(title, sub, stats);
@@ -327,6 +332,7 @@
 
     const generation = manageListRenderGeneration;
     const renderDate = new Date();
+    const practiceProgress = getDb().progress.practice;
     const vocabSmartBucket = deck?.kind === "sentence"
       ? {}
       : getSmartBucketForSet(deck?.id || getActiveSet().id);
@@ -349,7 +355,7 @@
       let renderedThisFrame = 0;
 
       while (index < cards.length && renderedThisFrame < MANAGE_LIST_MAX_ROWS_PER_FRAME) {
-        fragment.appendChild(createManageRow(cards[index], deck, renderDate, vocabSmartBucket));
+        fragment.appendChild(createManageRow(cards[index], deck, renderDate, vocabSmartBucket, practiceProgress));
         index += 1;
         renderedThisFrame += 1;
         if (renderedThisFrame >= MANAGE_LIST_MIN_ROWS_PER_FRAME
