@@ -13,6 +13,7 @@
   const getDb = proxy("getDb");
   const persist = proxy("persist");
   const getUi = proxy("getUi");
+  const withRenderModelCache = proxy("withRenderModelCache");
   const getAuthStatus = proxy("getAuthStatus");
   const updateStorageModeBadge = proxy("updateStorageModeBadge");
   const refreshRemoteState = proxy("refreshRemoteState");
@@ -74,6 +75,10 @@
   const renderSmartBlocked = proxy("renderSmartBlocked");
 
   function render() {
+    return withRenderModelCache(renderPage);
+  }
+
+  function renderPage() {
     renderPageShell();
     updateStorageModeBadge();
     renderAuthPanel();

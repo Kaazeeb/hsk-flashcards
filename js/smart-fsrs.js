@@ -242,14 +242,17 @@
       }))
       .filter((item) => item.card)
       .filter((item) => !isStarted(item.entry))
+      .map((item) => ({
+        item,
+        shuffleScore: getDailyShuffleScore(item.id, now, now, sessionSeed)
+      }))
       .sort((a, b) => {
-        const aShuffle = getDailyShuffleScore(a.id, now, now, sessionSeed);
-        const bShuffle = getDailyShuffleScore(b.id, now, now, sessionSeed);
-        if (aShuffle !== bShuffle) return aShuffle - bShuffle;
-        const aIndex = Number(a.card.index) || 0;
-        const bIndex = Number(b.card.index) || 0;
+        if (a.shuffleScore !== b.shuffleScore) return a.shuffleScore - b.shuffleScore;
+        const aIndex = Number(a.item.card.index) || 0;
+        const bIndex = Number(b.item.card.index) || 0;
         return aIndex - bIndex;
-      });
+      })
+      .map(({ item }) => item);
   }
 
   // Builds the review-plan numbers shown in the UI: due today, next due date,

@@ -14,6 +14,22 @@
   const persist = proxy("persist");
   const getUi = proxy("getUi");
 
+  let renderModelCache = null;
+
+  // A render only reads the catalog and visibility. Share those lookups across
+  // its widgets, then discard them so the next interaction sees fresh state.
+  function withRenderModelCache(renderPage) {
+    const previous = renderModelCache;
+    renderModelCache = {
+      visibility: new Map(), sentenceDecks: new Map(), sentenceCardMap: null, allCardMap: null
+    };
+    try {
+      return renderPage();
+    } finally {
+      renderModelCache = previous;
+    }
+  }
+
   function resetRoundState() {
     state.round = createEmptyRound();
   }
@@ -41,9 +57,19 @@
   }
 
   function getBuiltInCardVisibility(deckId, localCardId) {
-    return ns.store && typeof ns.store.getBuiltinCardVisibility === "function"
+    let deckCache = renderModelCache?.visibility.get(deckId);
+    if (deckCache?.has(localCardId)) return deckCache.get(localCardId);
+    const visibility = ns.store && typeof ns.store.getBuiltinCardVisibility === "function"
       ? ns.store.getBuiltinCardVisibility(getDb().builtinVisibility, deckId, localCardId)
       : { learn: true, practice: true };
+    if (renderModelCache) {
+      if (!deckCache) {
+        deckCache = new Map();
+        renderModelCache.visibility.set(deckId, deckCache);
+      }
+      deckCache.set(localCardId, visibility);
+    }
+    return visibility;
   }
 
   function isBuiltInDeckModeEnabled() {
@@ -81,6 +107,7 @@
 
   function getSentenceDecks(options = {}) {
     const mode = options.mode || "";
+    if (renderModelCache?.sentenceDecks.has(mode)) return renderModelCache.sentenceDecks.get(mode);
     const groups = new Map();
     (getDb().sentenceCards || []).forEach((card) => {
       const deckId = String(card.deckId || "");
@@ -101,7 +128,9 @@
       }
       groups.get(deckId).cardIds.push(card.id);
     });
-    return [...groups.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    const decks = [...groups.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    renderModelCache?.sentenceDecks.set(mode, decks);
+    return decks;
   }
 
   function getSentenceAllDeck() {
@@ -204,7 +233,10 @@
   }
 
   function getSentenceCardMap() {
-    return Object.fromEntries((getDb().sentenceCards || []).map((card) => [card.id, card]));
+    if (renderModelCache?.sentenceCardMap) return renderModelCache.sentenceCardMap;
+    const map = Object.fromEntries((getDb().sentenceCards || []).map((card) => [card.id, card]));
+    if (renderModelCache) renderModelCache.sentenceCardMap = map;
+    return map;
   }
 
 
@@ -219,8 +251,16 @@
 
   function getSmartIdsForSource(source, mode = "practice") {
     if (source?.kind === "sentence") {
-      const valid = new Set((getDb().sentenceCards || []).map((card) => String(card.id || "")));
-      return (source.cardIds || []).map(String).filter((id) => valid.has(id) && isSourceCardModeEnabled(source, id, mode));
+      // Resolve the combined source's owning decks from one index. Looking up
+      // each ID through getCardVisibilityDeckId rebuilt the entire catalog.
+      const cardMap = getSentenceCardMap();
+      return (source.cardIds || []).map(String).filter((id) => {
+        if (!Object.prototype.hasOwnProperty.call(cardMap, id)) return false;
+        const deckId = source.id === SENTENCE_ALL_DECK_ID
+          ? String(cardMap[id].deckId || "")
+          : source.id;
+        return !!deckId && isBuiltInCardModeEnabled(deckId, id, mode);
+      });
     }
     const allMap = getAllCardMap();
     const setRecord = getDb().sets.byId[source?.id || ALL_SET_ID] || getActiveSet();
@@ -281,7 +321,10 @@
   }
 
   function getAllCardMap() {
-    return Object.fromEntries(getDb().vocab.map((card) => [cardId(card), card]));
+    if (renderModelCache?.allCardMap) return renderModelCache.allCardMap;
+    const map = Object.fromEntries(getDb().vocab.map((card) => [cardId(card), card]));
+    if (renderModelCache) renderModelCache.allCardMap = map;
+    return map;
   }
 
   function getPracticeScopedIdsForSet(setId = getActiveSet().id) {
@@ -765,6 +808,7 @@
 
 
   Object.assign(runtime, {
+    withRenderModelCache,
     resetRoundState,
     markManageListDirty,
     getActiveSet,
